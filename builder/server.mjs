@@ -39,7 +39,7 @@ function run(cmd, args, opts, log) {
   return new Promise((resolve, reject) => {
     log.push(`$ ${cmd} ${args.join(" ")}`);
     const p = spawn(cmd, args, { ...opts, shell: false });
-    const take = (d) => { for (const line of String(d).split(/\r?\n/)) if (line.trim() && !/▶ \/_astro\//.test(line)) log.push(line); };
+    const take = (d) => { for (const line of String(d).split(/\r?\n/)) { if (!line.trim()) continue; const m = line.match(/\((\d+)\/(\d+)\)\s*$/); if (/▶ \/_astro\//.test(line)) { if (m && (+m[1] % 50 === 0 || m[1] === m[2])) log.push(`Optimising images… ${m[1]}/${m[2]}`); } else log.push(line); } };
     p.stdout.on("data", take); p.stderr.on("data", take);
     p.on("error", reject);
     p.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} ${args[0] || ""} exited with ${code}`))));
@@ -82,6 +82,8 @@ async function handle(job) {
   const tag = `${job.site_key}--${job.environment}--${job.build_id}`;
   const out = join(WORK, "builds", tag);
   await report(job.build_id, { status: "building" });
+  // Send the log so far every 10 s, so the Builds tab shows progress on long builds.
+  const ticker = setInterval(() => { report(job.build_id, { status: "building", log: log.slice(-200).join("\n") }); }, 10000);
   try {
     const dry = process.env.DRY_RUN === "1";   // build only, no deploy (testing)
     if (!dry && (!process.env.CLOUDFLARE_API_TOKEN || !process.env.CLOUDFLARE_ACCOUNT_ID)) throw new Error("CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID aren't set on the builder.");
@@ -94,7 +96,7 @@ async function handle(job) {
       log.push(`Promoting the content of staging build ${job.from_build}.`);
     }
     await run("node", ["scripts/fetch-content.mjs"], { cwd: dir, env }, log);
-    await run("npx", ["astro", "build", "--silent"], { cwd: dir, env }, log);
+    await run("npx", ["astro", "build"], { cwd: dir, env }, log);
     await run("node", ["scripts/postbuild.mjs"], { cwd: dir, env }, log);
     mkdirSync(out, { recursive: true });
     cpSync(join(dir, "dist"), join(out, "dist"), { recursive: true });
@@ -111,8 +113,10 @@ async function handle(job) {
     writeFileSync(join(out, "done"), new Date().toISOString());
     prune(job.site_key, job.environment);
     await report(job.build_id, { status: "success", pages: Object.keys(manifest).length, duration_ms: Date.now() - started, deployment_url: url, manifest, bundle_hash: bundle.hash || "", log: log.slice(-400).join("\n") });
+    clearInterval(ticker);
     console.log(`✓ ${tag} in ${Math.round((Date.now() - started) / 1000)}s ${url}`);
   } catch (err) {
+    clearInterval(ticker);
     console.error(`✗ ${tag}: ${err.message}`);
     await report(job.build_id, { status: "failed", error: err.message, duration_ms: Date.now() - started, log: log.slice(-400).join("\n") });
   }
