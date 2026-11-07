@@ -1,0 +1,52 @@
+---
+// Case study cards — picked, or the newest (optionally for one service line).
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import Buttons from "../components/Buttons.astro";
+import Img from "../components/Img.astro";
+import { caseStudies, entryById, lineName, accountName, bundle, type Block, type Entry } from "../lib/content";
+const { block, entry } = Astro.props as { block: Block; entry?: Entry };
+const d = block.data || {};
+const line = d.service_line || (d.auto_line !== false && entry?.type === "service" ? entry.service_line : "");
+let list: Entry[] = d.items?.length ? d.items.map((id: string) => entryById(id)).filter(Boolean) : caseStudies(line).sort((a, b) => (b.published_at || "").localeCompare(a.published_at || ""));
+list = list.filter((c) => c.id !== entry?.id).slice(0, Number(d.limit) || 3);
+const headline = (c: Entry) => bundle.proof.find((p) => p.case_study === c.id && p.kind === "stat");
+---
+{list.length > 0 && (
+  <Section bg={d.background} id={d.anchor}>
+    <div class="wrap">
+      <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
+      <ul class={`grid ${list.length === 2 ? "cols-2" : "cols-3"}`}>
+        {list.map((c) => {
+          const stat = headline(c);
+          return (
+            <li class="cs">
+              <div class="thumb">
+                {c.featured_image ? <Img id={c.featured_image} cover aspect="16/10" sizes="(min-width: 1000px) 380px, 100vw" widths={[380, 760]} /> : <div class="ph" />}
+                {stat && <span class="badge"><b>{stat.change || stat.value}{!stat.change && stat.unit}</b> {stat.metric}</span>}
+              </div>
+              <p class="eyebrow">{lineName(c.service_line) || "Case study"}</p>
+              <h3><a href={c.path}>{c.fields?.client_name || accountName(c.account) || c.title}</a></h3>
+              {(c.fields?.client_name || accountName(c.account)) && <p class="muted t">{c.title}</p>}
+            </li>
+          );
+        })}
+      </ul>
+      <Buttons buttons={d.buttons} />
+    </div>
+  </Section>
+)}
+<style>
+  ul { list-style: none; margin: 0; padding: 0; }
+  .cs { position: relative; }
+  .thumb { position: relative; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-bottom: 1rem; background: var(--paper); }
+  .ph { aspect-ratio: 16/10; }
+  .badge { position: absolute; left: .75rem; bottom: .75rem; background: var(--surface); color: var(--heading); border-radius: var(--radius-sm); padding: .35rem .6rem; font-size: .8rem; box-shadow: 0 6px 18px rgba(5,11,31,.15); }
+  .badge b { color: var(--stat); }
+  .eyebrow { margin-bottom: .4rem; font-size: .68rem; }
+  h3 { font-size: 1.15rem; margin: 0; }
+  h3 a { color: var(--heading); text-decoration: none; }
+  h3 a::after { content: ""; position: absolute; inset: 0; }
+  .cs:hover h3 a { color: var(--accent-text); }
+  .t { font-size: .92rem; margin: .35rem 0 0; }
+</style>

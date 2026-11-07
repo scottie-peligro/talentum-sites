@@ -1,0 +1,22 @@
+---
+import Section from "../components/Section.astro";
+import Img from "../components/Img.astro";
+import { media, type Block } from "../lib/content";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const m = media(d.image);
+const width = d.width || "wide";
+---
+{m && (
+  <Section bg={d.background} id={d.anchor} tight>
+    <figure class={`wrap fig ${width === "narrow" ? "narrow" : ""}`}>
+      <Img id={d.image} sizes={width === "narrow" ? "(min-width: 760px) 736px, 100vw" : "(min-width: 1200px) 1184px, 100vw"} />
+      {(d.caption || m.caption) && <figcaption>{d.caption || m.caption}{m.credit && <span> · {m.credit}</span>}</figcaption>}
+    </figure>
+  </Section>
+)}
+<style>
+  .fig { margin-block: 0; }
+  .fig :global(img) { width: 100%; border-radius: var(--radius); }
+  figcaption { margin-top: .75rem; font-size: .88rem; color: var(--muted); }
+</style>

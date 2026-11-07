@@ -1,0 +1,21 @@
+---
+import Base from "../layouts/Base.astro";
+import { bundle, ofType } from "../lib/content";
+const svc = ofType("service").slice(0, 6);
+const top = (bundle.menus?.header || []).slice(0, 6);
+void top;
+---
+<Base title="Page not found" path="/404/" noindex>
+  <section class="section">
+    <div class="wrap narrow">
+      <p class="eyebrow">404</p>
+      <h1>We couldn't find that page.</h1>
+      <p class="lede">It may have moved. Try the home page, or one of these:</p>
+      <ul class="links">
+        <li><a href="/">Home</a></li>
+        {svc.map((s) => <li><a href={s.path}>{s.title}</a></li>)}
+      </ul>
+    </div>
+  </section>
+</Base>
+<style>.links { padding-left: 1.2rem; } .links li + li { margin-top: .4rem; }</style>

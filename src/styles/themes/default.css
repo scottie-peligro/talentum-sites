@@ -1,0 +1,17 @@
+/* Default theme — a clean starting point for any workspace's site. Brand colours from Website → Settings override these. */
+html.theme-default {
+  --bg: #ffffff; --surface: #ffffff; --paper: #f5f6f8;
+  --text: #374151; --heading: #0f172a; --muted: #64748b;
+  --line: #e5e7eb; --line-strong: #94a3b8;
+  --link: #0065b8; --link-hover: #00304d; --focus: #0065b8;
+  --accent: #0065b8; --accent-hover: #00508f; --on-accent: #ffffff; --accent-text: #0065b8;
+  --dark: #001b2e; --dark-card: #00304d; --on-dark: #cbd5e1; --on-dark-heading: #ffffff; --on-dark-muted: #94a3b8; --on-dark-line: rgba(255,255,255,.14);
+  --hero-bg: #001b2e; --brand-band: #0065b8; --on-brand: #ffffff; --stat: #0065b8;
+  --font-heading: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fs-body: 1.0625rem; --fs-lede: clamp(1.05rem, 1.4vw, 1.2rem);
+  --fs-h1: clamp(2.25rem, 5vw, 3.75rem); --fs-h2: clamp(1.75rem, 3.4vw, 2.6rem); --fs-h3: clamp(1.1rem, 1.6vw, 1.3rem);
+  --max: 72rem; --gutter: clamp(1.25rem, 4vw, 2rem); --gap: clamp(1rem, 2vw, 1.5rem); --space-section: clamp(3.5rem, 8vw, 6.5rem);
+  --radius: 12px; --radius-sm: 4px; --radius-btn: 4px;
+  --header-bg: #ffffff; --header-text: #0f172a; --footer-bg: #001b2e;
+}

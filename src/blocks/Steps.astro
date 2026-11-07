@@ -1,0 +1,31 @@
+---
+// Numbered steps (e.g. Guide → Plan → Choose).
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import Buttons from "../components/Buttons.astro";
+import { rich, type Block } from "../lib/content";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const items = (d.items || []).filter((x: any) => x && (x.title || x.text));
+const cols = items.length >= 4 ? "cols-4" : items.length === 2 ? "cols-2" : "cols-3";
+---
+<Section bg={d.background} id={d.anchor}>
+  <div class="wrap">
+    <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
+    <ol class={`grid ${cols} steps`}>
+      {items.map((it: any, i: number) => (
+        <li class="rule-top">
+          <span class="num">{String(i + 1).padStart(2, "0")}</span>
+          {it.title && <h3>{it.title}</h3>}
+          {it.text && <div class="muted" set:html={rich(it.text)} />}
+        </li>
+      ))}
+    </ol>
+    <Buttons buttons={d.buttons} />
+  </div>
+</Section>
+<style>
+  .steps { list-style: none; padding: 0; margin: 0; }
+  .num { display: block; font: 600 .75rem/1 var(--font-body); letter-spacing: .1em; color: var(--accent-text); margin-bottom: 1.25rem; }
+  li :global(p) { font-size: .95rem; }
+</style>

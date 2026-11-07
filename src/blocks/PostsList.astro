@@ -1,0 +1,42 @@
+---
+// Insights posts — latest N (optionally one category), or all of them on the Insights page.
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import Buttons from "../components/Buttons.astro";
+import Img from "../components/Img.astro";
+import { posts, category, formatDate, plain, truncate, type Block, type Entry } from "../lib/content";
+const { block, entry } = Astro.props as { block: Block; entry?: Entry };
+const d = block.data || {};
+let list = posts().filter((p) => !d.category || p.categories.includes(d.category)).filter((p) => p.id !== entry?.id);
+if (!d.show_all) list = list.slice(0, Number(d.limit) || 3);
+---
+<Section bg={d.background} id={d.anchor}>
+  <div class="wrap">
+    <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} level={d.show_all && !d.heading ? 1 : 2} />
+    {list.length > 0 && (
+      <ul class="grid cols-3">
+        {list.map((p) => (
+          <li class="post">
+            {p.featured_image ? <Img id={p.featured_image} cover aspect="16/10" class="thumb" sizes="(min-width: 1000px) 380px, 100vw" widths={[380, 760]} /> : <div class="thumb ph" />}
+            <p class="meta">{[category(p.categories[0])?.name, formatDate(p.published_at)].filter(Boolean).join(" · ")}</p>
+            <h3><a href={p.path}>{p.title}</a></h3>
+            {d.show_excerpt !== false && <p class="muted ex">{truncate(plain(p.excerpt), 150)}</p>}
+          </li>
+        ))}
+      </ul>
+    )}
+    <Buttons buttons={d.buttons} />
+  </div>
+</Section>
+<style>
+  ul { list-style: none; margin: 0; padding: 0; }
+  .post { position: relative; }
+  :global(.thumb) { border-radius: var(--radius); margin-bottom: 1rem; background: var(--paper); }
+  .ph { aspect-ratio: 16/10; }
+  .meta { font-size: .78rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--accent-text); margin: 0 0 .4rem; }
+  h3 { font-size: 1.15rem; margin: 0; }
+  h3 a { color: var(--heading); text-decoration: none; }
+  h3 a::after { content: ""; position: absolute; inset: 0; }
+  .post:hover h3 a { color: var(--accent-text); }
+  .ex { font-size: .92rem; margin: .5rem 0 0; }
+</style>

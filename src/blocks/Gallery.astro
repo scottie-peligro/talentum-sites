@@ -1,0 +1,24 @@
+---
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import Img from "../components/Img.astro";
+import { media, type Block } from "../lib/content";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const imgs = (d.images || []).filter((id: string) => media(id));
+const cols = Number(d.columns) || 3;
+---
+{imgs.length > 0 && (
+  <Section bg={d.background} id={d.anchor}>
+    <div class="wrap">
+      <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
+      <ul class={`grid cols-${Math.min(4, Math.max(2, cols))} gal`}>
+        {imgs.map((id: string) => <li><Img id={id} cover aspect={d.aspect || "4/3"} sizes={`(min-width: 1000px) ${Math.round(1184 / cols)}px, 50vw`} widths={[320, 480, 640, 960]} /></li>)}
+      </ul>
+    </div>
+  </Section>
+)}
+<style>
+  .gal { list-style: none; margin: 0; padding: 0; }
+  .gal li { overflow: hidden; border-radius: var(--radius); background: var(--paper); }
+</style>

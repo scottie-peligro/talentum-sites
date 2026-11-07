@@ -1,0 +1,7 @@
+---
+// A full-width band around a block: background (white | paper | dark | brand), optional anchor id, spacing.
+interface Props { bg?: string; id?: string; tight?: boolean; class?: string; label?: string }
+const { bg = "white", id, tight = false, class: cls = "", label } = Astro.props;
+const tone = ["white", "paper", "dark", "brand"].includes(bg) ? bg : "white";
+---
+<section class={`section bg-${tone}${tight ? " tight" : ""}${cls ? " " + cls : ""}`} id={id || undefined} aria-label={label || undefined}><slot /></section>

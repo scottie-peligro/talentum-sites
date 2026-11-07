@@ -1,0 +1,17 @@
+---
+import { crumbs, type Entry } from "../lib/content";
+const { entry } = Astro.props as { entry: Entry };
+const trail = crumbs(entry);
+---
+{trail.length > 2 && (
+  <nav aria-label="Breadcrumb" class="crumbs">
+    <ol>{trail.map((c, i) => <li>{i < trail.length - 1 ? <a href={c.path}>{c.name}</a> : <span aria-current="page">{c.name}</span>}</li>)}</ol>
+  </nav>
+)}
+<style>
+  .crumbs ol { list-style: none; display: flex; flex-wrap: wrap; gap: .25rem; margin: 0 0 1.5rem; padding: 0; font-size: .82rem; color: var(--muted); }
+  .crumbs li + li::before { content: "/"; margin-right: .25rem; opacity: .6; }
+  .crumbs a { color: inherit; text-decoration: none; }
+  .crumbs a:hover { text-decoration: underline; }
+  .crumbs span { opacity: .8; }
+</style>

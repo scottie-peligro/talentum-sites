@@ -1,0 +1,79 @@
+---
+// Tracking + consent (Website → Settings → Tracking & consent). Google Consent Mode v2 is set before any tag loads.
+// Consent modes: off (no banner, granted) · notice (banner informs, granted) · eu_only (opt-in for EU/EEA/UK/CH
+// visitors, granted elsewhere) · opt_in (nothing non-essential until accepted). Staging: GA4 in debug mode only,
+// no GTM/Clarity/ad pixels, so test visits never reach the real reports.
+import { settings, isStaging } from "../lib/content";
+const a = settings.analytics || {};
+const mode: string = settings.consent?.mode || "eu_only";
+const ga4 = /^G-[A-Z0-9]{4,}$/i.test(a.ga4 || "") ? a.ga4 : "";
+const gtm = !isStaging && /^GTM-[A-Z0-9]{4,}$/i.test(a.gtm || "") ? a.gtm : "";
+const clarity = !isStaging && /^[a-z0-9]{6,20}$/i.test(a.clarity || "") ? a.clarity : "";
+const any = !!(ga4 || gtm || clarity);
+const needsBanner = any && mode !== "off";
+const EEA = ["AT","BE","BG","HR","CY","CZ","DK","EE","FI","FR","DE","GR","HU","IE","IT","LV","LT","LU","MT","NL","PL","PT","RO","SK","SI","ES","SE","IS","LI","NO","GB","CH"];
+const { part = "head" } = Astro.props as { part?: "head" | "body" };
+const cfg = { mode, ga4, gtm, clarity, debug: isStaging, eea: EEA, policy: settings.consent?.policy_url || "/privacy-policy/" };
+---
+{part === "head" && any && (
+  <script is:inline define:vars={{ cfg }}>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){ dataLayer.push(arguments); }
+    window.gtag = gtag;
+    var stored = null; try { stored = localStorage.getItem("consent.v1"); } catch (e) {}
+    var denied = { ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied", analytics_storage: "denied" };
+    var granted = { ad_storage: "granted", ad_user_data: "granted", ad_personalization: "granted", analytics_storage: "granted" };
+    if (cfg.mode === "opt_in") gtag("consent", "default", Object.assign({ wait_for_update: 500 }, denied));
+    else if (cfg.mode === "eu_only") { gtag("consent", "default", Object.assign({ region: cfg.eea, wait_for_update: 500 }, denied)); gtag("consent", "default", granted); }
+    else gtag("consent", "default", granted);
+    if (stored === "granted") gtag("consent", "update", granted);
+    if (stored === "denied") gtag("consent", "update", denied);
+    gtag("js", new Date());
+    window.__consent = cfg;
+    function load(src){ var s = document.createElement("script"); s.async = true; s.src = src; document.head.appendChild(s); }
+    function boot(){
+      if (cfg.ga4) { load("https://www.googletagmanager.com/gtag/js?id=" + cfg.ga4); gtag("config", cfg.ga4, cfg.debug ? { debug_mode: true } : {}); }
+      if (cfg.gtm) { dataLayer.push({ "gtm.start": Date.now(), event: "gtm.js" }); load("https://www.googletagmanager.com/gtm.js?id=" + cfg.gtm); }
+      if (cfg.clarity) { (function(c,l,a,r,i){ c[a]=c[a]||function(){ (c[a].q=c[a].q||[]).push(arguments); }; var t=l.createElement(r); t.async=1; t.src="https://www.clarity.ms/tag/"+i; var y=l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t,y); })(window, document, "clarity", "script", cfg.clarity); }
+    }
+    // Load tags after the page is interactive so they never hold up the first paint.
+    if (document.readyState === "complete") setTimeout(boot, 1); else addEventListener("load", function(){ setTimeout(boot, 1); });
+  </script>
+)}
+{part === "body" && needsBanner && (
+  <div id="consent" class="consent" role="dialog" aria-live="polite" aria-label="Cookie preferences" hidden>
+    <p>We use cookies to understand how our site is used and to improve it. <a href={cfg.policy}>Privacy policy</a></p>
+    <div class="actions">
+      <button type="button" class="btn btn-secondary" data-c="denied">Decline</button>
+      <button type="button" class="btn btn-primary" data-c="granted">Accept</button>
+    </div>
+  </div>
+)}
+{part === "body" && needsBanner && (
+  <script is:inline>
+    (function(){
+      var cfg = window.__consent, el = document.getElementById("consent"); if (!el || !cfg) return;
+      var stored = null; try { stored = localStorage.getItem("consent.v1"); } catch (e) {}
+      if (stored) return;
+      var tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) {}
+      var europe = /^(Europe|Atlantic\/(Reykjavik|Canary|Madeira|Faroe))/.test(tz);
+      if (cfg.mode === "eu_only" && !europe) return;
+      if (cfg.mode === "notice") { el.querySelector('[data-c="denied"]').textContent = "Opt out"; el.querySelector('[data-c="granted"]').textContent = "OK"; }
+      el.hidden = false;
+      el.addEventListener("click", function(e){
+        var v = e.target && e.target.getAttribute && e.target.getAttribute("data-c"); if (!v) return;
+        try { localStorage.setItem("consent.v1", v); } catch (x) {}
+        var g = v === "granted" ? "granted" : "denied";
+        window.gtag && gtag("consent", "update", { ad_storage: g, ad_user_data: g, ad_personalization: g, analytics_storage: g });
+        if (window.clarity) window.clarity("consent", v === "granted");
+        el.hidden = true;
+      });
+    })();
+  </script>
+)}
+<style>
+  .consent { position: fixed; z-index: 70; left: 1rem; right: 1rem; bottom: 1rem; max-width: 34rem; margin-left: auto; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 20px 50px rgba(5,11,31,.2); padding: 1.1rem 1.25rem; font-size: .92rem; }
+  .consent p { margin: 0 0 .9rem; }
+  .actions { display: flex; gap: .6rem; justify-content: flex-end; }
+  .actions .btn { min-height: 40px; padding: .55rem 1rem; }
+</style>

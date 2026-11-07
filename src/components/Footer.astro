@@ -1,0 +1,65 @@
+---
+// Footer: logo + blurb + button, link columns (the "footer" menu: each top-level item is a column heading),
+// contact details from Website → Settings → Organisation, legal links, socials.
+import Img from "./Img.astro";
+import { bundle, settings, site, menuHref, href, media } from "../lib/content";
+const cols = bundle.menus?.footer || [];
+const legal = bundle.menus?.legal || [];
+const o = settings.org || {};
+const f = settings.footer || {};
+const logo = settings.brand?.logo_inverse || settings.brand?.logo;
+const name = o.name || site.name;
+const year = new Date().getFullYear();
+const address = [o.street || o.address, [o.city, o.region].filter(Boolean).join(", ") + (o.postal ? " " + o.postal : "")].filter((x) => x && x.trim());
+---
+<footer class="site-footer bg-dark">
+  <div class="wrap top">
+    <div class="about">
+      {logo && media(logo) ? <Img id={logo} alt={name} class="logo" sizes="180px" widths={[180, 360]} /> : <span class="wordmark">{name}</span>}
+      {(f.text || o.description) && <p>{f.text || o.description}</p>}
+      {f.button_label && <a class="btn btn-primary" href={href(f.button_url)}>{f.button_label}</a>}
+    </div>
+    {cols.map((col) => (
+      <nav aria-label={col.label}>
+        <h2 class="eyebrow">{col.label}</h2>
+        <ul>{(col.children || []).map((it) => <li><a href={menuHref(it)} target={it.new_tab ? "_blank" : undefined} rel={it.new_tab ? "noopener" : undefined}>{it.label}</a></li>)}</ul>
+      </nav>
+    ))}
+    {(o.phone || o.email || address.length) && (
+      <div>
+        <h2 class="eyebrow">Contact</h2>
+        <ul>
+          {o.phone && <li><a href={`tel:${o.phone.replace(/[^\d+]/g, "")}`}>{o.phone}</a></li>}
+          {o.email && <li><a href={`mailto:${o.email}`}>{o.email}</a></li>}
+          {address.length > 0 && <li><address>{address.map((l, i) => <>{i > 0 && <br />}{l}</>)}</address></li>}
+        </ul>
+      </div>
+    )}
+  </div>
+  <div class="wrap bottom">
+    <p>© {year} {o.legal_name || name}. All rights reserved.</p>
+    <ul class="legal">
+      {legal.map((it) => <li><a href={menuHref(it)}>{it.label}</a></li>)}
+      {(o.socials || []).filter((s: any) => s.url).map((s: any) => <li><a href={s.url} rel="noopener me" target="_blank">{s.network || "Social"}</a></li>)}
+    </ul>
+  </div>
+</footer>
+
+<style>
+  .site-footer { background: var(--footer-bg); padding-block: clamp(3rem, 7vw, 5rem) 2rem; font-size: .95rem; }
+  .top { display: grid; gap: 2.5rem; }
+  @media (min-width: 900px) { .top { grid-template-columns: 1.6fr repeat(3, 1fr); } }
+  .about p { margin: 1.25rem 0 1.5rem; max-width: 22rem; }
+  .about :global(.logo), .about :global(img) { height: 40px; width: auto; }
+  .wordmark { font: 700 1.25rem/1 var(--font-heading); color: #fff; }
+  h2.eyebrow { color: #fff; margin-bottom: 1.1rem; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li + li { margin-top: .55rem; }
+  a:not(.btn) { color: var(--on-dark); text-decoration: none; }
+  a:not(.btn):hover { color: #fff; text-decoration: underline; }
+  address { font-style: normal; }
+  .bottom { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center; border-top: 1px solid var(--on-dark-line); margin-top: 3rem; padding-top: 1.5rem; font-size: .85rem; color: var(--on-dark-muted); }
+  .bottom p { margin: 0; }
+  .legal { display: flex; gap: 1.25rem; }
+  .legal li + li { margin-top: 0; }
+</style>

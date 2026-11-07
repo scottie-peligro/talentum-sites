@@ -1,0 +1,85 @@
+---
+// Every page: <head> (SEO, social cards, structured data, fonts, theme), header, footer, consent + analytics.
+import "../styles/global.css";
+import { getImage } from "astro:assets";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import Analytics from "../components/Analytics.astro";
+import { site, settings, isStaging, absolute, media } from "../lib/content";
+import { imageFile, assetUrl } from "../lib/images";
+
+interface Props {
+  title: string; description?: string; path: string; image?: string; type?: string; noindex?: boolean;
+  schema?: object | object[] | null; published?: string; modified?: string; dark?: boolean;
+}
+const { title, description = "", path, image, type = "website", noindex = false, schema, published, modified } = Astro.props;
+
+const themes = import.meta.glob("../styles/themes/*.css", { eager: true });
+void themes;   // all themes are bundled; the one in use is picked by the data-theme class below
+const theme = site.theme || "nlmc";
+
+let ogUrl = "";
+const ogMedia = media(image || settings.seo?.default_og_image);
+const ogImg = imageFile(ogMedia?.file);
+if (ogImg) { const o = await getImage({ src: ogImg, width: 1200, height: 630, fit: "cover", format: "jpg", quality: 82 }); ogUrl = absolute(o.src); }
+else if (ogMedia) { const u = assetUrl(ogMedia.file); if (u && !u.endsWith(".svg")) ogUrl = absolute(u); }
+
+const icon = media(settings.brand?.icon);
+const iconImg = imageFile(icon?.file);
+const icon32 = iconImg ? (await getImage({ src: iconImg, width: 32, height: 32, format: "png" })).src : assetUrl(icon?.file);
+const icon180 = iconImg ? (await getImage({ src: iconImg, width: 180, height: 180, format: "png" })).src : undefined;
+
+const c = settings.brand?.colors || {};
+const brandVars = Object.entries({ "--accent": c.accent, "--accent-hover": c.accent_hover, "--accent-text": c.accent, "--brand-band": c.band || c.accent, "--dark": c.dark, "--heading": c.heading, "--link": c.link })
+  .filter(([, v]) => typeof v === "string" && /^#[0-9a-f]{3,8}$/i.test(v)).map(([k, v]) => `${k}:${v}`).join(";");
+
+const canonical = absolute(path);
+const robots = isStaging ? "noindex, nofollow" : noindex ? "noindex, follow" : "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
+const siteName = settings.org?.name || site.name;
+const schemas = (Array.isArray(schema) ? schema : schema ? [schema] : []).filter(Boolean);
+const lang = settings.locale || "en-US";
+---
+<!doctype html>
+<html lang={lang} class={`theme-${theme}`}>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{title}</title>
+  {description && <meta name="description" content={description} />}
+  <link rel="canonical" href={canonical} />
+  <meta name="robots" content={robots} />
+  <meta property="og:type" content={type} />
+  <meta property="og:site_name" content={siteName} />
+  <meta property="og:title" content={title} />
+  {description && <meta property="og:description" content={description} />}
+  <meta property="og:url" content={canonical} />
+  {ogUrl && <meta property="og:image" content={ogUrl} />}
+  {ogUrl && <meta property="og:image:width" content="1200" />}
+  {ogUrl && <meta property="og:image:height" content="630" />}
+  {published && <meta property="article:published_time" content={published} />}
+  {modified && <meta property="article:modified_time" content={modified} />}
+  <meta name="twitter:card" content={ogUrl ? "summary_large_image" : "summary"} />
+  {settings.org?.twitter && <meta name="twitter:site" content={settings.org.twitter} />}
+  {icon32 && <link rel="icon" href={icon32} sizes="32x32" />}
+  {icon180 && <link rel="apple-touch-icon" href={icon180} />}
+  {c.dark && <meta name="theme-color" content={c.dark} />}
+  <link rel="alternate" type="application/rss+xml" title={`${siteName} — Insights`} href="/rss.xml" />
+  <link rel="sitemap" href="/sitemap.xml" />
+  {brandVars && <style is:inline set:html={`html.theme-${theme}{${brandVars}}`} />}
+  {schemas.map((s) => <script type="application/ld+json" is:inline set:html={JSON.stringify(s).replace(/</g, "\\u003c")} />)}
+  <Analytics />
+  <script type="speculationrules" is:inline set:html={JSON.stringify({ prefetch: [{ source: "document", where: { and: [{ href_matches: "/*" }, { not: { selector_matches: "[rel~=nofollow],[target=_blank]" } }] }, eagerness: "moderate" }] })} />
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  {isStaging && <div class="staging-flag" aria-hidden="true">Staging</div>}
+  <Header path={path} />
+  <main id="main"><slot /></main>
+  <Footer />
+  <Analytics part="body" />
+</body>
+</html>
+
+<style>
+  .staging-flag { position: fixed; z-index: 60; bottom: 12px; left: 12px; background: #f59e0b; color: #111; font: 700 11px/1 var(--font-body); letter-spacing: .1em; text-transform: uppercase; padding: 6px 9px; border-radius: 3px; pointer-events: none; }
+</style>

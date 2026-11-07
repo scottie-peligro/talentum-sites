@@ -1,0 +1,27 @@
+/* NLMC theme — nlmarcom.com. Values taken from the 2026 rebuild on WP Engine staging (nlmarcom-gp-child):
+   navy/night bands, violet accent, Bricolage Grotesque headings, Hanken Grotesk body. */
+@import "@fontsource-variable/bricolage-grotesque/wght.css";
+@import "@fontsource-variable/hanken-grotesk/wght.css";
+
+html.theme-nlmc {
+  --night: #050b1f; --navy: #00163f; --panel: #0b1a3d; --blue: #2176ff; --blue-deep: #0f5ad6;
+  --violet: #9256fb; --violet-strong: #7c3aed; --plum: #2f1a52; --mist: #c9d2e3; --paper-c: #f1f3f8; --ink: #0d1526; --muted-c: #5a6478;
+
+  --bg: #ffffff; --surface: #ffffff; --paper: var(--paper-c);
+  --text: #3b4558; --heading: var(--ink); --muted: var(--muted-c);
+  --line: #e2e6ef; --line-strong: #6b7486;
+  --link: var(--blue-deep); --link-hover: var(--navy); --focus: var(--violet);
+  --accent: var(--violet-strong); --accent-hover: #6d28d9; --on-accent: #ffffff; --accent-text: var(--violet-strong);
+  --dark: #0b1a2e; --dark-card: #11233c; --on-dark: #c9d2e3; --on-dark-heading: #ffffff; --on-dark-muted: #9aa6bd; --on-dark-line: rgba(255,255,255,.14);
+  --hero-bg: linear-gradient(180deg, var(--night) 0%, #0b1a3d 100%);
+  --brand-band: var(--violet-strong); --on-brand: #ffffff;
+  --stat: var(--violet);
+
+  --font-heading: "Bricolage Grotesque Variable", "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Hanken Grotesk Variable", "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fs-body: 1.0625rem; --fs-lede: clamp(1.05rem, 1.4vw, 1.2rem);
+  --fs-h1: clamp(2.35rem, 5.2vw, 4rem); --fs-h2: clamp(1.85rem, 3.6vw, 2.75rem); --fs-h3: clamp(1.1rem, 1.6vw, 1.3rem);
+  --max: 74rem; --gutter: clamp(1.25rem, 4vw, 2rem); --gap: clamp(1rem, 2vw, 1.5rem); --space-section: clamp(4rem, 9vw, 7.5rem);
+  --radius: 6px; --radius-sm: 4px; --radius-btn: 3px;
+  --header-bg: var(--night); --header-text: #ffffff; --footer-bg: #050f2c;
+}

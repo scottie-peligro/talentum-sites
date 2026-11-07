@@ -1,0 +1,15 @@
+---
+// A row of buttons from a block's `buttons` list: { label, href ("entry:<id>" or a URL), style: primary | secondary | link }.
+import { href, isExternal, type Link } from "../lib/content";
+const { buttons = [], class: cls = "" } = Astro.props as { buttons?: Link[]; class?: string };
+const list = (buttons || []).filter((b) => b && b.label);
+---
+{list.length > 0 && (
+  <div class={`btns ${cls}`}>
+    {list.map((b, i) => {
+      const h = href(b.href);
+      const style = b.style || (i === 0 ? "primary" : "secondary");
+      return <a class={`btn btn-${style}`} href={h} target={b.new_tab || isExternal(h) ? "_blank" : undefined} rel={b.new_tab || isExternal(h) ? "noopener" : undefined}>{b.label}</a>;
+    })}
+  </div>
+)}

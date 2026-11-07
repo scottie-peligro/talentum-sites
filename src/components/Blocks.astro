@@ -1,0 +1,45 @@
+---
+// Renders a list of blocks. `section_ref` pulls in a global section (Website → Navigation & sections).
+import Hero from "../blocks/Hero.astro";
+import Steps from "../blocks/Steps.astro";
+import RichText from "../blocks/RichText.astro";
+import ImageBlock from "../blocks/ImageBlock.astro";
+import Gallery from "../blocks/Gallery.astro";
+import Video from "../blocks/Video.astro";
+import MediaText from "../blocks/MediaText.astro";
+import ServiceGroups from "../blocks/ServiceGroups.astro";
+import ServiceCards from "../blocks/ServiceCards.astro";
+import LogoStrip from "../blocks/LogoStrip.astro";
+import StatBand from "../blocks/StatBand.astro";
+import Results from "../blocks/Results.astro";
+import CaseStudyCards from "../blocks/CaseStudyCards.astro";
+import CaseStudyStory from "../blocks/CaseStudyStory.astro";
+import Testimonials from "../blocks/Testimonials.astro";
+import TeamGrid from "../blocks/TeamGrid.astro";
+import PostsList from "../blocks/PostsList.astro";
+import Faq from "../blocks/Faq.astro";
+import Cta from "../blocks/Cta.astro";
+import Form from "../blocks/Form.astro";
+import Comparison from "../blocks/Comparison.astro";
+import JobsList from "../blocks/JobsList.astro";
+import Misc from "../blocks/Misc.astro";
+import { bundle, type Block, type Entry } from "../lib/content";
+
+const { blocks = [], entry, depth = 0 } = Astro.props as { blocks?: Block[]; entry?: Entry; depth?: number };
+const C: Record<string, any> = {
+  hero: Hero, steps: Steps, rich_text: RichText, image: ImageBlock, gallery: Gallery, video: Video, media_text: MediaText,
+  service_groups: ServiceGroups, service_cards: ServiceCards, logo_strip: LogoStrip, stat_band: StatBand, results: Results,
+  case_study_cards: CaseStudyCards, case_study_story: CaseStudyStory, testimonials: Testimonials, team_grid: TeamGrid,
+  posts_list: PostsList, faq: Faq, cta: Cta, form: Form, comparison: Comparison, jobs_list: JobsList,
+  map: Misc, html: Misc, spacer: Misc, contact_details: Misc,
+};
+const shown = blocks.filter((b) => b && !b.hidden);
+---
+{shown.map((b, i) => {
+  if (b.type === "section_ref") {
+    const inner = depth < 2 ? bundle.sections?.[b.data?.key] : null;
+    return inner ? <Astro.self blocks={inner} entry={entry} depth={depth + 1} /> : null;
+  }
+  const Comp = C[b.type];
+  return Comp ? <Comp block={b} entry={entry} first={i === 0 && depth === 0} /> : null;
+})}

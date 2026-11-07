@@ -1,0 +1,36 @@
+---
+// Big numbers in a row ("15+ Years in business"). Manual items, or picked proof stats.
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import { bundle, type Block } from "../lib/content";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const fromProof = (d.proof || []).map((id: string) => bundle.proof.find((p) => p.id === id)).filter(Boolean).map((p: any) => ({ value: p.value + (p.unit || ""), label: p.metric || p.title, note: p.source ? `Source: ${p.source}` : "" }));
+const items = [...(d.items || []).filter((x: any) => x && x.value), ...fromProof];
+const cols = items.length >= 4 ? "cols-4" : items.length === 2 ? "cols-2" : "cols-3";
+---
+{items.length > 0 && (
+  <Section bg={d.background} id={d.anchor}>
+    <div class="wrap">
+      <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
+      <dl class={`grid ${cols}`}>
+        {items.map((it: any) => (
+          <div class="rule-top stat">
+            <dt class="sr-only">{it.label}</dt>
+            <dd class="value">{it.value}</dd>
+            <dd class="label">{it.label}</dd>
+            {it.note && <dd class="note">{it.note}</dd>}
+          </div>
+        ))}
+      </dl>
+    </div>
+  </Section>
+)}
+<style>
+  dl { margin: 0; }
+  dd { margin: 0; }
+  .stat { border-top-color: var(--line); }
+  .value { font: 600 clamp(2.4rem, 5vw, 3.4rem)/1 var(--font-heading); color: var(--stat); letter-spacing: -0.02em; margin-bottom: .6rem; }
+  .label { font-size: .9rem; color: var(--muted); }
+  .note { font-size: .75rem; color: var(--muted); margin-top: .35rem; opacity: .8; }
+</style>

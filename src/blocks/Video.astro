@@ -1,0 +1,45 @@
+---
+// Video: a click-to-load facade (poster + play button) so YouTube/Vimeo never load until someone presses play.
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import Img from "../components/Img.astro";
+import { media, type Block } from "../lib/content";
+import { assetUrl } from "../lib/images";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const url: string = d.url || "";
+const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/);
+const vm = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+const embed = yt ? `https://www.youtube-nocookie.com/embed/${yt[1]}?autoplay=1&rel=0` : vm ? `https://player.vimeo.com/video/${vm[1]}?autoplay=1&dnt=1` : "";
+const file = d.file ? assetUrl(media(d.file)?.file) : "";
+const ytPoster = yt && !d.poster ? `https://i.ytimg.com/vi/${yt[1]}/hqdefault.jpg` : "";
+const title = d.title || d.heading || "Video";
+---
+{(embed || file) && (
+  <Section bg={d.background} id={d.anchor}>
+    <div class={`wrap${d.width === "wide" ? "" : " narrow"}`}>
+      <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
+      {file ? (
+        <video class="vid" src={file} controls preload="none" playsinline poster={undefined}><track kind="captions" /></video>
+      ) : (
+        <button type="button" class="facade" data-embed={embed} aria-label={`Play: ${title}`}>
+          {d.poster ? <Img id={d.poster} alt="" cover sizes="(min-width: 760px) 736px, 100vw" /> : ytPoster ? <img src={ytPoster} alt="" loading="lazy" width="480" height="360" /> : null}
+          <span class="play" aria-hidden="true"></span>
+        </button>
+      )}
+    </div>
+  </Section>
+)}
+<script is:inline>
+  document.querySelectorAll(".facade[data-embed]").forEach((b) => b.addEventListener("click", () => {
+    const f = document.createElement("iframe"); f.src = b.dataset.embed; f.allow = "autoplay; fullscreen; picture-in-picture"; f.allowFullscreen = true; f.title = b.getAttribute("aria-label") || "Video";
+    f.className = "vid"; b.replaceWith(f);
+  }, { once: true }));
+</script>
+<style>
+  .facade, :global(.vid) { position: relative; display: block; width: 100%; aspect-ratio: 16/9; border: 0; padding: 0; border-radius: var(--radius); overflow: hidden; background: #000; cursor: pointer; }
+  .facade :global(img) { width: 100%; height: 100%; object-fit: cover; opacity: .9; }
+  .play { position: absolute; left: 50%; top: 50%; width: 76px; height: 76px; margin: -38px 0 0 -38px; border-radius: 50%; background: var(--accent); box-shadow: 0 8px 30px rgba(0,0,0,.35); }
+  .play::after { content: ""; position: absolute; left: 31px; top: 24px; border-style: solid; border-width: 14px 0 14px 22px; border-color: transparent transparent transparent #fff; }
+  .facade:hover .play { background: var(--accent-hover); }
+</style>

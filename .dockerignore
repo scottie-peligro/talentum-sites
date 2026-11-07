@@ -1,0 +1,9 @@
+node_modules
+dist
+.astro
+.work
+src/data/bundle.json
+src/media/*
+!src/media/.gitkeep
+.build-manifest.json
+.env

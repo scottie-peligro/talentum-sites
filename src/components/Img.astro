@@ -1,0 +1,28 @@
+---
+// One image from the site's media (or a team photo): AVIF + WebP at sensible widths, real width/height so nothing
+// shifts, lazy by default, the focal point kept when it's cropped. `priority` for the one big image above the fold.
+import { Picture } from "astro:assets";
+import { media as mediaOf } from "../lib/content";
+import { imageFile, assetUrl } from "../lib/images";
+
+interface Props {
+  id?: string; file?: string; alt?: string; sizes?: string; widths?: number[]; class?: string;
+  priority?: boolean; cover?: boolean; aspect?: string;
+}
+const { id, file, alt, sizes = "(min-width: 1200px) 1200px, 100vw", widths = [360, 640, 960, 1280, 1920], class: cls, priority = false, cover = false, aspect } = Astro.props;
+const m = id ? mediaOf(id) : undefined;
+const f = file || m?.file;
+const img = imageFile(f);
+const url = img ? undefined : assetUrl(f);
+const altText = alt ?? m?.alt ?? "";
+const focal = m?.focal ? `${Math.round(m.focal.x * 100)}% ${Math.round(m.focal.y * 100)}%` : "50% 50%";
+const style = [cover ? `object-fit:cover;object-position:${focal};width:100%;height:100%` : "", aspect ? `aspect-ratio:${aspect}` : ""].filter(Boolean).join(";");
+const usable = img ? widths.filter((w) => w <= img.width) : [];
+if (img && !usable.length) usable.push(img.width);
+---
+{img ? (
+  <Picture src={img} alt={altText} formats={["webp"]} widths={usable} sizes={sizes} class={cls} style={style || undefined}
+    loading={priority ? "eager" : "lazy"} decoding={priority ? "sync" : "async"} fetchpriority={priority ? "high" : "auto"} quality={78} />
+) : url ? (
+  <img src={url} alt={altText} class={cls} style={style || undefined} loading={priority ? "eager" : "lazy"} decoding="async" width={m?.width || undefined} height={m?.height || undefined} />
+) : null}

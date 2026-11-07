@@ -1,0 +1,147 @@
+---
+// Every published entry, at its path. The template depends on the entry's type.
+import Base from "../layouts/Base.astro";
+import Blocks from "../components/Blocks.astro";
+import PageHeader from "../components/PageHeader.astro";
+import Crumbs from "../components/Crumbs.astro";
+import Img from "../components/Img.astro";
+import { getImage } from "astro:assets";
+import {
+  entries, bundle, settings, media, person, lineName, accountName, category, formatDate, rich, resolveFaqs, readingMinutes,
+  proofFor, caseStudies, testimonialsFor, faqsFor, absolute, type Entry, type Block,
+} from "../lib/content";
+import { imageFile } from "../lib/images";
+import { pageTitle, pageDescription, ogImageId, schemaFor, faqSchema, visibleBlocks } from "../lib/seo";
+
+export function getStaticPaths() {
+  return entries.map((e) => ({ params: { path: e.path === "/" ? undefined : e.path.replace(/^\/|\/$/g, "") }, props: { entry: e } }));
+}
+
+const { entry } = Astro.props as { entry: Entry };
+const e = entry;
+const blocks = visibleBlocks(e.blocks);
+const has = (t: string) => blocks.some((b) => b.type === t || (b.type === "section_ref" && (bundle.sections?.[b.data?.key] || []).some((x) => x.type === t)));
+const startsWithHero = blocks[0]?.type === "hero";
+const globalCta = bundle.sections?.cta ? [{ id: "gcta", type: "section_ref", data: { key: "cta" } } as Block] : [];
+const ctaLink = settings.header_cta?.label ? [{ label: settings.header_cta.label, href: settings.header_cta.url }] : [];
+
+// Service pages show their proof automatically, after the page's own blocks, unless the page already places it.
+const auto: Block[] = [];
+if (e.type === "service" && e.fields?.auto_proof !== false && e.service_line) {
+  if (!has("results") && proofFor(e.service_line).length) auto.push({ id: "a-res", type: "results", data: { heading: "The results we deliver", background: "white" } });
+  if (!has("case_study_cards") && caseStudies(e.service_line).length) auto.push({ id: "a-cs", type: "case_study_cards", data: { heading: "Related case studies", background: "paper" } });
+  if (!has("testimonials") && testimonialsFor(e.service_line).some((t) => t.service_lines.includes(e.service_line))) auto.push({ id: "a-t", type: "testimonials", data: {} });
+  if (!has("faq") && faqsFor(e.service_line).length) auto.push({ id: "a-f", type: "faq", data: { heading: `${e.title}: common questions` } });
+}
+if ((e.type === "service" || e.type === "case_study" || e.type === "post") && !has("cta")) auto.push(...globalCta);
+
+// Structured data: the page graph, plus FAQPage from every FAQ block on it.
+const imgMedia = media(ogImageId(e));
+const imgFile = imageFile(imgMedia?.file);
+const schemaImage = imgFile ? absolute((await getImage({ src: imgFile, width: 1200, format: "jpg" })).src) : undefined;
+const faqItems = [...blocks, ...auto].filter((b) => b.type === "faq").flatMap((b) => resolveFaqs(b.data || {}, e));
+const schemas = [schemaFor(e, schemaImage), faqSchema(faqItems)].filter(Boolean) as object[];
+
+const authors = (e.authors || []).map((id) => person(id)).filter(Boolean);
+const client = e.fields?.client_name || accountName(e.account);
+const csStats = e.type === "case_study" ? bundle.proof.filter((p) => p.case_study === e.id && p.kind === "stat").slice(0, 4) : [];
+---
+<Base title={pageTitle(e)} description={pageDescription(e)} path={e.path} image={ogImageId(e)} type={e.type === "post" || e.type === "case_study" ? "article" : "website"}
+  noindex={!!e.seo?.noindex} schema={schemas} published={e.type === "post" ? e.published_at : undefined} modified={e.type === "post" ? e.updated : undefined}>
+
+  {e.type === "post" ? (
+    <article>
+      <header class="post-head">
+        <div class="wrap narrow">
+          <Crumbs entry={e} />
+          <p class="eyebrow">{[category(e.categories[0])?.name || "Insights", formatDate(e.published_at), `${readingMinutes(e)} min read`].filter(Boolean).join(" · ")}</p>
+          <h1>{e.title}</h1>
+          {e.excerpt && <p class="lede">{e.excerpt}</p>}
+          {authors.length > 0 && (
+            <p class="byline">
+              {authors[0]!.photo_file && <Img file={authors[0]!.photo_file} alt="" cover aspect="1/1" class="av" sizes="40px" widths={[40, 80]} />}
+              <span>By {authors.map((a) => a!.name).join(", ")}{authors[0]!.job_title && <small>{authors[0]!.job_title}</small>}</span>
+            </p>
+          )}
+        </div>
+        {e.featured_image && <div class="wrap feat"><Img id={e.featured_image} priority sizes="(min-width: 1200px) 1184px, 100vw" /></div>}
+      </header>
+      <div class="post-body"><Blocks blocks={blocks} entry={e} /></div>
+      {e.tags?.length > 0 && <div class="wrap narrow tags">{e.tags.map((t) => <span>{t}</span>)}</div>}
+      {authors.length > 0 && (
+        <aside class="wrap narrow author">
+          {authors.map((a) => (
+            <div class="card ab">
+              {a!.photo_file && <Img file={a!.photo_file} alt="" cover aspect="1/1" class="av lg" sizes="72px" widths={[72, 144]} />}
+              <div><p class="eyebrow">About the author</p><h2>{a!.name}</h2>{a!.job_title && <p class="muted">{a!.job_title}</p>}{a!.linkedin && <a href={a!.linkedin} rel="noopener author" target="_blank">LinkedIn</a>}</div>
+            </div>
+          ))}
+        </aside>
+      )}
+      <Blocks blocks={[{ id: "rel", type: "posts_list", data: { heading: "More insights", limit: 3, category: e.categories[0] || "", background: "paper" } }]} entry={e} />
+      <Blocks blocks={auto} entry={e} />
+    </article>
+  ) : e.type === "case_study" ? (
+    <>
+      {startsWithHero ? null : (
+        <PageHeader entry={e} eyebrow={["Case study", lineName(e.service_line)].filter(Boolean).join(" · ")} text={e.excerpt}>
+          {client && <p class="client">Client: <strong>{client}</strong></p>}
+        </PageHeader>
+      )}
+      {csStats.length > 0 && (
+        <section class="section tight bg-white">
+          <ul class="wrap grid cols-4 kstats">
+            {csStats.map((p) => <li class="rule-top"><p class="v">{p.change || p.value}{!p.change && p.unit}</p><p class="m">{p.metric || p.title}</p>{p.source && <p class="s">{p.source}</p>}</li>)}
+          </ul>
+        </section>
+      )}
+      {e.featured_image && !startsWithHero && <div class="wrap feat cs-feat"><Img id={e.featured_image} priority={csStats.length === 0} sizes="(min-width: 1200px) 1184px, 100vw" /></div>}
+      <Blocks blocks={blocks} entry={e} />
+      <Blocks blocks={[{ id: "more", type: "case_study_cards", data: { heading: "More case studies", background: "paper", auto_line: false } }]} entry={e} />
+      <Blocks blocks={auto} entry={e} />
+    </>
+  ) : e.type === "job" ? (
+    <>
+      <PageHeader entry={e} eyebrow="Careers" text={[e.fields?.location, e.fields?.employment_type?.replace(/_/g, " ").toLowerCase()].filter(Boolean).join(" · ")}
+        buttons={e.fields?.apply_url ? [{ label: "Apply now", href: e.fields.apply_url }] : settings.org?.email ? [{ label: "Apply by email", href: `mailto:${settings.org.email}?subject=${encodeURIComponent("Application: " + e.title)}` }] : []} />
+      {e.fields?.description && <section class="section"><div class="wrap narrow prose" set:html={rich(e.fields.description)} /></section>}
+      <Blocks blocks={blocks} entry={e} />
+    </>
+  ) : (
+    <>
+      {!startsWithHero && (
+        <PageHeader entry={e} eyebrow={e.type === "service" ? lineName(e.service_line) || "Services" : undefined} text={e.excerpt}
+          tone={e.type === "legal" ? "paper" : "dark"} buttons={e.type === "service" ? ctaLink : undefined} />
+      )}
+      <Blocks blocks={blocks} entry={e} />
+      <Blocks blocks={auto} entry={e} />
+    </>
+  )}
+</Base>
+
+<style>
+  .post-head { padding-block: clamp(3rem, 7vw, 5rem) 0; }
+  .post-head h1 { font-size: clamp(2.1rem, 4.6vw, 3.4rem); }
+  .byline { display: flex; align-items: center; gap: .75rem; margin-top: 1.5rem; font-weight: 600; color: var(--heading); }
+  .byline small { display: block; font-weight: 400; color: var(--muted); font-size: .85rem; }
+  :global(.av) { width: 40px; height: 40px; border-radius: 50%; }
+  :global(.av.lg) { width: 72px; height: 72px; }
+  .feat { margin-top: clamp(2rem, 5vw, 3rem); }
+  .feat :global(img) { width: 100%; border-radius: var(--radius); }
+  .cs-feat { margin-block: 0 clamp(1rem, 3vw, 2rem); }
+  .post-body :global(.section) { padding-block: clamp(1.5rem, 3.5vw, 2.5rem); }
+  .post-body :global(.prose) { font-size: 1.1rem; }
+  .tags { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: 1rem 2rem; }
+  .tags span { font-size: .8rem; border: 1px solid var(--line); border-radius: 999px; padding: .2rem .7rem; color: var(--muted); }
+  .author { margin-bottom: clamp(3rem, 7vw, 5rem); }
+  .ab { display: flex; gap: 1.25rem; align-items: center; }
+  .ab h2 { font-size: 1.25rem; margin: 0; }
+  .ab p { margin: .2rem 0; }
+  .client { margin-top: 1.25rem; color: var(--muted); }
+  .client strong { color: var(--heading); }
+  .kstats { margin: 0 auto; list-style: none; padding: 0; }
+  .kstats p { margin: 0; }
+  .kstats .v { font: 600 clamp(2.2rem, 4.5vw, 3rem)/1 var(--font-heading); color: var(--stat); margin-bottom: .5rem; }
+  .kstats .m { color: var(--heading); font-weight: 600; }
+  .kstats .s { font-size: .75rem; color: var(--muted); margin-top: .3rem; }
+</style>

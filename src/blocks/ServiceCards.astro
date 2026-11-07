@@ -1,0 +1,40 @@
+---
+// Cards for the site's Service pages — all of them (in menu order) or the ones picked.
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import Buttons from "../components/Buttons.astro";
+import Img from "../components/Img.astro";
+import { ofType, entryById, plain, truncate, type Block, type Entry } from "../lib/content";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const list: Entry[] = (d.items?.length ? d.items.map((id: string) => entryById(id)).filter((e: any) => e && e.type === "service") : ofType("service")) as Entry[];
+const cols = Number(d.columns) || 3;
+---
+{list.length > 0 && (
+  <Section bg={d.background} id={d.anchor}>
+    <div class="wrap">
+      <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
+      <ul class={`grid cols-${cols}`}>
+        {list.map((s) => (
+          <li class="card svc">
+            {d.show_images && s.featured_image && <Img id={s.featured_image} cover aspect="16/10" sizes="(min-width: 1000px) 380px, 100vw" widths={[380, 760]} class="thumb" />}
+            <h3><a href={s.path}>{s.title}</a></h3>
+            <p class="muted">{truncate(plain(s.excerpt || s.fields?.short || ""), 170)}</p>
+            <span class="more" aria-hidden="true">Learn more →</span>
+          </li>
+        ))}
+      </ul>
+      <Buttons buttons={d.buttons} />
+    </div>
+  </Section>
+)}
+<style>
+  ul { list-style: none; margin: 0; padding: 0; }
+  .svc { position: relative; display: flex; flex-direction: column; transition: border-color .15s; }
+  .svc:hover { border-color: var(--accent); }
+  .svc h3 a { color: var(--heading); text-decoration: none; }
+  .svc h3 a::after { content: ""; position: absolute; inset: 0; }
+  .svc p { font-size: .95rem; flex: 1; }
+  .more { font-weight: 600; font-size: .88rem; color: var(--accent-text); }
+  :global(.thumb) { border-radius: calc(var(--radius) - 2px); margin-bottom: 1.1rem; }
+</style>

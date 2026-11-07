@@ -1,0 +1,90 @@
+---
+// Site header: logo, the "header" menu (one level of dropdowns), the header button. The mobile menu and the
+// dropdowns are <details> elements, so they work with no JavaScript; a few lines close them on outside click / Esc.
+import Img from "./Img.astro";
+import { bundle, settings, site, menuHref, href, media } from "../lib/content";
+const { path } = Astro.props as { path: string };
+const items = bundle.menus?.header || [];
+const cta = settings.header_cta || {};
+const logo = settings.brand?.logo_inverse || settings.brand?.logo;
+const name = settings.org?.name || site.name;
+const active = (h: string) => h !== "/" && h !== "#" && path.startsWith(h);
+---
+<header class="site-header">
+  <div class="wrap bar">
+    <a href="/" class="brand" aria-label={`${name} — home`}>
+      {logo && media(logo) ? <Img id={logo} alt={name} class="logo" sizes="180px" widths={[180, 360]} priority /> : <span class="wordmark">{name}</span>}
+    </a>
+    <button class="toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="site-nav"><span class="burger" aria-hidden="true"></span></button>
+    <div class="mobile">
+      <nav class="nav" id="site-nav" aria-label="Main">
+        <ul>
+          {items.map((it) => (
+            <li>
+              {it.children?.length ? (
+                <details class="drop">
+                  <summary class={active(menuHref(it)) ? "on" : ""}>{it.label}</summary>
+                  <ul>
+                    {it.url || it.entry ? <li><a href={menuHref(it)}>{it.label} overview</a></li> : null}
+                    {it.children.map((ch) => (
+                      <li><a href={menuHref(ch)} target={ch.new_tab ? "_blank" : undefined} rel={ch.new_tab ? "noopener" : undefined}>
+                        <span>{ch.label}</span>{ch.description && <small>{ch.description}</small>}</a></li>
+                    ))}
+                  </ul>
+                </details>
+              ) : (
+                <a href={menuHref(it)} class={active(menuHref(it)) ? "on" : ""} aria-current={path === menuHref(it) ? "page" : undefined}
+                  target={it.new_tab ? "_blank" : undefined} rel={it.new_tab ? "noopener" : undefined}>{it.label}</a>
+              )}
+            </li>
+          ))}
+        </ul>
+        {cta.label && <a class="btn btn-primary cta" href={href(cta.url)}>{cta.label}</a>}
+      </nav>
+    </div>
+  </div>
+</header>
+
+<script is:inline>
+  (() => { const h = document.currentScript.previousElementSibling, b = h && h.querySelector(".toggle"); if (b) b.addEventListener("click", () => { const o = h.classList.toggle("open"); b.setAttribute("aria-expanded", String(o)); }); })();
+  document.addEventListener("click", (e) => { document.querySelectorAll(".site-header details[open]").forEach((d) => { if (!d.contains(e.target)) d.removeAttribute("open"); }); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") document.querySelectorAll(".site-header details[open]").forEach((d) => d.removeAttribute("open")); });
+</script>
+
+<style>
+  .site-header { background: var(--header-bg); color: var(--header-text); position: sticky; top: 0; z-index: 50; border-bottom: 1px solid rgba(255,255,255,.06); }
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; min-height: 72px; }
+  .brand { display: inline-flex; align-items: center; color: inherit; text-decoration: none; flex-shrink: 0; }
+  .brand :global(.logo), .brand :global(img) { height: 38px; width: auto; }
+  .wordmark { font: 700 1.25rem/1 var(--font-heading); }
+  ul { list-style: none; margin: 0; padding: 0; }
+  summary { list-style: none; cursor: pointer; }
+  summary::-webkit-details-marker { display: none; }
+  .nav a, .drop > summary { color: var(--header-text); text-decoration: none; font: 600 .9rem/1.2 var(--font-body); }
+  .nav a.on, .drop > summary.on { color: var(--accent-text); }
+  .toggle { display: grid; place-items: center; width: 44px; height: 44px; margin-right: -10px; background: none; border: 0; color: inherit; cursor: pointer; }
+  .burger, .burger::before, .burger::after { display: block; width: 22px; height: 2px; background: currentColor; border-radius: 2px; position: relative; }
+  .burger::before, .burger::after { content: ""; position: absolute; left: 0; }
+  .burger::before { top: -7px; } .burger::after { top: 7px; }
+  .site-header.open .mobile { position: absolute; left: 0; right: 0; top: 100%; background: var(--header-bg); padding: 1rem var(--gutter) 1.5rem; border-bottom: 1px solid rgba(255,255,255,.1); max-height: calc(100dvh - 72px); overflow: auto; }
+  .mobile .nav > ul > li { border-bottom: 1px solid rgba(255,255,255,.08); }
+  .mobile .nav > ul > li > a, .mobile .drop > summary { display: block; padding: .9rem 0; }
+  .drop ul a { display: block; padding: .55rem 0 .55rem .9rem; font-weight: 500; }
+  .drop small { display: block; color: var(--on-dark-muted, #9aa6bd); font-size: .8rem; font-weight: 400; margin-top: 2px; }
+  .cta { margin-top: 1rem; }
+  @media (min-width: 1000px) {
+    .toggle { display: none; }
+    .mobile { display: block !important; }
+    .nav { display: flex; align-items: center; gap: 1.75rem; position: static !important; padding: 0 !important; border: 0 !important; background: none !important; }
+    .nav > ul { display: flex; align-items: center; gap: 1.6rem; }
+    .mobile .nav > ul > li { border: 0; position: relative; }
+    .mobile .nav > ul > li > a, .mobile .drop > summary { padding: .5rem 0; }
+    .drop > summary::after { content: ""; display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-3px) rotate(45deg); }
+    .drop[open] > ul { position: absolute; top: calc(100% + 14px); left: -1rem; min-width: 280px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 18px 40px rgba(5, 11, 31, .18); padding: .5rem; }
+    .drop[open] ul a { color: var(--heading); padding: .6rem .75rem; border-radius: var(--radius-sm); }
+    .drop[open] ul a:hover { background: var(--paper); }
+    .drop small { color: var(--muted); }
+    .cta { margin-top: 0; }
+  }
+  @media (max-width: 999px) { .site-header:not(.open) .mobile { display: none; } .mobile { position: absolute; left: 0; right: 0; top: 100%; } }
+</style>

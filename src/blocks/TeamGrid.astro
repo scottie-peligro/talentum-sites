@@ -1,0 +1,35 @@
+---
+// Team — people from Talentum's Team (Website → Settings → Team picks who's public and the order).
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import Img from "../components/Img.astro";
+import { bundle, person, type Block, type Person } from "../lib/content";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const list: Person[] = d.members?.length ? d.members.map((id: string) => person(id)).filter(Boolean) : bundle.team;
+---
+{list.length > 0 && (
+  <Section bg={d.background} id={d.anchor}>
+    <div class="wrap">
+      <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
+      <ul class="grid cols-4">
+        {list.map((p) => (
+          <li>
+            {p.photo_file ? <Img file={p.photo_file} alt={p.name} cover aspect="4/5" class="ph" sizes="(min-width: 1000px) 280px, 50vw" widths={[280, 560]} /> : <div class="ph empty" aria-hidden="true">{p.name.split(" ").map((x) => x[0]).slice(0, 2).join("")}</div>}
+            <h3>{p.name}</h3>
+            {p.job_title && <p class="muted">{p.job_title}</p>}
+            {p.linkedin && <a href={p.linkedin} rel="noopener" target="_blank" aria-label={`${p.name} on LinkedIn`}>LinkedIn</a>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  </Section>
+)}
+<style>
+  ul { list-style: none; margin: 0; padding: 0; }
+  :global(.ph) { border-radius: var(--radius); margin-bottom: 1rem; background: var(--paper); }
+  .empty { aspect-ratio: 4/5; display: grid; place-items: center; font: 600 2rem var(--font-heading); color: var(--muted); }
+  h3 { font-size: 1.1rem; margin: 0; }
+  p { font-size: .9rem; margin: .25rem 0 .4rem; }
+  a { font-size: .85rem; font-weight: 600; }
+</style>

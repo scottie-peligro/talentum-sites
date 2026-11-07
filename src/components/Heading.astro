@@ -1,0 +1,13 @@
+---
+// Eyebrow + heading + intro text at the top of a block. The heading level is h2 unless told otherwise.
+import { rich } from "../lib/content";
+const { eyebrow, heading, text, level = 2, center = false, class: cls = "" } = Astro.props as { eyebrow?: string; heading?: string; text?: string; level?: 1 | 2 | 3; center?: boolean; class?: string };
+const Tag = `h${level}` as any;
+---
+{(eyebrow || heading || text) && (
+  <div class={`head${center ? " center" : ""} ${cls}`}>
+    {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+    {heading && <Tag>{heading}</Tag>}
+    {text && <div class="lede" set:html={rich(text)} />}
+  </div>
+)}

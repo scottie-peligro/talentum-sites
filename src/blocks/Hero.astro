@@ -1,0 +1,40 @@
+---
+// Hero: big heading, intro, buttons; dark (default), light or brand band; optional image beside it or behind it.
+import Img from "../components/Img.astro";
+import Buttons from "../components/Buttons.astro";
+import { rich, type Block } from "../lib/content";
+const { block, first = false } = Astro.props as { block: Block; first?: boolean };
+const d = block.data || {};
+const tone = d.background || "dark";
+const layout = d.image ? (d.image_layout || "side") : "none";
+const center = (d.align || (layout === "side" ? "left" : "center")) === "center";
+---
+<section class={`hero bg-${tone === "image" ? "dark" : tone} layout-${layout}${center ? " center" : ""}`} id={d.anchor || undefined}>
+  {layout === "background" && <div class="bgimg"><Img id={d.image} alt="" cover priority={first} sizes="100vw" /></div>}
+  <div class="wrap inner">
+    <div class="copy">
+      {d.eyebrow && <p class="eyebrow">{d.eyebrow}</p>}
+      {first ? <h1>{d.heading}</h1> : <h2 class="h1">{d.heading}</h2>}
+      {d.text && <div class="lede" set:html={rich(d.text)} />}
+      <Buttons buttons={d.buttons} />
+    </div>
+    {layout === "side" && <div class="media"><Img id={d.image} priority={first} sizes="(min-width: 1000px) 560px, 100vw" widths={[480, 720, 960, 1200]} /></div>}
+  </div>
+  {layout === "below" && <div class="wrap below"><Img id={d.image} priority={first} sizes="(min-width: 1200px) 1184px, 100vw" /></div>}
+</section>
+<style>
+  .hero { position: relative; overflow: hidden; padding-block: clamp(4.5rem, 10vw, 8rem); }
+  .hero.bg-dark { background: var(--hero-bg); }
+  .bgimg { position: absolute; inset: 0; }
+  .bgimg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,11,31,.72), rgba(5,11,31,.55)); }
+  .inner { position: relative; display: grid; gap: clamp(2rem, 5vw, 4rem); align-items: center; }
+  @media (min-width: 1000px) { .layout-side .inner { grid-template-columns: 1.05fr .95fr; } }
+  .copy { max-width: 48rem; }
+  .center .copy { margin-inline: auto; text-align: center; }
+  h1, .h1 { font-size: var(--fs-h1); margin-bottom: .45em; }
+  .lede { font-size: var(--fs-lede); color: var(--muted); max-width: 40rem; }
+  .center .lede { margin-inline: auto; }
+  .media :global(img) { border-radius: var(--radius); width: 100%; }
+  .below { margin-top: clamp(2.5rem, 6vw, 4rem); }
+  .below :global(img) { width: 100%; border-radius: var(--radius); }
+</style>

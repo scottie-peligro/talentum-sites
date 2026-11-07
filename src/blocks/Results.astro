@@ -1,0 +1,86 @@
+---
+// Results — the proof for a service: stats (SEO traffic, rankings, leads…), images, before/after, quotes.
+// Pulls every approved proof item tagged with the page's service line (or the line picked), newest first.
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import Img from "../components/Img.astro";
+import { bundle, proofFor, entryById, formatDate, type Block, type Entry, type Proof } from "../lib/content";
+const { block, entry } = Astro.props as { block: Block; entry?: Entry };
+const d = block.data || {};
+const line = d.service_line || entry?.service_line || "";
+let items: Proof[] = d.items?.length ? d.items.map((id: string) => bundle.proof.find((p) => p.id === id)).filter(Boolean) : proofFor(line, d.kinds);
+if (entry?.type === "case_study" && !d.items?.length) items = bundle.proof.filter((p) => p.case_study === entry.id);
+items = items.slice(0, Number(d.limit) || 12);
+const stats = items.filter((p) => p.kind === "stat");
+const visuals = items.filter((p) => p.kind !== "stat");
+const showSource = d.show_source !== false;
+const month = (iso: string) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" }) : "");
+void formatDate;
+---
+{items.length > 0 && (
+  <Section bg={d.background} id={d.anchor || "results"}>
+    <div class="wrap">
+      <Heading eyebrow={d.eyebrow ?? "Results"} heading={d.heading} text={d.text} />
+      {stats.length > 0 && (
+        <ul class={`grid ${stats.length >= 4 ? "cols-4" : stats.length === 2 ? "cols-2" : "cols-3"} stats`}>
+          {stats.map((p) => {
+            const cs = entryById(p.case_study);
+            return (
+              <li class="card stat">
+                <p class="value">{p.change || p.value}{!p.change && p.unit}</p>
+                <p class="metric">{p.metric || p.title}</p>
+                {(p.change && p.value) || p.baseline || p.period ? <p class="detail">{[p.change && p.value ? `${p.value}${p.unit || ""}` : "", p.baseline ? `from ${p.baseline}` : "", p.period].filter(Boolean).join(" · ")}</p> : null}
+                {p.client && <p class="client">{p.client}</p>}
+                {showSource && (p.source || p.as_of) && <p class="src">{[p.source, month(p.as_of)].filter(Boolean).join(", ")}</p>}
+                {cs && <a class="cs" href={cs.path}>Read the case study →</a>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {visuals.length > 0 && (
+        <ul class="grid cols-2 visuals">
+          {visuals.map((p) => {
+            const cs = entryById(p.case_study);
+            return (
+              <li class={`vis kind-${p.kind}`}>
+                {p.kind === "before_after" && p.images.length >= 2 ? (
+                  <div class="ba">
+                    <figure><Img id={p.images[0]} cover aspect="4/3" sizes="(min-width: 900px) 280px, 50vw" widths={[280, 560]} /><figcaption>Before</figcaption></figure>
+                    <figure><Img id={p.images[1]} cover aspect="4/3" sizes="(min-width: 900px) 280px, 50vw" widths={[280, 560]} /><figcaption>After</figcaption></figure>
+                  </div>
+                ) : p.kind === "quote" ? (
+                  <blockquote class="card"><p>“{p.detail || p.title}”</p>{p.client && <footer>{p.client}</footer>}</blockquote>
+                ) : p.images[0] ? (
+                  <Img id={p.images[0]} cover aspect="16/10" sizes="(min-width: 900px) 580px, 100vw" widths={[480, 720, 1160]} class="shot" />
+                ) : null}
+                {p.kind !== "quote" && (p.title || p.client) && <p class="cap"><strong>{p.title}</strong>{p.client && p.title && " — "}{p.client}</p>}
+                {cs && <a class="cs" href={cs.path}>Read the case study →</a>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  </Section>
+)}
+<style>
+  ul { list-style: none; margin: 0; padding: 0; }
+  .stats + .visuals { margin-top: var(--gap); }
+  .stat p { margin: 0; }
+  .value { font: 600 clamp(2.2rem, 4.5vw, 3rem)/1 var(--font-heading); color: var(--stat); letter-spacing: -0.02em; }
+  .metric { margin-top: .6rem !important; font-weight: 600; color: var(--heading); }
+  .detail { margin-top: .3rem !important; font-size: .88rem; color: var(--muted); }
+  .client { margin-top: .9rem !important; font-size: .78rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--accent-text); }
+  .src { margin-top: .35rem !important; font-size: .75rem; color: var(--muted); }
+  .cs { display: inline-block; margin-top: .9rem; font-size: .88rem; font-weight: 600; }
+  :global(.shot) { border-radius: var(--radius); border: 1px solid var(--line); }
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+  .ba figure { margin: 0; }
+  .ba :global(img) { border-radius: var(--radius); }
+  figcaption { font-size: .78rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: .5rem; }
+  .cap { margin: .8rem 0 0; font-size: .92rem; color: var(--muted); }
+  .cap strong { color: var(--heading); }
+  blockquote { margin: 0; font-size: 1.15rem; color: var(--heading); }
+  blockquote footer { margin-top: .75rem; font-size: .85rem; color: var(--muted); }
+</style>

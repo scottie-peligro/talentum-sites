@@ -1,0 +1,31 @@
+---
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import type { Block } from "../lib/content";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const cols: string[] = (d.columns || []).filter(Boolean);
+const rows = (d.rows || []).filter((r: any) => r && r.label);
+const cell = (v: any) => (v === true || v === "yes" || v === "✓" ? "✓" : v === false || v === "no" ? "—" : String(v ?? ""));
+---
+{cols.length > 0 && rows.length > 0 && (
+  <Section bg={d.background} id={d.anchor}>
+    <div class="wrap">
+      <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
+      <div class="scroll" tabindex="0" role="region" aria-label={d.heading || "Comparison"}>
+        <table>
+          <thead><tr><th scope="col"><span class="sr-only">Feature</span></th>{cols.map((c) => <th scope="col">{c}</th>)}</tr></thead>
+          <tbody>{rows.map((r: any) => <tr><th scope="row">{r.label}</th>{cols.map((_, i) => <td>{cell((r.values || [])[i])}</td>)}</tr>)}</tbody>
+        </table>
+      </div>
+    </div>
+  </Section>
+)}
+<style>
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 560px; font-size: .95rem; }
+  th, td { padding: .85rem .75rem; border-bottom: 1px solid var(--line); text-align: left; }
+  thead th { font-family: var(--font-heading); color: var(--heading); font-size: 1.05rem; }
+  tbody th { font-weight: 600; color: var(--heading); }
+  td { color: var(--muted); }
+</style>

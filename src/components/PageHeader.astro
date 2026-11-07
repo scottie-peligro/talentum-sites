@@ -1,0 +1,23 @@
+---
+// Title band for entries that don't start with a Hero block.
+import Buttons from "./Buttons.astro";
+import Crumbs from "./Crumbs.astro";
+import { rich, type Entry, type Link } from "../lib/content";
+const { entry, eyebrow, text, buttons, tone = "dark" } = Astro.props as { entry: Entry; eyebrow?: string; text?: string; buttons?: Link[]; tone?: string };
+---
+<section class={`ph bg-${tone}`}>
+  <div class="wrap">
+    <Crumbs entry={entry} />
+    {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+    <h1>{entry.title}</h1>
+    {text && <div class="lede" set:html={rich(text)} />}
+    <Buttons buttons={buttons} />
+    <slot />
+  </div>
+</section>
+<style>
+  .ph { padding-block: clamp(3.5rem, 8vw, 6rem); }
+  .ph.bg-dark { background: var(--hero-bg); }
+  h1 { max-width: 52rem; }
+  .lede { max-width: 44rem; }
+</style>

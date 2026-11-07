@@ -1,0 +1,16 @@
+---
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import Buttons from "../components/Buttons.astro";
+import { rich, type Block } from "../lib/content";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const wide = d.width === "wide";
+---
+<Section bg={d.background} id={d.anchor} tight={d.tight}>
+  <div class={`wrap${wide ? "" : " narrow"}`}>
+    <Heading eyebrow={d.eyebrow} heading={d.heading} />
+    <div class={`prose${wide ? " wide" : ""}${d.align === "center" ? " center" : ""}`} set:html={rich(d.html)} />
+    <Buttons buttons={d.buttons} class={d.align === "center" ? "center" : ""} />
+  </div>
+</Section>

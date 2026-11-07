@@ -1,0 +1,27 @@
+---
+// Call-to-action band: heading + text on the left, buttons on the right (stacked on phones).
+import Section from "../components/Section.astro";
+import Buttons from "../components/Buttons.astro";
+import { rich, type Block } from "../lib/content";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+---
+<Section bg={d.background || "brand"} id={d.anchor}>
+  <div class={`wrap cta ${d.align === "center" ? "center" : ""}`}>
+    <div>
+      {d.eyebrow && <p class="eyebrow">{d.eyebrow}</p>}
+      {d.heading && <h2>{d.heading}</h2>}
+      {d.text && <div class="lede" set:html={rich(d.text)} />}
+    </div>
+    <Buttons buttons={d.buttons} class="col" />
+  </div>
+</Section>
+<style>
+  .cta { display: grid; gap: 1.5rem 3rem; align-items: center; }
+  @media (min-width: 900px) { .cta:not(.center) { grid-template-columns: 1fr auto; } .cta:not(.center) :global(.btns) { margin-top: 0; flex-direction: column; align-items: stretch; } }
+  .cta.center { text-align: center; justify-items: center; }
+  h2 { max-width: 34rem; }
+  .center h2 { margin-inline: auto; }
+  .lede { color: inherit; opacity: .92; }
+  :global(.bg-brand) .eyebrow { color: inherit; opacity: .85; }
+</style>

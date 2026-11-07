@@ -1,0 +1,48 @@
+---
+// Small blocks: map (static, links out), custom HTML (Owner/Admin only in Talentum), spacer, contact details,
+// and placeholders for blocks whose phase isn't switched on yet (pricing, outside data) — they render nothing.
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import Img from "../components/Img.astro";
+import { settings, type Block } from "../lib/content";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const o = settings.org || {};
+const address = d.address || [o.street || o.address, o.city, o.region, o.postal].filter(Boolean).join(", ");
+const mapsUrl = address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : "";
+---
+{block.type === "spacer" && <div aria-hidden="true" style={`height:${({ sm: "2rem", md: "4rem", lg: "7rem" } as any)[d.size || "md"] || "4rem"}`} />}
+{block.type === "html" && <div class={d.wrap === false ? "" : "wrap"} set:html={d.html || ""} />}
+{block.type === "map" && address && (
+  <Section bg={d.background} id={d.anchor} tight>
+    <div class="wrap">
+      <Heading heading={d.heading} />
+      <a class="map" href={mapsUrl} target="_blank" rel="noopener">
+        {d.image ? <Img id={d.image} cover aspect="21/9" sizes="(min-width: 1200px) 1184px, 100vw" alt={`Map: ${address}`} /> : <span class="ph">{address}</span>}
+        <span class="btn btn-primary open">Open in Google Maps</span>
+      </a>
+    </div>
+  </Section>
+)}
+{block.type === "contact_details" && (
+  <Section bg={d.background} id={d.anchor}>
+    <div class="wrap">
+      <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
+      <dl class="grid cols-3 cd">
+        {o.phone && <div><dt>Phone</dt><dd><a href={`tel:${o.phone.replace(/[^\d+]/g, "")}`}>{o.phone}</a></dd></div>}
+        {o.email && <div><dt>Email</dt><dd><a href={`mailto:${o.email}`}>{o.email}</a></dd></div>}
+        {address && <div><dt>Office</dt><dd><a href={mapsUrl} target="_blank" rel="noopener">{address}</a></dd></div>}
+        {(d.hours || o.hours) && <div><dt>Hours</dt><dd>{d.hours || o.hours}</dd></div>}
+      </dl>
+    </div>
+  </Section>
+)}
+<style>
+  .map { position: relative; display: block; border-radius: var(--radius); overflow: hidden; background: var(--paper); }
+  .ph { display: grid; place-items: center; aspect-ratio: 21/9; color: var(--muted); padding: 2rem; text-align: center; }
+  .open { position: absolute; right: 1rem; bottom: 1rem; }
+  .cd { margin: 0; }
+  dt { font-size: .75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent-text); margin-bottom: .4rem; }
+  dd { margin: 0; font-size: 1.1rem; }
+  dd a { color: var(--heading); text-decoration: none; font-weight: 600; }
+</style>

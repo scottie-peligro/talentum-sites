@@ -1,0 +1,25 @@
+---
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import { ofType, type Block } from "../lib/content";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const jobs = ofType("job");
+---
+<Section bg={d.background} id={d.anchor || "jobs"}>
+  <div class="wrap">
+    <Heading eyebrow={d.eyebrow} heading={d.heading || "Open roles"} text={d.text} />
+    {jobs.length ? (
+      <ul class="jobs">
+        {jobs.map((j) => <li><a href={j.path}><strong>{j.title}</strong><span>{[j.fields?.location, j.fields?.employment_type?.replace(/_/g, " ").toLowerCase()].filter(Boolean).join(" · ")}</span></a></li>)}
+      </ul>
+    ) : <p class="muted">{d.empty || "There are no open roles right now — we're always happy to hear from great people."}</p>}
+  </div>
+</Section>
+<style>
+  .jobs { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .jobs li { border-bottom: 1px solid var(--line); }
+  .jobs a { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem 2rem; padding: 1.1rem 0; text-decoration: none; color: var(--heading); }
+  .jobs a:hover strong { color: var(--accent-text); }
+  .jobs span { color: var(--muted); text-transform: capitalize; }
+</style>
