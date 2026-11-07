@@ -10,6 +10,8 @@ const site = process.env.SITE_URL || bundle?.site?.url || "http://localhost:4321
 export default defineConfig({
   site,
   output: "static",
+  // The builder keeps the image cache on its data volume so restarts don't re-optimise every image.
+  ...(process.env.ASTRO_CACHE_DIR || existsSync("/data/sites") ? { cacheDir: process.env.ASTRO_CACHE_DIR || "/data/astro-cache" } : {}),
   trailingSlash: "always",
   build: { format: "directory", inlineStylesheets: "always", assets: "_astro" },
   compressHTML: true,

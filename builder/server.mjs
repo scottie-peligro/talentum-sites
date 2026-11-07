@@ -88,7 +88,7 @@ async function handle(job) {
     const dry = process.env.DRY_RUN === "1";   // build only, no deploy (testing)
     if (!dry && (!process.env.CLOUDFLARE_API_TOKEN || !process.env.CLOUDFLARE_ACCOUNT_ID)) throw new Error("CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID aren't set on the builder.");
     const dir = workspaceFor(job.site_key);
-    const env = { ...process.env, PB_URL: PB, SITE_KEY: job.site_key, SITE_ENV: job.environment, BUILDER_SECRET: SECRET, SITE_URL: job.site_url || "", ASTRO_TELEMETRY_DISABLED: "1" };
+    const env = { ...process.env, ASTRO_CACHE_DIR: join(WORK, "astro-cache"), PB_URL: PB, SITE_KEY: job.site_key, SITE_ENV: job.environment, BUILDER_SECRET: SECRET, SITE_URL: job.site_url || "", ASTRO_TELEMETRY_DISABLED: "1" };
     if (job.mode === "promote") {
       const snap = readdirSync(join(WORK, "builds")).find((d) => d.endsWith(`--${job.from_build}`));
       if (!snap || !existsSync(join(WORK, "builds", snap, "bundle.json"))) throw new Error("The staging build to promote is no longer on the builder — publish to staging again, then promote.");
