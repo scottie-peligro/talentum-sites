@@ -54,7 +54,7 @@ void formatDate;
                 ) : p.images[0] ? (
                   <Img id={p.images[0]} cover aspect="16/10" sizes="(min-width: 900px) 580px, 100vw" widths={[480, 720, 1160]} class="shot" />
                 ) : null}
-                {p.kind !== "quote" && (p.title || p.client) && <p class="cap"><strong>{p.title}</strong>{p.client && p.title && " — "}{p.client}</p>}
+                {p.kind !== "quote" && (p.title || p.client) && <p class="cap"><strong>{p.title || p.client}</strong>{p.client && p.title && !p.title.toLowerCase().includes(p.client.toLowerCase()) && <> — {p.client}</>}</p>}
                 {cs && <a class="cs" href={cs.path}>Read the case study →</a>}
               </li>
             );
