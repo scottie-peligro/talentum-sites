@@ -18,7 +18,8 @@ const fields = (d.fields?.length ? d.fields : [
   { name: "company", label: "Company", type: "text" },
   { name: "phone", label: "Phone", type: "tel" },
   { name: "message", label: "How can we help?", type: "textarea", required: true },
-]) as { name: string; label: string; type: string; required?: boolean; options?: string[] }[];
+]).map((f: any) => ({ ...f, name: String(f.name || f.label || "field").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "field", options: (f.options || []).filter(Boolean) }))
+  .filter((f: any) => f.label) as { name: string; label: string; type: string; required?: boolean; options?: string[] }[];
 const ac: Record<string, string> = { name: "name", email: "email", company: "organization", phone: "tel" };
 ---
 <Section bg={d.background} id={d.anchor || "contact"}>
