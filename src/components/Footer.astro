@@ -1,4 +1,5 @@
 ---
+import Email from "./Email.astro";
 // Footer: logo + blurb + button, link columns (the "footer" menu: each top-level item is a column heading),
 // contact details from Website → Settings → Organisation, legal links, socials.
 import Img from "./Img.astro";
@@ -30,7 +31,7 @@ const address = [o.street || o.address, [o.city, o.region].filter(Boolean).join(
         <h2 class="eyebrow">Contact</h2>
         <ul>
           {o.phone && <li><a href={`tel:${o.phone.replace(/[^\d+]/g, "")}`}>{o.phone}</a></li>}
-          {o.email && <li><a href={`mailto:${o.email}`}>{o.email}</a></li>}
+          {o.email && <li><Email email={o.email} /></li>}
           {address.length > 0 && <li><address>{address.map((l, i) => <>{i > 0 && <br />}{l}</>)}</address></li>}
         </ul>
       </div>

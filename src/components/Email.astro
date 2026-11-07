@@ -1,0 +1,8 @@
+---
+// A mailto link wrapped in Cloudflare's email_off markers, so Cloudflare's "Email Address Obfuscation" (a zone
+// setting) leaves it alone instead of swapping it for a /cdn-cgi link that needs JavaScript to work.
+import { escape } from "../lib/content";
+const { email, label } = Astro.props as { email: string; label?: string };
+const html = `<!--email_off--><a href="mailto:${escape(email)}">${escape(label || email)}</a><!--/email_off-->`;
+---
+<Fragment set:html={html} />

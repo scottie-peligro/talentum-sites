@@ -1,4 +1,5 @@
 ---
+import Email from "../components/Email.astro";
 // Contact form. Submissions go to the site's form endpoint (the Cloudflare Worker → Talentum Requests, phase 8).
 // Until that's switched on, the form shows the site's email and phone instead, so nothing is ever lost.
 import Section from "../components/Section.astro";
@@ -35,13 +36,13 @@ const ac: Record<string, string> = { name: "name", email: "email", company: "org
         <input type="hidden" name="_page" value={Astro.url.pathname} />
         <div class="full"><button class="btn btn-primary" type="submit">{d.submit_label || "Send"}</button></div>
         <p class="full ok" hidden role="status">{d.success || "Thanks — we'll be in touch shortly."}</p>
-        <p class="full bad" hidden role="alert">Sorry — that didn't send. Please try again{o.email ? <> or email <a href={`mailto:${o.email}`}>{o.email}</a></> : null}.</p>
+        <p class="full bad" hidden role="alert">Sorry — that didn't send. Please try again{o.email ? <> or email <Email email={o.email} /></> : null}.</p>
       </form>
     ) : (
       <div class="card alt">
         <p>{d.fallback || "The fastest way to reach us:"}</p>
         <ul>
-          {o.email && <li><a href={`mailto:${o.email}`}>{o.email}</a></li>}
+          {o.email && <li><Email email={o.email} /></li>}
           {o.phone && <li><a href={`tel:${o.phone.replace(/[^\d+]/g, "")}`}>{o.phone}</a></li>}
         </ul>
       </div>

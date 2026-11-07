@@ -1,4 +1,5 @@
 ---
+import Email from "../components/Email.astro";
 // Small blocks: map (static, links out), custom HTML (Owner/Admin only in Talentum), spacer, contact details,
 // and placeholders for blocks whose phase isn't switched on yet (pricing, outside data) — they render nothing.
 import Section from "../components/Section.astro";
@@ -30,7 +31,7 @@ const mapsUrl = address ? `https://www.google.com/maps/search/?api=1&query=${enc
       <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
       <dl class="grid cols-3 cd">
         {o.phone && <div><dt>Phone</dt><dd><a href={`tel:${o.phone.replace(/[^\d+]/g, "")}`}>{o.phone}</a></dd></div>}
-        {o.email && <div><dt>Email</dt><dd><a href={`mailto:${o.email}`}>{o.email}</a></dd></div>}
+        {o.email && <div><dt>Email</dt><dd><Email email={o.email} /></dd></div>}
         {address && <div><dt>Office</dt><dd><a href={mapsUrl} target="_blank" rel="noopener">{address}</a></dd></div>}
         {(d.hours || o.hours) && <div><dt>Hours</dt><dd>{d.hours || o.hours}</dd></div>}
       </dl>
