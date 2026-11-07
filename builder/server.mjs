@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = Number(process.env.PORT || 8787);
-const SECRET = process.env.BUILDER_SECRET || "";
+const SECRET = process.env.BUILDER_SECRET || process.env.SITE_BUILDER_SECRET || "";
 const PB = (process.env.PB_URL || "http://pocketbase:8090").replace(/\/+$/, "");
 const WORK = process.env.WORK_DIR || join(REPO, ".work");
 const KEEP = Number(process.env.KEEP_BUILDS || 5);
