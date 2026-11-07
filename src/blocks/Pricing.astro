@@ -1,0 +1,43 @@
+---
+// Pricing / packages: plan cards with features and a button; one can be highlighted.
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import { href, type Block } from "../lib/content";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const plans = (d.plans || []).filter((p: any) => p && p.name) as { name: string; price?: string; period?: string; description?: string; features?: string; button_label?: string; button_url?: string; highlight?: boolean }[];
+const lines = (s?: string) => String(s || "").split(/\n+/).map((x) => x.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
+---
+{plans.length > 0 && (
+  <Section bg={d.background} id={d.anchor}>
+    <div class="wrap">
+      <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} center />
+      <div class={`grid cols-${Math.min(plans.length, 4)} plans`}>
+        {plans.map((p) => (
+          <div class={`card plan${p.highlight ? " hi" : ""}`}>
+            {p.highlight && <span class="tag">{d.highlight_label || "Most popular"}</span>}
+            <h3>{p.name}</h3>
+            {p.price && <p class="price">{p.price}{p.period && <span> / {p.period}</span>}</p>}
+            {p.description && <p>{p.description}</p>}
+            {lines(p.features).length > 0 && <ul>{lines(p.features).map((f) => <li>{f}</li>)}</ul>}
+            {p.button_label && <a class={`btn ${p.highlight ? "btn-primary" : "btn-secondary"}`} href={href(p.button_url)}>{p.button_label}</a>}
+          </div>
+        ))}
+      </div>
+      {d.note && <p class="note">{d.note}</p>}
+    </div>
+  </Section>
+)}
+<style>
+  .plans { align-items: stretch; }
+  .plan { display: flex; flex-direction: column; gap: .6rem; position: relative; }
+  .plan.hi { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+  .tag { position: absolute; top: -.75rem; left: 1.25rem; background: var(--accent); color: #fff; font: 700 .72rem/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; padding: .35rem .6rem; border-radius: 999px; }
+  .plan h3 { margin: 0; }
+  .price { font: 800 2rem/1.1 var(--font-heading); color: var(--heading); margin: 0; }
+  .price span { font-size: .95rem; font-weight: 600; color: var(--muted); }
+  .plan ul { padding-left: 1.1rem; margin: .25rem 0 1rem; flex: 1; }
+  .plan li + li { margin-top: .35rem; }
+  .plan .btn { align-self: flex-start; }
+  .note { margin-top: 1.25rem; font-size: .88rem; color: var(--muted); text-align: center; }
+</style>

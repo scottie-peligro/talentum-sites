@@ -5,14 +5,15 @@ import { getImage } from "astro:assets";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import Analytics from "../components/Analytics.astro";
+import Assistant from "../components/Assistant.astro";
 import { site, settings, isStaging, absolute, media } from "../lib/content";
 import { imageFile, assetUrl } from "../lib/images";
 
 interface Props {
   title: string; description?: string; path: string; image?: string; type?: string; noindex?: boolean;
-  schema?: object | object[] | null; published?: string; modified?: string; dark?: boolean;
+  schema?: object | object[] | null; published?: string; modified?: string; dark?: boolean; kind?: string;
 }
-const { title, description = "", path, image, type = "website", noindex = false, schema, published, modified } = Astro.props;
+const { title, description = "", path, image, type = "website", noindex = false, schema, published, modified, kind = "" } = Astro.props;
 
 const themes = import.meta.glob("../styles/themes/*.css", { eager: true });
 void themes;   // all themes are bundled; the one in use is picked by the data-theme class below
@@ -67,16 +68,21 @@ const lang = settings.locale || "en-US";
   <link rel="sitemap" href="/sitemap.xml" />
   {brandVars && <style is:inline set:html={`html.theme-${theme}{${brandVars}}`} />}
   {schemas.map((s) => <script type="application/ld+json" is:inline set:html={JSON.stringify(s).replace(/</g, "\\u003c")} />)}
-  <Analytics />
+  {!isStaging && settings.seo?.google_verification && <meta name="google-site-verification" content={settings.seo.google_verification} />}
+  {!isStaging && settings.seo?.bing_verification && <meta name="msvalidate.01" content={settings.seo.bing_verification} />}
+  {settings.forms?.turnstile_site_key && <link rel="preconnect" href="https://challenges.cloudflare.com" />}
+  <Analytics path={path} kind={kind} />
   <script type="speculationrules" is:inline set:html={JSON.stringify({ prefetch: [{ source: "document", where: { and: [{ href_matches: "/*" }, { not: { selector_matches: "[rel~=nofollow],[target=_blank]" } }] }, eagerness: "moderate" }] })} />
 </head>
 <body>
+  <Analytics part="body_start" path={path} kind={kind} />
   <a class="skip" href="#main">Skip to content</a>
   {isStaging && <div class="staging-flag" aria-hidden="true">Staging</div>}
   <Header path={path} />
   <main id="main"><slot /></main>
   <Footer />
-  <Analytics part="body" />
+  <Assistant path={path} />
+  <Analytics part="body" path={path} kind={kind} />
 </body>
 </html>
 

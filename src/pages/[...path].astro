@@ -46,7 +46,7 @@ const authors = (e.authors || []).map((id) => person(id)).filter(Boolean);
 const client = e.fields?.client_name || accountName(e.account);
 const csStats = e.type === "case_study" ? bundle.proof.filter((p) => p.case_study === e.id && p.kind === "stat").slice(0, 4) : [];
 ---
-<Base title={pageTitle(e)} description={pageDescription(e)} path={e.path} image={ogImageId(e)} type={e.type === "post" || e.type === "case_study" ? "article" : "website"}
+<Base kind={e.type} title={pageTitle(e)} description={pageDescription(e)} path={e.path} image={ogImageId(e)} type={e.type === "post" || e.type === "case_study" ? "article" : "website"}
   noindex={!!e.seo?.noindex} schema={schemas} published={e.type === "post" ? e.published_at : undefined} modified={e.type === "post" ? e.updated : undefined}>
 
   {e.type === "post" ? (

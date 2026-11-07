@@ -18,4 +18,8 @@ void top;
     </div>
   </section>
 </Base>
+<script is:inline>
+  // Report the missing address so Talentum can list it under Website → SEO (live site only; see functions/api/nf.js).
+  try { if (location.pathname !== "/404/") fetch("/api/nf", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: location.pathname, ref: document.referrer }), keepalive: true }); } catch (e) {}
+</script>
 <style>.links { padding-left: 1.2rem; } .links li + li { margin-top: .4rem; }</style>

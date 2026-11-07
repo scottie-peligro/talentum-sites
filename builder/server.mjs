@@ -1,6 +1,7 @@
 // Talentum website builder — a small HTTP service Talentum calls when someone publishes.
 //
-//   POST /build   { build_id, site_key, environment: staging|live, cf_project, mode: build|promote, from_build, site_url }
+//   POST /build   { build_id, site_key, environment: staging|live|preview, cf_project, mode: build|promote|preview, from_build,
+//                   site_url, branch, preview_token, edge: { d1_id, vars, secrets } }
 //                 header X-Builder-Secret. Answers 202 at once; progress and the result go back to
 //                 Talentum: POST {PB_URL}/api/site-builds/{build_id}/report.
 //   GET  /health
@@ -16,6 +17,7 @@ import http from "node:http";
 import { spawn } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync, readdirSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -76,6 +78,32 @@ async function ensureProject(project, log, env) {
   catch { log.push(`(project ${project} already exists)`); }
 }
 
+/** Wire the project's Functions: the D1 binding, the site's variables and secrets (forms, Site Assistant, Turnstile).
+ *  Skipped when nothing changed since the last build of this project. */
+async function configureProject(job, log) {
+  const e = job.edge;
+  if (!e || !process.env.CLOUDFLARE_API_TOKEN) return;
+  const envName = job.environment === "live" ? "live" : "staging";
+  const cfg = (siteEnv) => {
+    const env_vars = { SITE_ENV: { type: "plain_text", value: siteEnv } };
+    for (const [k, v] of Object.entries(e.vars || {})) env_vars[k] = { type: "plain_text", value: String(v ?? "") };
+    for (const [k, v] of Object.entries(e.secrets || {})) env_vars[k] = { type: "secret_text", value: String(v ?? "") };
+    const c = { compatibility_date: "2025-01-01", env_vars };
+    if (e.d1_id) c.d1_databases = { DB: { id: e.d1_id } };
+    return c;
+  };
+  const body = { deployment_configs: { production: cfg(envName), preview: cfg("preview") } };
+  const hash = createHash("sha256").update(JSON.stringify(body)).digest("hex");
+  const mark = join(WORK, `edge-${job.cf_project}.hash`);
+  if (existsSync(mark) && readFileSync(mark, "utf8") === hash) return;
+  const url = `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID}/pages/projects/${job.cf_project}`;
+  const r = await fetch(url, { method: "PATCH", headers: { Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.success === false) { log.push(`Couldn't set up forms/assistant on ${job.cf_project}: ${(j.errors || []).map((x) => x.message).join("; ") || r.status}`); return; }
+  writeFileSync(mark, hash);
+  log.push(`Forms${e.vars?.ASSISTANT_BASE ? ", Site Assistant" : ""}${e.d1_id ? "" : " (no database yet)"} wired on ${job.cf_project}.`);
+}
+
 async function handle(job) {
   const started = Date.now();
   const log = [];
@@ -88,7 +116,9 @@ async function handle(job) {
     const dry = process.env.DRY_RUN === "1";   // build only, no deploy (testing)
     if (!dry && (!process.env.CLOUDFLARE_API_TOKEN || !process.env.CLOUDFLARE_ACCOUNT_ID)) throw new Error("CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID aren't set on the builder.");
     const dir = workspaceFor(job.site_key);
-    const env = { ...process.env, ASTRO_CACHE_DIR: join(WORK, "astro-cache"), PB_URL: PB, SITE_KEY: job.site_key, SITE_ENV: job.environment, BUILDER_SECRET: SECRET, SITE_URL: job.site_url || "", ASTRO_TELEMETRY_DISABLED: "1" };
+    const preview = job.mode === "preview";
+    const env = { ...process.env, ASTRO_CACHE_DIR: join(WORK, "astro-cache"), PB_URL: PB, SITE_KEY: job.site_key, SITE_ENV: preview ? "staging" : job.environment, BUILDER_SECRET: SECRET, SITE_URL: job.site_url || "", ASTRO_TELEMETRY_DISABLED: "1" };
+    if (preview) { env.PREVIEW_TOKEN = job.preview_token || ""; log.push("Preview build of one draft."); }
     if (job.mode === "promote") {
       const snap = readdirSync(join(WORK, "builds")).find((d) => d.endsWith(`--${job.from_build}`));
       if (!snap || !existsSync(join(WORK, "builds", snap, "bundle.json"))) throw new Error("The staging build to promote is no longer on the builder — publish to staging again, then promote.");
@@ -106,10 +136,14 @@ async function handle(job) {
 
     const dlog = [];
     if (dry) dlog.push("DRY_RUN: not deployed. Output in " + join(out, "dist"));
-    else await ensureProject(job.cf_project, log, env);
-    if (!dry) await run("npx", ["wrangler", "pages", "deploy", join(out, "dist"), "--project-name", job.cf_project, "--branch", "main", "--commit-dirty=true", "--commit-message", `Talentum ${job.environment} build ${job.build_id}`], { cwd: REPO, env }, dlog);
+    else { await ensureProject(job.cf_project, log, env); await configureProject(job, log); }
+    const branch = /^[a-z0-9-]{1,40}$/.test(job.branch || "") ? job.branch : "main";
+    // Deployed from the repo root so wrangler also bundles functions/ (forms, assistant, 404 log).
+    if (!dry) await run("npx", ["wrangler", "pages", "deploy", join(out, "dist"), "--project-name", job.cf_project, "--branch", branch, "--commit-dirty=true", "--commit-message", `Talentum ${job.environment} build ${job.build_id}`], { cwd: REPO, env }, dlog);
     log.push(...dlog);
-    const url = (dlog.join("\n").match(/https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.pages\.dev/i) || [""])[0];
+    const urls = dlog.join("\n").match(/https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.pages\.dev/gi) || [];
+    // A branch deploy prints the one-off URL and then the branch alias; the alias is the stable one to share.
+    const url = (branch !== "main" && urls.find((u) => u.startsWith(`https://${branch}.`))) || urls[0] || "";
     writeFileSync(join(out, "done"), new Date().toISOString());
     prune(job.site_key, job.environment);
     await report(job.build_id, { status: "success", pages: Object.keys(manifest).length, duration_ms: Date.now() - started, deployment_url: url, manifest, bundle_hash: bundle.hash || "", log: log.slice(-400).join("\n") });
@@ -128,7 +162,7 @@ async function pump() {
   while (queue.length) {
     const job = queue.shift();
     // A newer queued build of the same site + environment makes this one redundant.
-    if (job.mode !== "promote" && queue.some((q) => q.site_key === job.site_key && q.environment === job.environment && q.mode !== "promote")) {
+    if (job.mode === "build" && queue.some((q) => q.site_key === job.site_key && q.environment === job.environment && q.mode === "build")) {
       await report(job.build_id, { status: "superseded", log: "A newer publish replaced this build." });
       continue;
     }
@@ -147,7 +181,7 @@ http.createServer((req, res) => {
   req.on("end", () => {
     let job;
     try { job = JSON.parse(raw); } catch { return send(400, { error: "Bad JSON" }); }
-    if (!job.build_id || !/^[a-z0-9-]{1,60}$/.test(job.site_key || "") || !/^[a-z0-9][a-z0-9-]{0,57}$/.test(job.cf_project || "") || !["staging", "live"].includes(job.environment)) return send(400, { error: "Missing or invalid fields" });
+    if (!job.build_id || !/^[a-z0-9-]{1,60}$/.test(job.site_key || "") || !/^[a-z0-9][a-z0-9-]{0,57}$/.test(job.cf_project || "") || !["staging", "live", "preview"].includes(job.environment)) return send(400, { error: "Missing or invalid fields" });
     queue.push(job);
     send(202, { queued: queue.length });
     pump();

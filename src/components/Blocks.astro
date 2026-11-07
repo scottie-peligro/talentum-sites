@@ -22,6 +22,8 @@ import Cta from "../blocks/Cta.astro";
 import Form from "../blocks/Form.astro";
 import Comparison from "../blocks/Comparison.astro";
 import JobsList from "../blocks/JobsList.astro";
+import DataBlock from "../blocks/DataBlock.astro";
+import Pricing from "../blocks/Pricing.astro";
 import Misc from "../blocks/Misc.astro";
 import { bundle, type Block, type Entry } from "../lib/content";
 
@@ -31,7 +33,7 @@ const C: Record<string, any> = {
   service_groups: ServiceGroups, service_cards: ServiceCards, logo_strip: LogoStrip, stat_band: StatBand, results: Results,
   case_study_cards: CaseStudyCards, case_study_story: CaseStudyStory, testimonials: Testimonials, team_grid: TeamGrid,
   posts_list: PostsList, faq: Faq, cta: Cta, form: Form, comparison: Comparison, jobs_list: JobsList,
-  map: Misc, html: Misc, spacer: Misc, contact_details: Misc,
+  map: Misc, html: Misc, spacer: Misc, contact_details: Misc, data: DataBlock, pricing: Pricing,
 };
 const shown = blocks.filter((b) => b && !b.hidden);
 ---

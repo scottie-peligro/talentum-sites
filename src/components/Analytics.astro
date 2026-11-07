@@ -1,79 +1,202 @@
 ---
-// Tracking + consent (Website → Settings → Tracking & consent). Google Consent Mode v2 is set before any tag loads.
-// Consent modes: off (no banner, granted) · notice (banner informs, granted) · eu_only (opt-in for EU/EEA/UK/CH
-// visitors, granted elsewhere) · opt_in (nothing non-essential until accepted). Staging: GA4 in debug mode only,
-// no GTM/Clarity/ad pixels, so test visits never reach the real reports.
-import { settings, isStaging } from "../lib/content";
+// Tracking, consent, conversion events and lead attribution (Website → Settings → Tracking & consent, and the
+// Tracking code list). Google Consent Mode v2 is set before any tag loads.
+//
+// Consent modes: off (no banner, everything on) · notice (banner informs, on unless they opt out) · eu_only (opt-in for
+// EU/EEA/UK/CH visitors, on elsewhere) · opt_in (nothing beyond the essentials until accepted).
+// Categories: analytics (GA4, Clarity, Hotjar) · marketing (Google Ads, Meta, LinkedIn, Microsoft UET, TikTok, HubSpot)
+// · preferences. Custom code snippets name their own category. Cloudflare Web Analytics is cookieless, so it always runs.
+// Staging: GA4 in debug mode only; no GTM, Clarity or ad pixels, so test visits never reach real reports or audiences.
+//
+//   part="head"       consent defaults, the loader, head snippets
+//   part="body_start" body-start snippets
+//   part="body"       banner, body-end snippets, events + attribution
+import { settings, isStaging, bundle } from "../lib/content";
 const a = settings.analytics || {};
+const t = settings.tracking || {};
 const mode: string = settings.consent?.mode || "eu_only";
-const ga4 = /^G-[A-Z0-9]{4,}$/i.test(a.ga4 || "") ? a.ga4 : "";
-const gtm = !isStaging && /^GTM-[A-Z0-9]{4,}$/i.test(a.gtm || "") ? a.gtm : "";
-const clarity = !isStaging && /^[a-z0-9]{6,20}$/i.test(a.clarity || "") ? a.clarity : "";
-const any = !!(ga4 || gtm || clarity);
-const needsBanner = any && mode !== "off";
-const EEA = ["AT","BE","BG","HR","CY","CZ","DK","EE","FI","FR","DE","GR","HU","IE","IT","LV","LT","LU","MT","NL","PL","PT","RO","SK","SI","ES","SE","IS","LI","NO","GB","CH"];
-const { part = "head" } = Astro.props as { part?: "head" | "body" };
-const cfg = { mode, ga4, gtm, clarity, debug: isStaging, eea: EEA, policy: settings.consent?.policy_url || "/privacy-policy/" };
+const ok = (v: string, re: RegExp) => (re.test(String(v || "").trim()) ? String(v).trim() : "");
+const live = !isStaging;
+const cfg = {
+  mode, debug: isStaging, policy: settings.consent?.policy_url || "/privacy-policy/",
+  ga4: ok(a.ga4, /^G-[A-Z0-9]{4,}$/i),
+  gtm: live ? ok(a.gtm, /^GTM-[A-Z0-9]{4,}$/i) : "",
+  clarity: live ? ok(a.clarity, /^[a-z0-9]{6,20}$/i) : "",
+  hotjar: live ? ok(t.hotjar, /^\d{4,10}$/) : "",
+  ads: live ? ok(t.google_ads, /^AW-\d{6,14}$/i) : "", ads_label: ok(t.google_ads_label, /^[\w-]{4,40}$/),
+  meta: live ? ok(t.meta_pixel, /^\d{8,20}$/) : "",
+  linkedin: live ? ok(t.linkedin, /^\d{4,12}$/) : "",
+  uet: live ? ok(t.bing_uet, /^\d{4,12}$/) : "",
+  tiktok: live ? ok(t.tiktok, /^[A-Z0-9]{10,30}$/i) : "",
+  hubspot: live ? ok(t.hubspot, /^\d{4,12}$/) : "",
+  cf: ok(t.cf_beacon, /^[a-f0-9]{32}$/i),
+  events: t.events !== false,
+  eea: ["AT","BE","BG","HR","CY","CZ","DK","EE","FI","FR","DE","GR","HU","IE","IT","LV","LT","LU","MT","NL","PL","PT","RO","SK","SI","ES","SE","IS","LI","NO","GB","CH"],
+};
+const { part = "head", path = "/", kind = "" } = Astro.props as { part?: "head" | "body_start" | "body"; path?: string; kind?: string };
+type Snip = { id: string; name: string; code: string; placement: string; scope: string; types: string[]; paths: string[]; consent: string };
+const matches = (p: string, pat: string) => (pat.endsWith("*") ? p.startsWith(pat.slice(0, -1)) : p === pat || p === pat.replace(/\/?$/, "/"));
+const snippets = ((bundle as any).snippets || []).filter((s: Snip) =>
+  s.scope === "all" || (s.scope === "types" && s.types.includes(kind)) || (s.scope === "paths" && s.paths.some((x) => matches(path, x))) || (s.scope === "exclude" && !s.paths.some((x) => matches(path, x))),
+) as Snip[];
+const at = (pl: string) => snippets.filter((s) => (s.placement || "head") === pl);
+const anyTag = !!(cfg.ga4 || cfg.gtm || cfg.clarity || cfg.hotjar || cfg.ads || cfg.meta || cfg.linkedin || cfg.uet || cfg.tiktok || cfg.hubspot || snippets.some((s) => s.consent !== "necessary"));
+const needsBanner = anyTag && mode !== "off";
+const wrap = (s: Snip) => (s.consent === "necessary" ? s.code : `<template data-consent="${s.consent}" data-snippet="${s.id}">${s.code}</template>`);
 ---
-{part === "head" && any && (
+{part === "head" && (
   <script is:inline define:vars={{ cfg }}>
     window.dataLayer = window.dataLayer || [];
     function gtag(){ dataLayer.push(arguments); }
     window.gtag = gtag;
-    var stored = null; try { stored = localStorage.getItem("consent.v1"); } catch (e) {}
-    var denied = { ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied", analytics_storage: "denied" };
-    var granted = { ad_storage: "granted", ad_user_data: "granted", ad_personalization: "granted", analytics_storage: "granted" };
-    if (cfg.mode === "opt_in") gtag("consent", "default", Object.assign({ wait_for_update: 500 }, denied));
-    else if (cfg.mode === "eu_only") { gtag("consent", "default", Object.assign({ region: cfg.eea, wait_for_update: 500 }, denied)); gtag("consent", "default", granted); }
-    else gtag("consent", "default", granted);
-    if (stored === "granted") gtag("consent", "update", granted);
-    if (stored === "denied") gtag("consent", "update", denied);
+    var C = window.__consent = { cfg: cfg, state: null };
+    // Stored choice: { analytics, marketing, preferences } (v2); v1 stored "granted"/"denied".
+    try { var raw = localStorage.getItem("consent.v2"); if (raw) C.state = JSON.parse(raw); else { var v1 = localStorage.getItem("consent.v1"); if (v1) C.state = { analytics: v1 === "granted", marketing: v1 === "granted", preferences: v1 === "granted" }; } } catch (e) {}
+    var tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) {}
+    C.europe = /^(Europe|Atlantic\/(Reykjavik|Canary|Madeira|Faroe))/.test(tz);
+    // What runs before anyone chooses.
+    var dflt = cfg.mode === "opt_in" || (cfg.mode === "eu_only" && C.europe) ? false : true;
+    C.allowed = function (cat) { if (cat === "necessary") return true; if (C.state) return !!C.state[cat]; return dflt; };
+    function g(b){ return b ? "granted" : "denied"; }
+    function consentObj(){ return { ad_storage: g(C.allowed("marketing")), ad_user_data: g(C.allowed("marketing")), ad_personalization: g(C.allowed("marketing")), analytics_storage: g(C.allowed("analytics")), functionality_storage: "granted", personalization_storage: g(C.allowed("preferences")), security_storage: "granted" }; }
+    if (cfg.mode === "eu_only") { var d = consentObj(); var strict = { ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied", analytics_storage: "denied", wait_for_update: 500, region: cfg.eea }; if (!C.state) gtag("consent", "default", strict); gtag("consent", "default", d); }
+    else gtag("consent", "default", Object.assign({ wait_for_update: 500 }, consentObj()));
+    gtag("set", "ads_data_redaction", !C.allowed("marketing"));
     gtag("js", new Date());
-    window.__consent = cfg;
-    function load(src){ var s = document.createElement("script"); s.async = true; s.src = src; document.head.appendChild(s); }
-    function boot(){
-      if (cfg.ga4) { load("https://www.googletagmanager.com/gtag/js?id=" + cfg.ga4); gtag("config", cfg.ga4, cfg.debug ? { debug_mode: true } : {}); }
-      if (cfg.gtm) { dataLayer.push({ "gtm.start": Date.now(), event: "gtm.js" }); load("https://www.googletagmanager.com/gtm.js?id=" + cfg.gtm); }
-      if (cfg.clarity) { (function(c,l,a,r,i){ c[a]=c[a]||function(){ (c[a].q=c[a].q||[]).push(arguments); }; var t=l.createElement(r); t.async=1; t.src="https://www.clarity.ms/tag/"+i; var y=l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t,y); })(window, document, "clarity", "script", cfg.clarity); }
-    }
+    function load(src, attrs){ var s = document.createElement("script"); s.async = true; s.src = src; if (attrs) for (var k in attrs) s.setAttribute(k, attrs[k]); document.head.appendChild(s); }
+    var booted = {};
+    C.boot = function(){
+      if (cfg.cf && !booted.cf) { booted.cf = 1; load("https://static.cloudflareinsights.com/beacon.min.js", { "data-cf-beacon": JSON.stringify({ token: cfg.cf }), defer: "" }); }
+      // Google tags run under Consent Mode either way (cookieless pings until consent).
+      if ((cfg.ga4 || cfg.ads) && !booted.g) { booted.g = 1; load("https://www.googletagmanager.com/gtag/js?id=" + (cfg.ga4 || cfg.ads)); if (cfg.ga4) gtag("config", cfg.ga4, cfg.debug ? { debug_mode: true } : {}); if (cfg.ads) gtag("config", cfg.ads); }
+      if (cfg.gtm && !booted.gtm) { booted.gtm = 1; dataLayer.push({ "gtm.start": Date.now(), event: "gtm.js" }); load("https://www.googletagmanager.com/gtm.js?id=" + cfg.gtm); }
+      if (C.allowed("analytics")) {
+        if (cfg.clarity && !booted.clarity) { booted.clarity = 1; (function(c,l,a,r,i){ c[a]=c[a]||function(){ (c[a].q=c[a].q||[]).push(arguments); }; var t=l.createElement(r); t.async=1; t.src="https://www.clarity.ms/tag/"+i; var y=l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t,y); })(window, document, "clarity", "script", cfg.clarity); window.clarity("consent"); }
+        if (cfg.hotjar && !booted.hotjar) { booted.hotjar = 1; window.hj = window.hj || function(){ (hj.q = hj.q || []).push(arguments); }; window._hjSettings = { hjid: +cfg.hotjar, hjsv: 6 }; load("https://static.hotjar.com/c/hotjar-" + cfg.hotjar + ".js?sv=6"); }
+      }
+      if (C.allowed("marketing")) {
+        if (cfg.meta && !booted.meta) { booted.meta = 1; !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version="2.0";n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,"script","https://connect.facebook.net/en_US/fbevents.js"); fbq("init", cfg.meta); fbq("track", "PageView"); }
+        if (cfg.linkedin && !booted.li) { booted.li = 1; window._linkedin_partner_id = cfg.linkedin; window._linkedin_data_partner_ids = [cfg.linkedin]; window.lintrk = window.lintrk || function(a,b){ (window.lintrk.q = window.lintrk.q || []).push([a,b]); }; load("https://snap.licdn.com/li.lms-analytics/insight.min.js"); }
+        if (cfg.uet && !booted.uet) { booted.uet = 1; (function(w,d,t,r,u){ var f,n,i; w[u]=w[u]||[]; f=function(){ var o={ti:cfg.uet, enableAutoSpaTracking:true}; o.q=w[u]; w[u]=new UET(o); w[u].push("pageLoad"); }; n=d.createElement(t); n.src=r; n.async=1; n.onload=n.onreadystatechange=function(){ var s=this.readyState; s&&s!=="loaded"&&s!=="complete"||(f(),n.onload=n.onreadystatechange=null); }; i=d.getElementsByTagName(t)[0]; i.parentNode.insertBefore(n,i); })(window,document,"script","https://bat.bing.com/bat.js","uetq"); }
+        if (cfg.tiktok && !booted.tt) { booted.tt = 1; !function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"];ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.load=function(e){var i="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{};ttq._i[e]=[];ttq._t=ttq._t||{};ttq._t[e]=+new Date;var o=document.createElement("script");o.type="text/javascript";o.async=!0;o.src=i+"?sdkid="+e+"&lib="+t;var a=document.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};ttq.load(cfg.tiktok);ttq.page()}(window,document,"ttq"); }
+        if (cfg.hubspot && !booted.hs) { booted.hs = 1; load("https://js.hs-scripts.com/" + cfg.hubspot + ".js", { id: "hs-script-loader" }); }
+      }
+      // Custom code waiting for consent.
+      document.querySelectorAll("template[data-consent]").forEach(function (tp) {
+        if (tp.dataset.done || !C.allowed(tp.dataset.consent)) return;
+        tp.dataset.done = "1";
+        var frag = tp.content.cloneNode(true);
+        frag.querySelectorAll("script").forEach(function (old) { var s = document.createElement("script"); for (var i = 0; i < old.attributes.length; i++) s.setAttribute(old.attributes[i].name, old.attributes[i].value); s.text = old.text; old.replaceWith(s); });
+        tp.parentNode.insertBefore(frag, tp.nextSibling);
+      });
+    };
+    C.set = function (state) {
+      C.state = state;
+      try { localStorage.setItem("consent.v2", JSON.stringify(state)); localStorage.removeItem("consent.v1"); } catch (e) {}
+      gtag("consent", "update", consentObj());
+      gtag("set", "ads_data_redaction", !state.marketing);
+      if (window.clarity) window.clarity("consent", !!state.analytics);
+      if (window.fbq) fbq("consent", state.marketing ? "grant" : "revoke");
+      C.boot();
+    };
     // Load tags after the page is interactive so they never hold up the first paint.
-    if (document.readyState === "complete") setTimeout(boot, 1); else addEventListener("load", function(){ setTimeout(boot, 1); });
+    if (document.readyState === "complete") setTimeout(C.boot, 1); else addEventListener("load", function(){ setTimeout(C.boot, 1); });
   </script>
 )}
+{part === "head" && at("head").map((s) => <Fragment set:html={wrap(s)} />)}
+{part === "body_start" && at("body_start").map((s) => <Fragment set:html={wrap(s)} />)}
+{part === "body" && at("body_end").map((s) => <Fragment set:html={wrap(s)} />)}
 {part === "body" && needsBanner && (
   <div id="consent" class="consent" role="dialog" aria-live="polite" aria-label="Cookie preferences" hidden>
     <p>We use cookies to understand how our site is used and to improve it. <a href={cfg.policy}>Privacy policy</a></p>
+    <div class="cats" hidden>
+      <label><input type="checkbox" checked disabled /> Necessary</label>
+      <label><input type="checkbox" name="analytics" /> Analytics</label>
+      <label><input type="checkbox" name="marketing" /> Marketing</label>
+    </div>
     <div class="actions">
-      <button type="button" class="btn btn-secondary" data-c="denied">Decline</button>
-      <button type="button" class="btn btn-primary" data-c="granted">Accept</button>
+      <button type="button" class="linkish" data-c="prefs">Preferences</button>
+      <button type="button" class="btn btn-secondary" data-c="denied">Necessary only</button>
+      <button type="button" class="btn btn-primary" data-c="granted">Accept all</button>
     </div>
   </div>
+  <button type="button" id="consent-open" class="consent-open" hidden aria-label="Cookie preferences">Cookies</button>
 )}
 {part === "body" && needsBanner && (
   <script is:inline>
     (function(){
-      var cfg = window.__consent, el = document.getElementById("consent"); if (!el || !cfg) return;
-      var stored = null; try { stored = localStorage.getItem("consent.v1"); } catch (e) {}
-      if (stored) return;
-      var tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) {}
-      var europe = /^(Europe|Atlantic\/(Reykjavik|Canary|Madeira|Faroe))/.test(tz);
-      if (cfg.mode === "eu_only" && !europe) return;
-      if (cfg.mode === "notice") { el.querySelector('[data-c="denied"]').textContent = "Opt out"; el.querySelector('[data-c="granted"]').textContent = "OK"; }
-      el.hidden = false;
+      var C = window.__consent, el = document.getElementById("consent"), reopen = document.getElementById("consent-open"); if (!el || !C) return;
+      var cats = el.querySelector(".cats");
+      function show(){ el.hidden = false; reopen.hidden = true; var st = C.state || {}; cats.querySelector('[name="analytics"]').checked = !!st.analytics; cats.querySelector('[name="marketing"]').checked = !!st.marketing; }
+      function hide(){ el.hidden = true; reopen.hidden = false; }
+      var mustAsk = !C.state && (C.cfg.mode !== "eu_only" || C.europe);
+      if (C.cfg.mode === "notice") { el.querySelector('[data-c="denied"]').textContent = "Opt out"; el.querySelector('[data-c="granted"]').textContent = "OK"; }
+      if (mustAsk) show(); else if (C.state || C.cfg.mode !== "eu_only" || C.europe) reopen.hidden = false;
+      reopen.addEventListener("click", show);
       el.addEventListener("click", function(e){
         var v = e.target && e.target.getAttribute && e.target.getAttribute("data-c"); if (!v) return;
-        try { localStorage.setItem("consent.v1", v); } catch (x) {}
-        var g = v === "granted" ? "granted" : "denied";
-        window.gtag && gtag("consent", "update", { ad_storage: g, ad_user_data: g, ad_personalization: g, analytics_storage: g });
-        if (window.clarity) window.clarity("consent", v === "granted");
-        el.hidden = true;
+        if (v === "prefs") { if (cats.hidden) { cats.hidden = false; e.target.textContent = "Save choices"; return; } C.set({ analytics: cats.querySelector('[name="analytics"]').checked, marketing: cats.querySelector('[name="marketing"]').checked, preferences: true }); return hide(); }
+        var yes = v === "granted";
+        C.set({ analytics: yes, marketing: yes, preferences: yes });
+        hide();
       });
     })();
   </script>
 )}
+{part === "body" && (
+  <script is:inline define:vars={{ events: cfg.events, ads: cfg.ads, adsLabel: cfg.ads_label, li: cfg.linkedin }}>
+    (function(){
+      // Lead attribution: first and latest touch (UTM tags, ad click IDs, referrer, landing page), kept in this browser
+      // only and sent with a form or Site Assistant lead so Talentum shows where each lead came from.
+      try {
+        var p = new URLSearchParams(location.search), keys = ["utm_source","utm_medium","utm_campaign","utm_term","utm_content","gclid","gbraid","wbraid","fbclid","li_fat_id","msclkid","ttclid"];
+        var touch = {}, has = false;
+        keys.forEach(function(k){ var v = p.get(k); if (v) { touch[k] = v.slice(0, 200); has = true; } });
+        var ref = document.referrer && new URL(document.referrer).host !== location.host ? document.referrer.slice(0, 300) : "";
+        if (ref) { touch.referrer = ref; has = true; }
+        var store = JSON.parse(localStorage.getItem("tl_attr") || "{}");
+        if (has || !store.first) { touch.landing = location.pathname; touch.at = new Date().toISOString(); if (!store.first) store.first = touch; if (has) store.last = touch; localStorage.setItem("tl_attr", JSON.stringify(store)); }
+      } catch (e) {}
+      window.tlAttribution = function(){ try { var s = JSON.parse(localStorage.getItem("tl_attr") || "{}"); var t = s.last || s.first || {}; return Object.assign({}, t, { first_touch: s.first || null }); } catch (e) { return {}; } };
+      // One call for every conversion event: the data layer (GTM), GA4, and the ad pixels that are loaded.
+      window.tlEvent = function(name, params){
+        params = params || {};
+        try { dataLayer.push(Object.assign({ event: name }, params)); } catch (e) {}
+        if (window.gtag) gtag("event", name, params);
+        if (name === "generate_lead") {
+          if (ads && adsLabel && window.gtag) gtag("event", "conversion", { send_to: ads + "/" + adsLabel });
+          if (window.fbq) fbq("track", "Lead");
+          if (window.uetq) uetq.push("event", "submit_lead_form", {});
+          if (window.ttq) ttq.track("SubmitForm");
+          if (window.lintrk && params.li_conversion) lintrk("track", { conversion_id: params.li_conversion });
+        } else if (window.fbq && name === "booking_click") fbq("track", "Schedule");
+      };
+      if (!events) return;
+      document.addEventListener("click", function(e){
+        var a = e.target && e.target.closest && e.target.closest("a,button"); if (!a) return;
+        var href = a.getAttribute("href") || "";
+        if (/^tel:/.test(href)) return tlEvent("contact_click", { method: "phone" });
+        if (/^mailto:/.test(href)) return tlEvent("contact_click", { method: "email" });
+        if (a.hasAttribute("data-booking")) return tlEvent("booking_click", { link_url: href });
+        if (/^https?:/i.test(href) && a.host !== location.host) tlEvent("click_outbound", { link_url: href.slice(0, 200) });
+        if (a.classList.contains("btn") || a.hasAttribute("data-cta")) tlEvent("cta_click", { label: (a.textContent || "").trim().slice(0, 80), link_url: href.slice(0, 200), page: location.pathname });
+      }, { passive: true });
+      var depth = 0;
+      addEventListener("scroll", function(){
+        var h = document.documentElement, pct = (h.scrollTop + innerHeight) / h.scrollHeight;
+        [50, 90].forEach(function(m){ if (pct * 100 >= m && depth < m) { depth = m; tlEvent("scroll_depth", { percent: m }); } });
+      }, { passive: true });
+    })();
+  </script>
+)}
 <style>
-  .consent { position: fixed; z-index: 70; left: 1rem; right: 1rem; bottom: 1rem; max-width: 34rem; margin-left: auto; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 20px 50px rgba(5,11,31,.2); padding: 1.1rem 1.25rem; font-size: .92rem; }
+  .consent { position: fixed; z-index: 70; left: 1rem; right: 1rem; bottom: 1rem; max-width: 36rem; margin-right: auto; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 20px 50px rgba(5,11,31,.2); padding: 1.1rem 1.25rem; font-size: .92rem; }
   .consent p { margin: 0 0 .9rem; }
-  .actions { display: flex; gap: .6rem; justify-content: flex-end; }
+  .cats { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; margin: 0 0 .9rem; }
+  .cats label { display: flex; align-items: center; gap: .4rem; font-weight: 600; }
+  .actions { display: flex; flex-wrap: wrap; gap: .6rem; justify-content: flex-end; align-items: center; }
   .actions .btn { min-height: 40px; padding: .55rem 1rem; }
+  .linkish { background: none; border: 0; color: var(--link, inherit); text-decoration: underline; cursor: pointer; font: inherit; margin-right: auto; padding: .4rem 0; }
+  .consent-open { position: fixed; z-index: 55; left: 12px; bottom: 12px; font: 600 11px/1 var(--font-body); padding: 6px 8px; border-radius: 4px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; opacity: .8; }
+  :global(html:has(.staging-flag)) .consent-open { bottom: 44px; }
 </style>

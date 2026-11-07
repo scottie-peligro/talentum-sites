@@ -1,0 +1,109 @@
+---
+// The Site Assistant (Website → Settings → Site Assistant). A small button; nothing else loads until it's clicked.
+// Answers come from functions/api/assistant.js, using only this site's published content. When a visitor wants to
+// talk to someone it offers the booking link and a short contact form (→ /api/forms/assistant → a Request in Talentum
+// with the conversation attached).
+import { settings, site } from "../lib/content";
+const a = settings.assistant || {};
+const cfg = {
+  name: a.name || "Ask us",
+  greeting: a.greeting || `Hi! I can answer questions about ${settings.org?.name || site.name} and what we do. What would you like to know?`,
+  booking: a.booking_url || "", bookingLabel: a.booking_label || "Book a call",
+  leads: a.collect_leads !== false, ts: settings.forms?.turnstile_site_key || "",
+};
+const { path = "/" } = Astro.props as { path?: string };
+---
+{a.enabled && (
+  <>
+    <button type="button" class="sa-open" id="sa-open" aria-haspopup="dialog" aria-controls="sa"><span aria-hidden="true">💬</span> {cfg.name}</button>
+    <div class="sa" id="sa" role="dialog" aria-label={cfg.name} hidden>
+      <header><strong>{cfg.name}</strong><button type="button" class="sa-x" aria-label="Close">×</button></header>
+      <ol class="sa-log" aria-live="polite"></ol>
+      <form class="sa-lead" hidden>
+        <p>Leave your details and we'll get back to you.</p>
+        <input name="name" placeholder="Name" autocomplete="name" required />
+        <input name="email" type="email" placeholder="Email" autocomplete="email" required />
+        <input name="phone" type="tel" placeholder="Phone (optional)" autocomplete="tel" />
+        <input name="_hp" class="sa-hp" tabindex="-1" autocomplete="off" aria-hidden="true" />
+        <button class="btn btn-primary" type="submit">Send</button>
+      </form>
+      <div class="sa-actions">
+        {cfg.booking && <a class="btn btn-secondary sa-book" href={cfg.booking} target="_blank" rel="noopener" data-booking hidden>{cfg.bookingLabel}</a>}
+        {cfg.leads && <button type="button" class="linkish sa-talk">Talk to a person</button>}
+      </div>
+      <form class="sa-ask"><input name="q" placeholder="Type your question…" autocomplete="off" maxlength="600" aria-label="Your question" /><button type="submit" aria-label="Send">➤</button></form>
+      <p class="sa-note">Answers come from this website and may not cover everything.</p>
+    </div>
+    <script is:inline define:vars={{ cfg, path }}>
+      (function(){
+        var open = document.getElementById("sa-open"), box = document.getElementById("sa"); if (!open || !box) return;
+        var log = box.querySelector(".sa-log"), ask = box.querySelector(".sa-ask"), lead = box.querySelector(".sa-lead"), book = box.querySelector(".sa-book"), talk = box.querySelector(".sa-talk");
+        var msgs = [], started = Date.now(), busy = false;
+        function add(role, text, sources){
+          var li = document.createElement("li"); li.className = "sa-" + role; li.textContent = text;
+          if (sources && sources.length) { var s = document.createElement("span"); s.className = "sa-src"; sources.forEach(function(x){ var a = document.createElement("a"); a.href = x.url; a.textContent = x.title; s.appendChild(a); }); li.appendChild(s); }
+          log.appendChild(li); log.scrollTop = log.scrollHeight; return li;
+        }
+        function show(){ box.hidden = false; open.hidden = true; if (!msgs.length && !log.children.length) add("assistant", cfg.greeting); ask.q.focus(); window.tlEvent && tlEvent("assistant_open", {}); }
+        open.addEventListener("click", show);
+        box.querySelector(".sa-x").addEventListener("click", function(){ box.hidden = true; open.hidden = false; open.focus(); });
+        if (talk) talk.addEventListener("click", function(){ lead.hidden = false; lead.name.focus(); });
+        ask.addEventListener("submit", async function(e){
+          e.preventDefault(); var q = ask.q.value.trim(); if (!q || busy) return;
+          busy = true; ask.q.value = ""; add("user", q); msgs.push({ role: "user", text: q });
+          var wait = add("assistant", "…"); wait.classList.add("sa-wait");
+          try {
+            var r = await fetch("/api/assistant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: msgs, page: path }) });
+            var j = await r.json(); wait.remove();
+            var text = j.reply || j.error || "Sorry — something went wrong.";
+            add("assistant", text, j.sources); msgs.push({ role: "assistant", text: text });
+            if (j.show_booking && book) book.hidden = false;
+            if (j.ask_contact && cfg.leads) lead.hidden = false;
+          } catch (x) { wait.remove(); add("assistant", "Sorry — I couldn't connect. Please try again."); }
+          busy = false;
+        });
+        lead.addEventListener("submit", async function(e){
+          e.preventDefault(); var btn = lead.querySelector("button"); btn.disabled = true;
+          var d = { name: lead.name.value, email: lead.email.value, phone: lead.phone.value, _hp: lead._hp.value, _t: started, _kind: "assistant", _form_name: "Site Assistant", _page: path,
+            message: msgs.filter(function(m){ return m.role === "user"; }).map(function(m){ return m.text; }).join("\n").slice(0, 3000),
+            _transcript: msgs, _attr: window.tlAttribution ? tlAttribution() : {} };
+          try {
+            var r = await fetch("/api/forms/assistant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) });
+            if (!r.ok) throw new Error((await r.json()).error || r.status);
+            lead.hidden = true; add("assistant", "Thanks, " + (d.name.split(" ")[0] || "") + " — we've got your details and someone will be in touch soon.");
+            window.tlEvent && tlEvent("generate_lead", { form: "assistant" });
+          } catch (x) { btn.disabled = false; add("assistant", String(x.message || "That didn't send — please try again.")); }
+        });
+      })();
+    </script>
+  </>
+)}
+<style>
+  .sa-open { position: fixed; z-index: 65; right: 16px; bottom: 16px; display: flex; gap: .45rem; align-items: center; border: 0; border-radius: 999px; padding: .75rem 1.1rem; font: 700 .95rem/1 var(--font-body); background: var(--accent); color: #fff; box-shadow: 0 10px 30px rgba(5,11,31,.25); cursor: pointer; }
+  @media (max-width: 719px) { :global(html:has(#consent:not([hidden]))) .sa-open { display: none; } }
+  @media (min-width: 720px) { :global(html:has(#consent:not([hidden]))) .sa-open { bottom: 16px; } }
+  .sa-open:hover { background: var(--accent-hover, var(--accent)); }
+  .sa { position: fixed; z-index: 66; right: 16px; bottom: 16px; width: min(380px, calc(100vw - 32px)); height: min(560px, calc(100vh - 32px)); display: flex; flex-direction: column; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 24px 60px rgba(5,11,31,.3); overflow: hidden; font-size: .93rem; }
+  .sa[hidden] { display: none; }
+  .sa header { display: flex; justify-content: space-between; align-items: center; padding: .8rem 1rem; background: var(--dark, #0b1533); color: #fff; }
+  .sa-x { background: none; border: 0; color: #fff; font-size: 1.5rem; line-height: 1; cursor: pointer; }
+  .sa-log { list-style: none; margin: 0; padding: 1rem; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: .6rem; }
+  .sa-log li { max-width: 88%; padding: .6rem .8rem; border-radius: 12px; white-space: pre-wrap; }
+  .sa-assistant { background: var(--paper, #f3f4f6); align-self: flex-start; }
+  .sa-user { background: var(--accent); color: #fff; align-self: flex-end; }
+  .sa-wait { opacity: .6; }
+  .sa-src { display: flex; flex-wrap: wrap; gap: .3rem .6rem; margin-top: .45rem; font-size: .8rem; }
+  .sa-src a { color: var(--link, inherit); }
+  .sa-lead { display: grid; gap: .45rem; padding: .75rem 1rem; border-top: 1px solid var(--line); }
+  .sa-lead[hidden] { display: none; }
+  .sa-lead p { margin: 0; font-weight: 600; }
+  .sa-lead input, .sa-ask input { width: 100%; font: inherit; padding: .55rem .7rem; border: 1px solid var(--line-strong, #ccc); border-radius: var(--radius-sm, 6px); background: var(--surface); color: var(--text); }
+  .sa-hp { position: absolute; left: -9999px; width: 1px; height: 1px; }
+  .sa-actions { display: flex; gap: .75rem; align-items: center; padding: 0 1rem; }
+  .sa-actions:empty { display: none; }
+  .sa-actions .btn { min-height: 36px; padding: .45rem .9rem; font-size: .88rem; }
+  .linkish { background: none; border: 0; color: var(--link, inherit); text-decoration: underline; cursor: pointer; font: inherit; padding: .5rem 0; }
+  .sa-ask { display: flex; gap: .4rem; padding: .75rem 1rem .4rem; }
+  .sa-ask button { border: 0; border-radius: var(--radius-sm, 6px); background: var(--accent); color: #fff; padding: 0 .9rem; cursor: pointer; }
+  .sa-note { margin: 0; padding: 0 1rem .7rem; font-size: .72rem; color: var(--muted); }
+</style>

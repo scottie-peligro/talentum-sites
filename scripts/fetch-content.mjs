@@ -26,7 +26,8 @@ if (process.env.BUNDLE_FILE) {
   if (process.env.BUILDER_SECRET) headers["X-Builder-Secret"] = process.env.BUILDER_SECRET;
   else if (process.env.SITE_TOKEN) headers.Authorization = "Bearer " + process.env.SITE_TOKEN;
   else { console.error("Set BUILDER_SECRET or SITE_TOKEN."); process.exit(1); }
-  const res = await fetch(`${PB}/api/site/${encodeURIComponent(KEY)}/bundle?env=${ENV}`, { headers });
+  const preview = process.env.PREVIEW_TOKEN ? `&preview=${encodeURIComponent(process.env.PREVIEW_TOKEN)}` : "";
+  const res = await fetch(`${PB}/api/site/${encodeURIComponent(KEY)}/bundle?env=${ENV}${preview}`, { headers });
   if (!res.ok) { console.error(`Bundle request failed: ${res.status} ${await res.text()}`); process.exit(1); }
   bundle = await res.json();
 }

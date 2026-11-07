@@ -1,0 +1,71 @@
+---
+// Outside data (Website → Data sources): the latest snapshot Talentum fetched, baked into the page at build time —
+// fast, and readable by search engines. Layouts: table, cards, list, stats.
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import { bundle, escape, type Block } from "../lib/content";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const src = (bundle as any).data?.[d.source] as { name: string; fields: { key: string; label: string; type?: string }[]; items: Record<string, any>[]; fetched: string } | undefined;
+const items = (src?.items || []).slice(0, Number(d.limit) || 50);
+const fields = src?.fields?.length ? src.fields : Object.keys(items[0] || {}).map((k) => ({ key: k, label: k, type: "text" }));
+const cols = (Array.isArray(d.columns) && d.columns.length ? fields.filter((f) => d.columns.includes(f.key)) : fields).slice(0, 8);
+const val = (it: Record<string, any>, k?: string) => (k ? it[k] ?? "" : "");
+const fmt = (v: any, type?: string) => {
+  if (v === null || v === undefined) return "";
+  if (type === "number" && !isNaN(+v)) return Number(v).toLocaleString("en-US");
+  if (type === "date" && v) { const dt = new Date(v); return isNaN(+dt) ? String(v) : dt.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" }); }
+  return String(v);
+};
+const layout = d.layout || "table";
+const typeOf = (k?: string) => fields.find((f) => f.key === k)?.type;
+---
+{src && items.length > 0 && (
+  <Section bg={d.background} id={d.anchor}>
+    <div class="wrap">
+      <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
+      {layout === "table" && (
+        <div class="tbl"><table>
+          <thead><tr>{cols.map((c) => <th scope="col">{c.label}</th>)}</tr></thead>
+          <tbody>{items.map((it) => <tr>{cols.map((c) => <td>{c.type === "url" && val(it, c.key) ? <a href={val(it, c.key)} rel="noopener">{d.link_text || "View"}</a> : fmt(val(it, c.key), c.type)}</td>)}</tr>)}</tbody>
+        </table></div>
+      )}
+      {layout === "cards" && (
+        <div class="grid cols-3">
+          {items.map((it) => {
+            const link = val(it, d.link_field);
+            const Tag = link ? "a" : "div";
+            return (
+              <Tag class="card dcard" href={link || undefined} rel={link ? "noopener" : undefined}>
+                {d.image_field && val(it, d.image_field) && <img src={val(it, d.image_field)} alt="" loading="lazy" decoding="async" />}
+                <h3>{fmt(val(it, d.title_field || cols[0]?.key), typeOf(d.title_field))}</h3>
+                {d.meta_field && <p class="meta">{fmt(val(it, d.meta_field), typeOf(d.meta_field))}</p>}
+                {d.text_field && <p>{fmt(val(it, d.text_field), typeOf(d.text_field))}</p>}
+              </Tag>
+            );
+          })}
+        </div>
+      )}
+      {layout === "list" && (
+        <ul class="dlist">{items.map((it) => { const link = val(it, d.link_field); const t = fmt(val(it, d.title_field || cols[0]?.key)); return <li>{link ? <a href={link} rel="noopener">{t}</a> : t}{d.meta_field && <span class="meta"> · {fmt(val(it, d.meta_field), typeOf(d.meta_field))}</span>}</li>; })}</ul>
+      )}
+      {layout === "stats" && (
+        <dl class="grid cols-4 dstats">{items.slice(0, 8).map((it) => <div><dt>{fmt(val(it, d.label_field || cols[0]?.key))}</dt><dd>{fmt(val(it, d.value_field || cols[1]?.key), typeOf(d.value_field || cols[1]?.key))}</dd></div>)}</dl>
+      )}
+      {d.show_source !== false && <p class="src">Source: {d.source_label || src.name}{src.fetched ? `, updated ${fmt(src.fetched, "date")}` : ""}</p>}
+    </div>
+  </Section>
+)}
+<style>
+  .tbl { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  th, td { text-align: left; padding: .65rem .75rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .dcard { display: block; text-decoration: none; color: inherit; }
+  .dcard img { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: var(--radius-sm); margin-bottom: .8rem; }
+  .dcard h3 { margin: 0 0 .4rem; font-size: 1.1rem; }
+  .meta { color: var(--muted); font-size: .88rem; }
+  .dlist { padding-left: 1.2rem; } .dlist li + li { margin-top: .45rem; }
+  .dstats { margin: 0; } .dstats dt { font-size: .8rem; color: var(--muted); } .dstats dd { margin: .25rem 0 0; font: 800 2rem/1.1 var(--font-heading); color: var(--heading); }
+  .src { margin-top: 1rem; font-size: .8rem; color: var(--muted); }
+</style>

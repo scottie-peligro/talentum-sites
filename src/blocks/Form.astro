@@ -1,13 +1,15 @@
 ---
 import Email from "../components/Email.astro";
-// Contact form. Submissions go to the site's form endpoint (the Cloudflare Worker → Talentum Requests, phase 8).
-// Until that's switched on, the form shows the site's email and phone instead, so nothing is ever lost.
+// Contact form. Entries post to the site's own /api/forms/<key> (functions/api/forms/[form].js), wait in Cloudflare D1,
+// and Talentum turns them into Requests with the visitor's source attached. Until Cloudflare is connected for the
+// site, the block shows the site's email and phone instead, so nothing is ever lost.
 import Section from "../components/Section.astro";
 import Heading from "../components/Heading.astro";
 import { settings, type Block } from "../lib/content";
 const { block } = Astro.props as { block: Block };
 const d = block.data || {};
-const endpoint: string = settings.forms?.endpoint || "";
+const endpoint: string = settings.forms?.endpoint || (settings.forms?.enabled ? "/api/forms" : "");
+const turnstile: string = settings.forms?.turnstile_site_key || "";
 const key = d.form_key || "contact";
 const o = settings.org || {};
 const fields = (d.fields?.length ? d.fields : [
@@ -23,7 +25,7 @@ const ac: Record<string, string> = { name: "name", email: "email", company: "org
   <div class="wrap form-wrap">
     <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
     {endpoint ? (
-      <form class="card form" method="post" action={`${endpoint.replace(/\/+$/, "")}/${key}`} data-form={key}>
+      <form class="card form" method="post" action={`${endpoint.replace(/\/+$/, "")}/${key}`} data-form={key} data-name={d.heading || ""}>
         {fields.map((f) => (
           <label class={f.type === "textarea" ? "full" : ""}>
             <span>{f.label}{f.required && <em aria-hidden="true"> *</em>}</span>
@@ -34,9 +36,12 @@ const ac: Record<string, string> = { name: "name", email: "email", company: "org
         ))}
         <input type="text" name="_hp" tabindex="-1" autocomplete="off" class="hp" aria-hidden="true" />
         <input type="hidden" name="_page" value={Astro.url.pathname} />
+        <input type="hidden" name="_form_name" value={d.form_name || d.heading || "Website form"} />
+        <input type="hidden" name="_t" value="" />
+        {turnstile && <div class="full cf-turnstile" data-sitekey={turnstile} data-size="flexible"></div>}
         <div class="full"><button class="btn btn-primary" type="submit">{d.submit_label || "Send"}</button></div>
         <p class="full ok" hidden role="status">{d.success || "Thanks — we'll be in touch shortly."}</p>
-        <p class="full bad" hidden role="alert">Sorry — that didn't send. Please try again{o.email ? <> or email <Email email={o.email} /></> : null}.</p>
+        <p class="full bad" hidden role="alert"><span class="msg">Sorry — that didn't send. Please try again</span>{o.email ? <> or email <Email email={o.email} /></> : null}.</p>
       </form>
     ) : (
       <div class="card alt">
@@ -49,20 +54,33 @@ const ac: Record<string, string> = { name: "name", email: "email", company: "org
     )}
   </div>
 </Section>
+{endpoint && turnstile && <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>}
 {endpoint && (
   <script is:inline>
-    document.querySelectorAll("form[data-form]").forEach((f) => f.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const btn = f.querySelector("button[type=submit]"); btn.disabled = true;
-      const data = Object.fromEntries(new FormData(f));
-      try { const p = new URLSearchParams(location.search); ["utm_source","utm_medium","utm_campaign","utm_term","utm_content","gclid","fbclid"].forEach((k) => { if (p.get(k)) data[k] = p.get(k); }); data._referrer = document.referrer; } catch (x) {}
-      try {
-        const r = await fetch(f.action, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-        if (!r.ok) throw new Error(String(r.status));
-        f.querySelectorAll("label, .full:not(.ok)").forEach((x) => x.remove()); f.querySelector(".ok").hidden = false;
-        window.gtag && gtag("event", "generate_lead", { form: f.dataset.form });
-      } catch (x) { btn.disabled = false; f.querySelector(".bad").hidden = false; }
-    }));
+    document.querySelectorAll("form[data-form]").forEach((f) => {
+      f.elements._t.value = String(Date.now());
+      // No-script fallback came back with ?sent=1 / ?error=1.
+      const q = new URLSearchParams(location.search);
+      const done = () => { f.querySelectorAll("label, .full:not(.ok), .cf-turnstile").forEach((x) => x.remove()); f.querySelector(".ok").hidden = false; };
+      if (q.get("sent")) done(); else if (q.get("error")) f.querySelector(".bad").hidden = false;
+      f.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = f.querySelector("button[type=submit]"); btn.disabled = true;
+        const bad = f.querySelector(".bad"); bad.hidden = true;
+        const data = Object.fromEntries(new FormData(f));
+        data._attr = window.tlAttribution ? tlAttribution() : { referrer: document.referrer };
+        try {
+          const r = await fetch(f.action, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+          if (!r.ok) { let m = ""; try { m = (await r.json()).error || ""; } catch (x) {} throw new Error(m || String(r.status)); }
+          done();
+          window.tlEvent && tlEvent("generate_lead", { form: f.dataset.form, form_name: data._form_name });
+        } catch (x) {
+          btn.disabled = false; bad.hidden = false;
+          if (x && x.message && !/^\d+$/.test(x.message)) bad.querySelector(".msg").textContent = x.message.replace(/[.!]\s*$/, "");
+          if (window.turnstile) try { turnstile.reset(); } catch (y) {}
+        }
+      });
+    });
   </script>
 )}
 <style>
