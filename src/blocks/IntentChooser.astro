@@ -1,0 +1,63 @@
+---
+// "What brings you here?" — big choices that send each kind of visitor down their own path. With "remember" on, a
+// returning visitor sees a one-line "Continue: …" link to the path they picked last time (stored in their browser).
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import Icon from "../components/next/Icon.astro";
+import VideoButton from "../components/next/VideoButton.astro";
+import { overviewVideo } from "../lib/next";
+import { href, type Block } from "../lib/content";
+const { block, first = false, entry } = Astro.props as { block: Block; first?: boolean; entry?: any };
+const video = first ? overviewVideo(entry) : null;
+const d = block.data || {};
+const items = (d.items || []).filter((x: any) => x && x.title);
+const remember = d.remember !== false;
+---
+{items.length > 0 && (
+  <Section bg={d.background || "white"} id={d.anchor} class="intent" label={d.heading || "Choose your path"}>
+    <div class="wrap">
+      <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} level={first ? 1 : 2} center={d.align === "center"} />
+      {video && <div class={d.align === "center" ? "center" : ""}><VideoButton video={video} transcript /></div>}
+      {remember && <p class="int-back" hidden><a href="#"><Icon name="arrow" size={16} /> <span></span></a></p>}
+      <ul class={`int-grid n${Math.min(items.length, 4)}`} data-intent={remember ? block.id : undefined}>
+        {items.map((it: any, i: number) => (
+          <li><a class="int-card" href={href(it.href)} data-i={i} data-label={it.title}>
+            <span class="int-ic"><Icon name={it.icon || "arrow"} size={22} /></span>
+            <span class="int-t">{it.title}</span>
+            {it.text && <span class="int-d">{it.text}</span>}
+            <span class="int-go" aria-hidden="true"><Icon name="arrow" size={18} /></span>
+          </a></li>
+        ))}
+      </ul>
+    </div>
+  </Section>
+)}
+{remember && (
+  <script is:inline>
+    document.querySelectorAll("[data-intent]").forEach((g) => {
+      const K = "intent." + g.dataset.intent; let last = null; try { last = JSON.parse(localStorage.getItem(K) || "null"); } catch (e) {}
+      const back = g.parentElement.querySelector(".int-back");
+      if (last && last.href && back) { const a = back.querySelector("a"); a.href = last.href; a.querySelector("span").textContent = "Welcome back. Continue: " + last.label; back.hidden = false; }
+      g.addEventListener("click", (e) => { const a = e.target.closest("a.int-card"); if (!a) return;
+        try { localStorage.setItem(K, JSON.stringify({ href: a.getAttribute("href"), label: a.dataset.label })); } catch (x) {}
+        window.tlEvent && tlEvent("intent_choice", { choice: a.dataset.label }); });
+    });
+  </script>
+)}
+<style>
+  .int-grid { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); }
+  .int-card { position: relative; display: flex; flex-direction: column; gap: .5rem; height: 100%; padding: clamp(1.25rem, 2.5vw, 1.75rem); padding-right: 3rem; border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--text); text-decoration: none; transition: border-color .15s ease, background-color .15s ease; }
+  .int-card:hover { border-color: var(--accent); color: var(--text); }
+  .bg-dark .int-card { background: var(--dark-card); border-color: var(--on-dark-line); }
+  .bg-dark .int-card:hover { border-color: var(--accent); }
+  .int-ic { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent-text); margin-bottom: .35rem; }
+  .bg-dark .int-ic { color: #fff; background: color-mix(in srgb, var(--accent) 45%, transparent); }
+  .int-t { font: 700 1.2rem/1.25 var(--font-heading); color: var(--heading); }
+  .int-d { color: var(--muted); font-size: .95rem; }
+  .int-go { position: absolute; right: 1.1rem; top: 1.4rem; color: var(--accent-text); transition: transform .15s ease; }
+  .bg-dark .int-go { color: #fff; }
+  .int-card:hover .int-go { transform: translateX(3px); }
+  .int-back { margin: -.5rem 0 1.25rem; }
+  .int-back a { display: inline-flex; gap: .4rem; align-items: center; font-weight: 600; }
+  .head.center + .int-back, .head.center ~ .int-back { text-align: center; }
+</style>

@@ -1,0 +1,43 @@
+---
+// Wide screens only (shown by CSS): the right-hand rail — the page's overview video, "On this page" (filled from the
+// page's headings), and a contact card. On ultrawide screens a left rail repeats the main menu as a list.
+import Icon from "./Icon.astro";
+import VideoButton from "./VideoButton.astro";
+import Email from "../Email.astro";
+import { bundle, settings, menuHref, href } from "../../lib/content";
+import type { VideoInfo } from "../../lib/next";
+const { side, path, video } = Astro.props as { side: "left" | "right"; path: string; video?: VideoInfo | null };
+const items = bundle.menus?.header || [];
+const cta = settings.header_cta || {};
+const o = settings.org || {};
+const on = (h: string) => h !== "/" && h !== "#" && path.startsWith(h);
+---
+{side === "left" ? (
+  <aside class="nx-rail nx-rail-l" aria-label="Sections">
+    <nav>
+      <ul>
+        {items.map((it) => (
+          <li>
+            <a href={menuHref(it)} class={on(menuHref(it)) ? "on" : ""}>{it.label}</a>
+            {it.children?.length > 0 && on(menuHref(it)) && <ul>{it.children.map((ch) => <li><a href={menuHref(ch)} class={path === menuHref(ch) ? "on" : ""}>{ch.label}</a></li>)}</ul>}
+          </li>
+        ))}
+      </ul>
+    </nav>
+  </aside>
+) : (
+  <aside class="nx-rail nx-rail-r" aria-label="About this page">
+    <div class="nx-rail-in">
+      {video && <VideoButton video={video} variant="card" />}
+      <nav class="nx-toc" aria-label="On this page" hidden><p class="eyebrow">On this page</p><ol></ol></nav>
+      {(cta.label || o.phone || o.email) && (
+        <div class="nx-talk">
+          <p class="eyebrow">Talk to us</p>
+          {cta.label && <a class="btn btn-primary" href={href(cta.url)} data-cta="rail">{cta.label} <Icon name="arrow" size={16} /></a>}
+          {o.phone && <a class="nx-line" href={`tel:${String(o.phone).replace(/[^\d+]/g, "")}`}>{o.phone}</a>}
+          {o.email && <span class="nx-line"><Email email={o.email} /></span>}
+        </div>
+      )}
+    </div>
+  </aside>
+)}

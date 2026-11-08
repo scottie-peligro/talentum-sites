@@ -2,8 +2,11 @@
 // Title band for entries that don't start with a Hero block.
 import Buttons from "./Buttons.astro";
 import Crumbs from "./Crumbs.astro";
+import VideoButton from "./next/VideoButton.astro";
+import { overviewVideo } from "../lib/next";
 import { rich, type Entry, type Link } from "../lib/content";
 const { entry, eyebrow, text, buttons, tone = "dark" } = Astro.props as { entry: Entry; eyebrow?: string; text?: string; buttons?: Link[]; tone?: string };
+const video = overviewVideo(entry);
 ---
 <section class={`ph bg-${tone}`}>
   <div class="wrap">
@@ -12,6 +15,7 @@ const { entry, eyebrow, text, buttons, tone = "dark" } = Astro.props as { entry:
     <h1>{entry.title}</h1>
     {text && <div class="lede" set:html={rich(text)} />}
     <Buttons buttons={buttons} />
+    {video && <VideoButton video={video} transcript />}
     <slot />
   </div>
 </section>

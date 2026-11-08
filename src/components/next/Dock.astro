@@ -1,0 +1,34 @@
+---
+// Phones and small tablets: a bottom bar within thumb reach (Home, two main sections, Contact, Menu), and the
+// full menu as a sheet that opens from it.
+import Icon from "./Icon.astro";
+import { bundle, settings, menuHref, href } from "../../lib/content";
+import { dockItems } from "../../lib/next";
+const { path } = Astro.props as { path: string };
+const items = dockItems();
+const all = bundle.menus?.header || [];
+const legal = bundle.menus?.legal || [];
+const cta = settings.header_cta || {};
+const on = (h: string) => (h === "/" ? path === "/" : h !== "#" && path.startsWith(h));
+---
+<nav class="nx-dock" aria-label="Quick links">
+  {items.map((it) => (
+    <a href={it.href} class={on(it.href) ? "on" : ""} aria-current={path === it.href ? "page" : undefined}><Icon name={it.icon} /><span>{it.label}</span></a>
+  ))}
+  <button type="button" data-open="nx-menu" aria-haspopup="dialog"><Icon name="menu" /><span>Menu</span></button>
+</nav>
+<dialog class="nx-sheet" id="nx-menu" aria-label="Menu">
+  <div class="nx-sheet-in">
+    <header><strong>Menu</strong><button type="button" class="nx-x" data-close aria-label="Close menu"><Icon name="close" /></button></header>
+    <ul class="nx-menu">
+      {all.map((it) => (
+        <li>
+          <a href={menuHref(it)} class={on(menuHref(it)) ? "on" : ""}>{it.label}</a>
+          {it.children?.length > 0 && <ul>{it.children.map((ch) => <li><a href={menuHref(ch)}>{ch.label}</a></li>)}</ul>}
+        </li>
+      ))}
+    </ul>
+    {cta.label && <a class="btn btn-primary nx-sheet-cta" href={href(cta.url)} data-cta="menu">{cta.label}</a>}
+    {legal.length > 0 && <p class="nx-legal">{legal.map((l) => <a href={menuHref(l)}>{l.label}</a>)}</p>}
+  </div>
+</dialog>

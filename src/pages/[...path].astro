@@ -11,7 +11,9 @@ import {
   proofFor, caseStudies, testimonialsFor, faqsFor, absolute, type Entry, type Block,
 } from "../lib/content";
 import { imageFile } from "../lib/images";
-import { pageTitle, pageDescription, ogImageId, schemaFor, faqSchema, visibleBlocks } from "../lib/seo";
+import { pageTitle, pageDescription, ogImageId, schemaFor, faqSchema, videoSchema, visibleBlocks } from "../lib/seo";
+import { overviewVideo } from "../lib/next";
+import VideoButton from "../components/next/VideoButton.astro";
 
 export function getStaticPaths() {
   return entries.map((e) => ({ params: { path: e.path === "/" ? undefined : e.path.replace(/^\/|\/$/g, "") }, props: { entry: e } }));
@@ -21,7 +23,8 @@ const { entry } = Astro.props as { entry: Entry };
 const e = entry;
 const blocks = visibleBlocks(e.blocks);
 const has = (t: string) => blocks.some((b) => b.type === t || (b.type === "section_ref" && (bundle.sections?.[b.data?.key] || []).some((x) => x.type === t)));
-const startsWithHero = blocks[0]?.type === "hero";
+const startsWithHero = blocks[0]?.type === "hero" || blocks[0]?.type === "intent_chooser";
+const video = overviewVideo(e);
 const globalCta = bundle.sections?.cta ? [{ id: "gcta", type: "section_ref", data: { key: "cta" } } as Block] : [];
 const ctaLink = settings.header_cta?.label ? [{ label: settings.header_cta.label, href: settings.header_cta.url }] : [];
 
@@ -40,14 +43,17 @@ const imgMedia = media(ogImageId(e));
 const imgFile = imageFile(imgMedia?.file);
 const schemaImage = imgFile ? absolute((await getImage({ src: imgFile, width: 1200, format: "jpg" })).src) : undefined;
 const faqItems = [...blocks, ...auto].filter((b) => b.type === "faq").flatMap((b) => resolveFaqs(b.data || {}, e));
-const schemas = [schemaFor(e, schemaImage), faqSchema(faqItems)].filter(Boolean) as object[];
+let videoThumb = video?.posterUrl || "";
+const vPoster = imageFile(media(video?.poster)?.file);
+if (vPoster) videoThumb = absolute((await getImage({ src: vPoster, width: 1280, format: "jpg" })).src);
+const schemas = [schemaFor(e, schemaImage), faqSchema(faqItems), video ? videoSchema(video, e, videoThumb || schemaImage) : null].filter(Boolean) as object[];
 
 const authors = (e.authors || []).map((id) => person(id)).filter(Boolean);
 const client = e.fields?.client_name || accountName(e.account);
 const csStats = e.type === "case_study" ? bundle.proof.filter((p) => p.case_study === e.id && p.kind === "stat").slice(0, 4) : [];
 ---
 <Base kind={e.type} title={pageTitle(e)} description={pageDescription(e)} path={e.path} image={ogImageId(e)} type={e.type === "post" || e.type === "case_study" ? "article" : "website"}
-  noindex={!!e.seo?.noindex} schema={schemas} published={e.type === "post" ? e.published_at : undefined} modified={e.type === "post" ? e.updated : undefined}>
+  noindex={!!e.seo?.noindex} schema={schemas} video={video} published={e.type === "post" ? e.published_at : undefined} modified={e.type === "post" ? e.updated : undefined}>
 
   {e.type === "post" ? (
     <article>
@@ -57,6 +63,7 @@ const csStats = e.type === "case_study" ? bundle.proof.filter((p) => p.case_stud
           <p class="eyebrow">{[category(e.categories[0])?.name || "Insights", formatDate(e.published_at), `${readingMinutes(e)} min read`].filter(Boolean).join(" · ")}</p>
           <h1>{e.title}</h1>
           {e.excerpt && <p class="lede">{e.excerpt}</p>}
+          {video && <VideoButton video={video} transcript />}
           {authors.length > 0 && (
             <p class="byline">
               {authors[0]!.photo_file && <Img file={authors[0]!.photo_file} alt="" cover aspect="1/1" class="av" sizes="40px" widths={[40, 80]} />}

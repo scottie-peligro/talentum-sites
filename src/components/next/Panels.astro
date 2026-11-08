@@ -1,0 +1,109 @@
+---
+// The comfort panel (text size, contrast, motion, readable font: saved in this browser, applied before paint by the
+// head script in Base.astro) and site search ("/" or Ctrl/⌘+K; the index loads the first time it's opened).
+import Icon from "./Icon.astro";
+import { comfortOn, searchOn } from "../../lib/next";
+import { settings } from "../../lib/content";
+const assistant = !!settings.assistant?.enabled;
+---
+{comfortOn && (
+  <dialog class="nx-panel" id="nx-comfort" aria-labelledby="nx-comfort-h">
+    <form method="dialog" class="nx-panel-in">
+      <header><strong id="nx-comfort-h">Reading comfort</strong><button class="nx-x" value="close" aria-label="Close"><Icon name="close" /></button></header>
+      <fieldset><legend>Text size</legend>
+        <div class="nx-seg">{[["0", "Default"], ["1", "Large"], ["2", "Larger"]].map(([v, l]) => <label><input type="radio" name="size" value={v} />{l}</label>)}</div>
+      </fieldset>
+      <fieldset><legend>Contrast</legend>
+        <div class="nx-seg">{[["0", "Standard"], ["1", "High"]].map(([v, l]) => <label><input type="radio" name="contrast" value={v} />{l}</label>)}</div>
+      </fieldset>
+      <fieldset><legend>Motion</legend>
+        <div class="nx-seg">{[["0", "Your device's setting"], ["1", "Reduce"]].map(([v, l]) => <label><input type="radio" name="motion" value={v} />{l}</label>)}</div>
+      </fieldset>
+      <fieldset><legend>Font</legend>
+        <div class="nx-seg">{[["0", "Site font"], ["1", "Easier to read"]].map(([v, l]) => <label><input type="radio" name="font" value={v} />{l}</label>)}</div>
+      </fieldset>
+      <p class="nx-note">Saved in this browser only. <button type="button" class="linkish" data-comfort-reset>Reset</button></p>
+    </form>
+  </dialog>
+)}
+{searchOn && (
+  <dialog class="nx-panel nx-find" id="nx-find" aria-label="Search this site">
+    <div class="nx-panel-in">
+      <div class="nx-q"><Icon name="search" /><input type="search" placeholder="Search services, case studies, insights…" aria-label="Search" autocomplete="off" aria-controls="nx-res" /><button type="button" class="nx-x" data-close aria-label="Close"><Icon name="close" /></button></div>
+      <ul class="nx-res" id="nx-res" role="listbox" aria-label="Results"></ul>
+      <p class="nx-note nx-empty" hidden>Nothing matched.{assistant && <> <button type="button" class="linkish" data-ask>Ask our assistant instead</button></>}</p>
+      <p class="nx-note nx-keys"><kbd>↑</kbd><kbd>↓</kbd> to move · <kbd>Enter</kbd> to open · <kbd>Esc</kbd> to close</p>
+    </div>
+  </dialog>
+)}
+<script is:inline>
+(() => {
+  const H = document.documentElement;
+  // Open/close any panel: [data-open="id"] buttons, [data-close] inside, click on the backdrop.
+  document.addEventListener("click", (e) => {
+    const o = e.target.closest("[data-open]");
+    if (o) { const d = document.getElementById(o.dataset.open); if (d && !d.open) { d.showModal(); if (d.id === "nx-find") find(); } return; }
+    const c = e.target.closest("[data-close]"); if (c) { c.closest("dialog").close(); return; }
+    if (e.target.matches("dialog.nx-panel, dialog.nx-sheet")) e.target.close();
+  });
+  // Esc closes whichever panel is open (not every browser does it for dialogs opened from a key press).
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { const o = document.querySelector("dialog.nx-panel[open], dialog.nx-sheet[open], dialog.ovd[open]"); if (o) { e.preventDefault(); o.close(); } } });
+  // Comfort
+  const cf = document.getElementById("nx-comfort");
+  if (cf) {
+    const K = "comfort.v1"; let s = {}; try { s = JSON.parse(localStorage.getItem(K) || "{}"); } catch (e) {}
+    const apply = () => { H.dataset.size = s.size || "0"; H.classList.toggle("c-hc", s.contrast === "1"); H.classList.toggle("c-rm", s.motion === "1"); H.classList.toggle("c-rf", s.font === "1"); };
+    const sync = () => cf.querySelectorAll("input").forEach((i) => { i.checked = (s[i.name] || "0") === i.value; });
+    sync();
+    cf.addEventListener("change", (e) => { s[e.target.name] = e.target.value; try { localStorage.setItem(K, JSON.stringify(s)); } catch (x) {} apply(); });
+    cf.querySelector("[data-comfort-reset]").addEventListener("click", () => { s = {}; try { localStorage.removeItem(K); } catch (x) {} apply(); sync(); });
+  }
+  // Search
+  const fd = document.getElementById("nx-find");
+  let idx = null, sel = 0;
+  function find() {
+    const q = fd.querySelector("input"); q.value = ""; q.focus(); render("");
+    if (!idx) fetch("/search-index.json").then((r) => r.json()).then((j) => { idx = j; render(q.value); }).catch(() => {});
+  }
+  const norm = (t) => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  function render(q) {
+    const ul = fd.querySelector(".nx-res"), empty = fd.querySelector(".nx-empty"); ul.textContent = ""; sel = 0;
+    if (!idx) return;
+    const words = norm(q).split(/\s+/).filter(Boolean);
+    const list = (words.length ? idx.map((p) => { const t = norm(p.t), b = norm(p.t + " " + p.k + " " + p.d + " " + (p.x || "")); let sc = 0;
+      for (const w of words) { if (!b.includes(w)) return null; sc += t.startsWith(w) ? 5 : t.includes(w) ? 3 : 1; } return [sc, p]; }).filter(Boolean).sort((a, b) => b[0] - a[0]).map((x) => x[1]) : idx.filter((p) => p.f)).slice(0, 8);
+    empty.hidden = !(words.length && !list.length);
+    list.forEach((p, i) => { const li = document.createElement("li"); li.setAttribute("role", "option"); li.setAttribute("aria-selected", String(i === 0));
+      const a = document.createElement("a"); a.href = p.p; const s = document.createElement("small"); s.textContent = p.k; const t = document.createElement("span"); t.textContent = p.t; a.append(s, t);
+      if (p.d) { const d = document.createElement("em"); d.textContent = p.d; a.append(d); } li.append(a); ul.append(li); });
+  }
+  if (fd) {
+    const q = fd.querySelector("input");
+    q.addEventListener("input", () => render(q.value));
+    q.addEventListener("keydown", (e) => {
+      const items = fd.querySelectorAll(".nx-res li"); if (!items.length) return;
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); items[sel].setAttribute("aria-selected", "false"); sel = (sel + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length; items[sel].setAttribute("aria-selected", "true"); items[sel].scrollIntoView({ block: "nearest" }); }
+      if (e.key === "Enter") { e.preventDefault(); items[sel].querySelector("a").click(); }
+    });
+    const ask = fd.querySelector("[data-ask]");
+    if (ask) ask.addEventListener("click", () => { fd.close(); const b = document.getElementById("sa-open"); if (b) b.click(); });
+    document.addEventListener("keydown", (e) => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable;
+      if ((e.key === "/" && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k")) { e.preventDefault(); if (!fd.open) { fd.showModal(); find(); } }
+    });
+  }
+  // "On this page" in the wide-screen rail, from the page's section headings. Only on screens wide enough to show it.
+  const toc = document.querySelector(".nx-toc");
+  if (toc && matchMedia("(min-width: 1500px)").matches) {
+    const hs = [...document.querySelectorAll("#main h2")].filter((h) => h.offsetParent && h.textContent.trim()).slice(0, 12);
+    if (hs.length >= 2) {
+      const ol = toc.querySelector("ol"), links = [];
+      hs.forEach((h, i) => { if (!h.id) h.id = (h.textContent.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50) || "s") + (document.getElementById(h.id) ? "-" + i : "");
+        const li = document.createElement("li"), a = document.createElement("a"); a.href = "#" + h.id; a.textContent = h.textContent.trim(); li.append(a); ol.append(li); links.push([h, a]); });
+      toc.hidden = false;
+      const io = new IntersectionObserver((es) => es.forEach((en) => { if (en.isIntersecting) links.forEach(([h, a]) => a.classList.toggle("on", h === en.target)); }), { rootMargin: "-20% 0px -70% 0px" });
+      links.forEach(([h]) => io.observe(h));
+    }
+  }
+})();
+</script>

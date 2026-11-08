@@ -3,7 +3,7 @@ import type { ImageMetadata } from "astro";
 
 const files = import.meta.glob<{ default: ImageMetadata }>("../media/*.{jpg,jpeg,png,webp,avif,gif,tif,tiff}", { eager: true });
 const svgs = import.meta.glob<string>("../media/*.svg", { eager: true, query: "?url", import: "default" });
-const other = import.meta.glob<string>("../media/*.{mp4,webm,pdf,ico}", { eager: true, query: "?url", import: "default" });
+const other = import.meta.glob<string>("../media/*.{mp4,webm,m4v,vtt,pdf,ico}", { eager: true, query: "?url", import: "default" });
 
 const byFile = new Map<string, ImageMetadata>();
 for (const [p, mod] of Object.entries(files)) byFile.set(p.split("/").pop()!, mod.default);

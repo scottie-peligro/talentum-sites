@@ -71,3 +71,18 @@ export function faqSchema(items: { question: string; answer: string }[]) {
 }
 
 export const visibleBlocks = (blocks: Block[] = []) => blocks.filter((b) => !b.hidden);
+
+/** VideoObject for a page's overview video. Google needs a name, a thumbnail and an upload date; the transcript lets
+ *  search engines and AI assistants read what the video says. */
+export function videoSchema(v: import("./next").VideoInfo, e: Entry, thumb?: string) {
+  if (!thumb) return null;
+  const node: any = {
+    "@context": "https://schema.org", "@type": "VideoObject", name: v.title, description: v.description || v.title,
+    thumbnailUrl: [thumb], uploadDate: v.uploaded, ...(v.duration ? { duration: `PT${Math.floor(v.duration / 60)}M${v.duration % 60}S` } : {}),
+    ...(v.file ? { contentUrl: absolute(v.file) } : v.embed ? { embedUrl: v.embed.split("?")[0] } : {}),
+    ...(v.transcript ? { transcript: truncate(plain(v.transcript), 5000) } : {}),
+    isPartOf: { "@id": absolute(e.path) + "#webpage" },
+  };
+  if (v.chapters.length) node.hasPart = v.chapters.map((c, i) => ({ "@type": "Clip", name: c.label, startOffset: c.at, ...(v.chapters[i + 1] ? { endOffset: v.chapters[i + 1].at } : v.duration ? { endOffset: v.duration } : {}), url: absolute(e.path) + "#t=" + c.at }));
+  return node;
+}

@@ -1,0 +1,61 @@
+---
+// The player for the page's overview video: a <dialog> filled only when opened (iframe or <video>), emptied on close
+// so playback stops. Chapters jump within the video. "Watched" is remembered in this browser only.
+import Icon from "./Icon.astro";
+import { clock, type VideoInfo } from "../../lib/next";
+const { video } = Astro.props as { video: VideoInfo };
+const data = { key: video.key, kind: video.kind, embed: video.embed, file: video.file, captions: video.captions, title: video.title };
+---
+<dialog class="ovd" id="ovd" aria-label={video.title}>
+  <div class="ovd-in">
+    <header><strong>{video.title}</strong><button type="button" class="ovd-x" aria-label="Close video"><Icon name="close" /></button></header>
+    <div class="ovd-frame" id="ovd-frame"></div>
+    {video.chapters.length > 0 && (
+      <ol class="ovd-ch" aria-label="Chapters">
+        {video.chapters.map((c) => <li><button type="button" data-at={c.at}><span>{clock(c.at)}</span>{c.label}</button></li>)}
+      </ol>
+    )}
+  </div>
+</dialog>
+<script type="application/json" id="ov-data" set:html={JSON.stringify(data).replace(/</g, "\\u003c")} />
+<script is:inline>
+(() => {
+  const d = document.getElementById("ovd"), fr = document.getElementById("ovd-frame");
+  let v; try { v = JSON.parse(document.getElementById("ov-data").textContent); } catch (e) { return; }
+  const K = "watched.v1"; let seen = []; try { seen = JSON.parse(localStorage.getItem(K) || "[]"); } catch (e) {}
+  const mark = () => document.querySelectorAll("[data-ov]").forEach((b) => b.classList.toggle("is-watched", seen.includes(v.key)));
+  mark();
+  const src = (at) => {
+    if (!at) return v.embed;
+    if (v.kind === "youtube") return v.embed + "&start=" + at;
+    if (v.kind === "vimeo") return v.embed + "#t=" + at + "s";
+    if (v.kind === "stream") return v.embed + "&startTime=" + at + "s";
+    if (v.kind === "wistia") return v.embed + "&time=" + at;
+    if (v.kind === "loom") return v.embed + "&t=" + at;
+    return v.embed;
+  };
+  const load = (at) => {
+    fr.textContent = "";
+    if (v.file) {
+      const el = document.createElement("video"); el.src = v.file; el.controls = true; el.autoplay = true; el.playsInline = true; el.preload = "auto";
+      if (v.captions) { const t = document.createElement("track"); t.kind = "captions"; t.src = v.captions; t.srclang = document.documentElement.lang.slice(0, 2) || "en"; t.label = "Captions"; t.default = true; el.appendChild(t); }
+      if (at) el.addEventListener("loadedmetadata", () => { el.currentTime = at; }, { once: true });
+      el.addEventListener("ended", watched);
+      fr.appendChild(el);
+    } else {
+      const f = document.createElement("iframe"); f.src = src(at); f.title = v.title; f.allow = "autoplay; fullscreen; picture-in-picture; encrypted-media"; f.allowFullscreen = true;
+      fr.appendChild(f);
+      setTimeout(watched, 20000);   // embedded players don't tell us when they end; 20s in counts as watched
+    }
+  };
+  function watched() { if (!seen.includes(v.key)) { seen.push(v.key); try { localStorage.setItem(K, JSON.stringify(seen.slice(-200))); } catch (e) {} mark(); } }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-ov]"); if (!b) return;
+    e.preventDefault(); load(0); d.showModal(); window.tlEvent && tlEvent("video_open", { video: v.title });
+  });
+  d.querySelectorAll("[data-at]").forEach((b) => b.addEventListener("click", () => load(Number(b.dataset.at) || 0)));
+  d.querySelector(".ovd-x").addEventListener("click", () => d.close());
+  d.addEventListener("click", (e) => { if (e.target === d) d.close(); });
+  d.addEventListener("close", () => { fr.textContent = ""; });
+})();
+</script>

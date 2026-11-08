@@ -25,6 +25,7 @@ import JobsList from "../blocks/JobsList.astro";
 import DataBlock from "../blocks/DataBlock.astro";
 import Pricing from "../blocks/Pricing.astro";
 import Misc from "../blocks/Misc.astro";
+import IntentChooser from "../blocks/IntentChooser.astro";
 import { bundle, type Block, type Entry } from "../lib/content";
 
 const { blocks = [], entry, depth = 0 } = Astro.props as { blocks?: Block[]; entry?: Entry; depth?: number };
@@ -33,7 +34,7 @@ const C: Record<string, any> = {
   service_groups: ServiceGroups, service_cards: ServiceCards, logo_strip: LogoStrip, stat_band: StatBand, results: Results,
   case_study_cards: CaseStudyCards, case_study_story: CaseStudyStory, testimonials: Testimonials, team_grid: TeamGrid,
   posts_list: PostsList, faq: Faq, cta: Cta, form: Form, comparison: Comparison, jobs_list: JobsList,
-  map: Misc, html: Misc, spacer: Misc, contact_details: Misc, data: DataBlock, pricing: Pricing,
+  map: Misc, html: Misc, spacer: Misc, contact_details: Misc, data: DataBlock, pricing: Pricing, intent_chooser: IntentChooser,
 };
 const shown = blocks.filter((b) => b && !b.hidden);
 ---

@@ -15,8 +15,9 @@ const s = bundle.site.settings || {};
 const a = s.analytics || {};
 const scriptSrc = ["'self'", "'unsafe-inline'"];
 const connectSrc = ["'self'"];
-const imgSrc = ["'self'", "data:", "https://i.ytimg.com"];
-const frameSrc = ["https://www.youtube-nocookie.com", "https://player.vimeo.com"];
+const imgSrc = ["'self'", "data:", "https://i.ytimg.com", "https://*.cloudflarestream.com", "https://videodelivery.net"];
+// Overview videos (New layout) and the Video block: YouTube, Vimeo, Cloudflare Stream, Loom, Wistia, HeyGen.
+const frameSrc = ["https://www.youtube-nocookie.com", "https://player.vimeo.com", "https://*.cloudflarestream.com", "https://iframe.videodelivery.net", "https://www.loom.com", "https://fast.wistia.net", "https://app.heygen.com"];
 if (a.ga4 || a.gtm) { scriptSrc.push("https://www.googletagmanager.com"); connectSrc.push("https://*.google-analytics.com", "https://*.analytics.google.com", "https://*.googletagmanager.com"); imgSrc.push("https://*.google-analytics.com", "https://*.googletagmanager.com"); }
 if (a.gtm) { frameSrc.push("https://www.googletagmanager.com"); }
 if (a.clarity) { scriptSrc.push("https://www.clarity.ms", "https://*.clarity.ms"); connectSrc.push("https://*.clarity.ms"); imgSrc.push("https://*.clarity.ms", "https://c.bing.com"); }
@@ -45,7 +46,7 @@ for (const d of (s.csp_extra || "").split(/\s+/).filter(Boolean)) { scriptSrc.pu
 // GTM can load anything the marketing team configures, so with GTM on the CSP only reports.
 const uniq = (l) => [...new Set(l)].join(" ");
 const csp = [`default-src 'self'`, `script-src ${uniq(scriptSrc)}`, `style-src 'self' 'unsafe-inline'`, `img-src ${uniq(imgSrc)}`, `font-src 'self' data:`,
-  `connect-src ${uniq(connectSrc)}`, `frame-src ${uniq(frameSrc)}`, `media-src 'self'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self' ${s.forms?.endpoint ? new URL(s.forms.endpoint).origin : ""}`.trim(), `frame-ancestors 'self'`].join("; ");
+  `connect-src ${uniq(connectSrc)}`, `frame-src ${uniq(frameSrc)}`, `media-src 'self' https:`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self' ${s.forms?.endpoint ? new URL(s.forms.endpoint).origin : ""}`.trim(), `frame-ancestors 'self'`].join("; ");
 
 const headers = [
   "/*",

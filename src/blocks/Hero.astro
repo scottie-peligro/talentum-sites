@@ -2,8 +2,11 @@
 // Hero: big heading, intro, buttons; dark (default), light or brand band; optional image beside it or behind it.
 import Img from "../components/Img.astro";
 import Buttons from "../components/Buttons.astro";
+import VideoButton from "../components/next/VideoButton.astro";
+import { overviewVideo } from "../lib/next";
 import { rich, type Block } from "../lib/content";
-const { block, first = false } = Astro.props as { block: Block; first?: boolean };
+const { block, first = false, entry } = Astro.props as { block: Block; first?: boolean; entry?: any };
+const video = first ? overviewVideo(entry) : null;
 const d = block.data || {};
 const tone = d.background || "dark";
 const layout = d.image ? (d.image_layout || "side") : "none";
@@ -17,6 +20,7 @@ const center = (d.align || (layout === "side" ? "left" : "center")) === "center"
       {first ? <h1>{d.heading}</h1> : <h2 class="h1">{d.heading}</h2>}
       {d.text && <div class="lede" set:html={rich(d.text)} />}
       <Buttons buttons={d.buttons} />
+      {video && <VideoButton video={video} transcript />}
     </div>
     {layout === "side" && <div class="media"><Img id={d.image} priority={first} sizes="(min-width: 1000px) 560px, 100vw" widths={[480, 720, 960, 1200]} /></div>}
   </div>
