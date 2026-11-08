@@ -5,15 +5,13 @@ import Section from "../components/Section.astro";
 import Heading from "../components/Heading.astro";
 import Img from "../components/Img.astro";
 import Icon from "../components/next/Icon.astro";
-import { href, person, type Block } from "../lib/content";
+import { resolveBooking, type Block } from "../lib/content";
 const { block, first = false, entry } = Astro.props as { block: Block; first?: boolean; entry?: any };
 const d = block.data || {};
-const topics = (d.topics || []).filter((t: any) => t && t.label && t.booking_url).map((t: any) => {
-  const who = person(Array.isArray(t.member) ? t.member[0] : t.member);
-  const url = href(t.booking_url);
-  const embed = /^https?:\/\//.test(url) ? url + (url.includes("?") ? "&" : "?") + "embed=1&src=website" : "";
-  return { ...t, who, url, embed };
-});
+const topics = (d.topics || []).filter((t: any) => t && t.label).map((t: any) => {
+  const b = resolveBooking(t);
+  return b ? { ...t, ...b } : null;
+}).filter(Boolean);
 const id = "bk-" + block.id;
 ---
 {topics.length > 0 && (
@@ -27,7 +25,7 @@ const id = "bk-" + block.id;
       <h3 class="bk-step"><span>02</span> {d.person_label || "You'll meet"}</h3>
       {topics.map((t: any, i: number) => (
         <div class="bk-person" data-p={i} hidden={i !== 0}>
-          {t.who?.photo_file ? <Img file={t.who.photo_file} alt="" cover aspect="1/1" class="bk-av" sizes="64px" widths={[64, 128]} /> : <span class="bk-av bk-ini" aria-hidden="true">{(t.who?.name || "?").split(" ").map((x: string) => x[0]).join("").slice(0, 2)}</span>}
+          {t.who?.photo_file ? <span class="bk-av"><Img file={t.who.photo_file} alt="" cover aspect="1/1" sizes="128px" widths={[64, 128]} /></span> : <span class="bk-av bk-ini" aria-hidden="true">{(t.who?.name || "?").split(" ").map((x: string) => x[0]).join("").slice(0, 2)}</span>}
           <span class="bk-who"><strong>{t.who?.name || d.team_label || "Someone from our team"}</strong>{(t.who?.job_title || t.note) && <span>{[t.who?.job_title, t.note].filter(Boolean).join(" · ")}</span>}</span>
         </div>
       ))}
@@ -61,7 +59,7 @@ window.addEventListener("message", (e) => {
 });
 </script>
 <style>
-  .bk .wrap > * { max-width: 52rem; }
+  :global(.bk) .wrap > * { max-width: 52rem; }
   .bk-step { display: flex; align-items: baseline; gap: .6rem; margin: 2rem 0 .9rem; font-size: 1.05rem; }
   .bk-step span { font: 500 .75rem var(--font-mono, monospace); color: var(--accent-text); }
   .bk-topics { display: flex; flex-wrap: wrap; gap: .6rem; }
@@ -69,7 +67,7 @@ window.addEventListener("message", (e) => {
   .bk-topics a:hover { border-color: var(--heading); }
   .bk-topics a[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
   .bk-person { display: flex; align-items: center; gap: 1rem; padding: 1rem 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-  .bk-av { width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0; }
+  .bk-av { display: block; width: 64px; height: 64px; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
   .bk-ini { display: grid; place-items: center; background: var(--accent); color: var(--on-accent); font: 600 1.1rem var(--font-heading); }
   .bk-who strong { display: block; color: var(--heading); }
   .bk-who span { display: block; font-size: .9rem; color: var(--muted); }

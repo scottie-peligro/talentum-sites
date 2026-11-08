@@ -1,0 +1,73 @@
+---
+// Book with me: one team member and a button to their Talentum booking page. Layouts: card, band (full-width strip)
+// or inline (their calendar loads right on the page). Picks the booking link in Talentum; falls back to a pasted URL.
+import Section from "../components/Section.astro";
+import Img from "../components/Img.astro";
+import Icon from "../components/next/Icon.astro";
+import { resolveBooking, type Block } from "../lib/content";
+const { block } = Astro.props as { block: Block; first?: boolean; entry?: any };
+const d = block.data || {};
+const b = resolveBooking(d);
+const layout = ["card", "band", "inline"].includes(d.layout) ? d.layout : "card";
+const who = b?.who;
+const first = (who?.name || "").split(" ")[0];
+const heading = d.heading || (first ? `Talk it through with ${first}` : "Talk it through with us");
+const meta = [d.show_role !== false && who?.job_title, d.show_duration !== false && b?.duration ? `${b.duration} minutes` : ""].filter(Boolean).join(" · ");
+const initials = (who?.name || "?").split(" ").map((x: string) => x[0]).join("").slice(0, 2);
+const id = "bc-" + block.id;
+---
+{b && (
+  <Section bg={d.background || (layout === "band" ? "paper" : "white")} id={d.anchor} class={`bc bc-${layout}`} tight={layout === "band"}>
+    <div class="wrap">
+      <div class="bc-box">
+        <div class="bc-person">
+          {who?.photo_file ? <span class="bc-av"><Img file={who.photo_file} alt="" cover aspect="1/1" sizes="160px" widths={[80, 160]} /></span> : <span class="bc-av bc-ini" aria-hidden="true">{initials}</span>}
+          <div class="bc-copy">
+            {d.eyebrow && <p class="eyebrow">{d.eyebrow}</p>}
+            <h2 class="bc-h">{heading}</h2>
+            {(who?.name || meta) && <p class="bc-meta">{who?.name && <strong>{who.name}</strong>}{who?.name && meta && " · "}{meta}</p>}
+            {d.text && <p class="bc-text">{d.text}</p>}
+          </div>
+        </div>
+        {layout === "inline" && b.embed ? (
+          <div class="bc-cal" id={id}>
+            <button type="button" class="btn btn-primary bc-load" data-src={b.embed}><Icon name="cal" size={18} /> {d.button_label || "See available times"}</button>
+            <a class="bc-open" href={b.url} target="_blank" rel="noopener">Open the booking page</a>
+          </div>
+        ) : (
+          <a class="btn btn-primary bc-btn" href={b.url} target="_blank" rel="noopener" data-bc="1"><Icon name="cal" size={18} /> {d.button_label || "Book a time"}</a>
+        )}
+      </div>
+    </div>
+  </Section>
+)}
+<script is:inline>
+document.addEventListener("click", (e) => {
+  const a = e.target.closest && e.target.closest("[data-bc]"); if (a) { window.tlEvent && tlEvent("booking_click", { from: "book_card" }); return; }
+  const b = e.target.closest && e.target.closest(".bc-load"); if (!b) return;
+  const f = document.createElement("iframe"); f.src = b.dataset.src; f.title = "Pick a time"; f.style.height = "640px";
+  b.replaceWith(f); window.tlEvent && tlEvent("booking_click", { from: "book_card_inline" });
+});
+window.addEventListener("message", (e) => {
+  const m = e.data; if (!m || m.type !== "talentum-booking:height") return;
+  document.querySelectorAll(".bc-cal iframe").forEach((f) => { if (f.contentWindow === e.source) f.style.height = Math.max(320, Math.min(2000, Number(m.height) || 640)) + "px"; });
+});
+</script>
+<style>
+  .bc-person { display: flex; align-items: center; gap: 1.1rem; }
+  .bc-av { display: block; width: 80px; height: 80px; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
+  .bc-ini { display: grid; place-items: center; background: var(--accent); color: var(--on-accent); font: 600 1.4rem var(--font-heading); }
+  .bc-h { margin: 0; font-size: clamp(1.25rem, 2.2vw, 1.6rem); line-height: 1.2; }
+  .bc-meta { margin: .35rem 0 0; color: var(--muted); font-size: .95rem; }
+  .bc-meta strong { color: var(--heading); }
+  .bc-text { margin: .5rem 0 0; }
+  .bc-btn { flex-shrink: 0; }
+  :global(.bc-card) .bc-box { max-width: 40rem; display: flex; flex-direction: column; align-items: flex-start; gap: 1.4rem; padding: clamp(1.25rem, 3vw, 2rem); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface, #fff); }
+  :global(.bc-band) .bc-box { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.25rem 2rem; }
+  :global(.bc-band) .bc-av { width: 64px; height: 64px; }
+  :global(.bc-inline) .bc-box { display: grid; gap: 1.5rem 3rem; align-items: start; }
+  .bc-cal { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+  .bc-cal :global(iframe) { width: 100%; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
+  .bc-open { font-weight: 700; font-size: .95rem; }
+  @media (max-width: 560px) { .bc-person { align-items: flex-start; } .bc-av { width: 56px; height: 56px; } .bc-btn { width: 100%; justify-content: center; } }
+</style>

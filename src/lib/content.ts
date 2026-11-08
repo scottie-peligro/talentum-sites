@@ -23,7 +23,9 @@ type Bundle = {
   categories: { id: string; name: string; slug: string; description: string; seo: any }[]; proof: Proof[]; testimonials: Testimonial[]; faqs: Faq[];
   team: Person[]; users: Record<string, Person>; service_lines: { id: string; name: string; slug: string }[]; accounts: Record<string, { id: string; name: string; website: string }>;
   media: Record<string, Media>; redirects: { from: string; to: string; code: number }[];
+  booking_links?: BookingLink[];
 };
+export type BookingLink = { id: string; user: string; user_name: string; title: string; slug: string; duration: number; description: string; path: string; url: string };
 
 export const bundle = raw as unknown as Bundle;
 export const site = bundle.site;
@@ -37,6 +39,16 @@ export const ofType = (t: Entry["type"]) => entries.filter((e) => e.type === t).
 export const posts = () => entries.filter((e) => e.type === "post").sort((a, b) => (b.published_at || "").localeCompare(a.published_at || ""));
 export const media = (id?: string) => (id ? bundle.media[id] : undefined);
 export const person = (id?: string) => (id ? bundle.users?.[id] : undefined);
+export const bookingLink = (id?: string) => (id ? bundle.booking_links?.find((l) => l.id === id) : undefined);
+/** A booking choice → where it goes, the embeddable version, and who it's with. `booking_link` (picked in Talentum) wins over a pasted `booking_url`. */
+export function resolveBooking(d: { booking_link?: string; booking_url?: string; member?: string | string[] }) {
+  const link = bookingLink(d.booking_link);
+  const url = link?.url || (d.booking_url ? href(d.booking_url) : "");
+  if (!url) return null;
+  const memberId = (Array.isArray(d.member) ? d.member[0] : d.member) || link?.user;
+  const embed = /^https?:\/\//.test(url) ? url + (url.includes("?") ? "&" : "?") + "embed=1&src=website" : "";
+  return { url, embed, who: person(memberId), duration: link?.duration || 0, title: link?.title || "" };
+}
 export const lineName = (id?: string) => bundle.service_lines.find((l) => l.id === id)?.name || "";
 export const accountName = (id?: string) => (id ? bundle.accounts?.[id]?.name || "" : "");
 export const category = (id: string) => bundle.categories.find((c) => c.id === id);

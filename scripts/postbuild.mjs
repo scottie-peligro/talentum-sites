@@ -33,6 +33,7 @@ if (!staging) {
   if (t.hotjar) { add(scriptSrc, "https://*.hotjar.com"); add(connectSrc, "https://*.hotjar.com", "https://*.hotjar.io", "wss://*.hotjar.com"); add(imgSrc, "https://*.hotjar.com"); add(frameSrc, "https://*.hotjar.com"); }
 }
 // Book-a-time blocks embed the team's Talentum booking pages.
+for (const l of bundle.booking_links || []) { try { const o = new URL(l.url).origin; if (o.startsWith("https://") || o.startsWith("http://localhost")) frameSrc.push(o); } catch {} }
 for (const en of bundle.entries || []) for (const bl of en.blocks || []) if (bl.type === "booking") for (const tp of bl.data?.topics || []) {
   try { const o = new URL(tp.booking_url).origin; if (o.startsWith("https://") || o.startsWith("http://localhost")) frameSrc.push(o); } catch {}
 }
