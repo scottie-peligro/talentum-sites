@@ -1,0 +1,102 @@
+---
+// Starting points: picture tiles ("Which sounds like your firm?"). Picking one shows its answer preview — a large
+// picture, the headline, three icon steps, Book / See the full answer, and "Read why" for the detail. Every preview
+// is in the HTML (search engines read them all); without JavaScript each tile links to its full answer.
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import Img from "../components/Img.astro";
+import Icon from "../components/next/Icon.astro";
+import { href, rich, settings, media, type Block } from "../lib/content";
+const { block, first = false, entry } = Astro.props as { block: Block; first?: boolean; entry?: any };
+const d = block.data || {};
+const items = (d.items || []).filter((x: any) => x && x.label);
+const cta = settings.header_cta || {};
+const book = { label: d.book_label || cta.label || "Book a time", href: href(d.book_href || cta.url || "") };
+const id = "sp-" + block.id;
+---
+{items.length > 0 && (
+  <Section bg={d.background || "white"} id={d.anchor} class="sp" label={d.heading || "Starting points"}>
+    <div class="wrap">
+      <Heading eyebrow={d.eyebrow} heading={d.heading || (first ? entry?.title : undefined)} text={d.text} level={first ? 1 : 2} />
+      <ul class="sp-tiles" data-sp={id}>
+        {items.map((it: any, i: number) => (
+          <li>
+            <a class="sp-tile" href={it.href ? href(it.href) : `#${id}-${i}`} data-i={i} aria-controls={`${id}-${i}`} aria-current={i === 0 ? "true" : undefined}>
+              <span class="sp-img">{media(it.image) ? <Img id={it.image} alt="" cover aspect="4/3" sizes="(min-width: 1240px) 280px, (min-width: 720px) 30vw, 46vw" widths={[320, 480, 640]} /> : <span class="sp-ph" aria-hidden="true"><Icon name={it.icon || "image"} size={28} /></span>}</span>
+              <span class="sp-label">{it.label}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+      {items.map((it: any, i: number) => (
+        <div class="sp-prev" id={`${id}-${i}`} hidden={i !== 0} aria-live="polite">
+          <div class="sp-big">{media(it.image_large || it.image) ? <Img id={it.image_large || it.image} alt="" cover aspect="4/5" sizes="(min-width: 1240px) 360px, 40vw" widths={[360, 540, 720]} /> : <span class="sp-ph" aria-hidden="true"><Icon name={it.icon || "image"} size={40} /></span>}</div>
+          <div class="sp-body">
+            <p class="eyebrow">{d.preview_eyebrow || "What we'd do"}</p>
+            <h3 class="sp-title">{it.title || it.label}</h3>
+            {(it.steps || []).filter((s: any) => s && s.title).length > 0 && (
+              <ol class="sp-steps">
+                {(it.steps || []).filter((s: any) => s && s.title).slice(0, 4).map((s: any, n: number) => (
+                  <li><span class="sp-chip"><Icon name={s.icon || "dot"} size={24} /></span><span class="sp-n">0{n + 1}</span><span class="sp-st">{s.title}</span></li>
+                ))}
+              </ol>
+            )}
+            <div class="btns">
+              {book.label && <a class="btn btn-primary" href={book.href} data-cta="starting-point">{book.label}</a>}
+              {it.href && <a class="btn btn-secondary" href={href(it.href)}>{it.href_label || "See the full answer"}</a>}
+            </div>
+            {(it.why || it.services) && (
+              <details class="sp-why">
+                <summary>{d.why_label || "Read why"}</summary>
+                {it.why && <div class="prose" set:html={rich(it.why)} />}
+                {it.services && <p class="sp-svc">Services that fit: <strong>{it.services}</strong></p>}
+              </details>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  </Section>
+)}
+<script is:inline>
+document.querySelectorAll("[data-sp]").forEach((ul) => {
+  const id = ul.dataset.sp;
+  ul.addEventListener("click", (e) => {
+    const a = e.target.closest("a.sp-tile"); if (!a) return;
+    e.preventDefault();
+    const i = a.dataset.i;
+    ul.querySelectorAll("a.sp-tile").forEach((t) => t.toggleAttribute("aria-current", t === a));
+    document.querySelectorAll('[id^="' + id + '-"].sp-prev').forEach((p) => { p.hidden = p.id !== id + "-" + i; });
+    const p = document.getElementById(id + "-" + i);
+    if (p) { const r = p.getBoundingClientRect(); if (r.top > window.innerHeight * .7 || r.top < 0) p.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest" }); }
+    window.tlEvent && tlEvent("starting_point", { choice: a.textContent.trim() });
+  });
+});
+</script>
+<style>
+  .sp-tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem .75rem; }
+  @media (min-width: 720px) { .sp-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem 1.5rem; } }
+  .sp-tile { display: block; text-decoration: none; color: var(--heading); font: 700 .95rem/1.35 var(--font-body); }
+  .sp-img { display: block; border-radius: var(--radius); overflow: hidden; aspect-ratio: 4 / 3; background: var(--g-tile, var(--paper)); transition: transform .18s cubic-bezier(.22,.61,.36,1), box-shadow .18s cubic-bezier(.22,.61,.36,1); }
+  .sp-img :global(img) { width: 100%; height: 100%; object-fit: cover; transition: transform .3s cubic-bezier(.22,.61,.36,1); }
+  .sp-tile:hover .sp-img { transform: translateY(-2px); box-shadow: 0 6px 20px -6px rgba(10,20,26,.2); }
+  .sp-tile:hover .sp-img :global(img) { transform: scale(1.03); }
+  .sp-tile[aria-current] .sp-img { outline: 3px solid var(--accent-text); outline-offset: 3px; }
+  .sp-label { display: block; margin-top: .6rem; }
+  .sp-ph { display: grid; place-items: center; width: 100%; height: 100%; color: var(--muted); opacity: .6; }
+  .sp-prev { margin-top: clamp(2rem, 4vw, 3rem); padding-top: clamp(1.75rem, 3.5vw, 2.25rem); border-top: 1px solid var(--line); display: grid; gap: 1.75rem; align-items: start; }
+  @container (min-width: 46rem) { .sp-prev { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 2.25rem; } }
+  .sp-big { border-radius: var(--radius); overflow: hidden; aspect-ratio: 4 / 5; background: var(--g-tile, var(--paper)); max-height: 30rem; }
+  .sp-big :global(img) { width: 100%; height: 100%; object-fit: cover; }
+  .sp-title { font-size: clamp(1.6rem, 1.2rem + 1.4cqi, 2.25rem); line-height: 1.1; margin: 0; }
+  .sp-steps { list-style: none; margin: 1.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: 1rem; }
+  .sp-steps li { display: flex; flex-direction: column; gap: .6rem; }
+  .sp-chip { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: var(--g-chip, color-mix(in srgb, var(--accent) 10%, transparent)); color: var(--accent-text); }
+  .sp-n { font: 500 .75rem var(--font-mono, monospace); color: var(--muted); }
+  .sp-st { font: 600 1.1rem/1.25 var(--font-heading); color: var(--heading); }
+  .sp-why { margin-top: 1.5rem; }
+  .sp-why summary { cursor: pointer; font-weight: 700; color: var(--link); text-decoration: underline; text-underline-offset: 4px; display: inline-block; }
+  .sp-why .prose { margin-top: .75rem; color: var(--text); }
+  .sp-svc { font-size: .95rem; color: var(--muted); }
+  .sp-svc strong { color: var(--heading); }
+</style>

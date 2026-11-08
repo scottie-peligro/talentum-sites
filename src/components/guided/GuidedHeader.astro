@@ -1,0 +1,35 @@
+---
+// Guided layout header: logo, "Ask us anything" (opens site search), the background switcher, reading comfort, Book.
+import Img from "../Img.astro";
+import Icon from "../next/Icon.astro";
+import { settings, site, media } from "../../lib/content";
+import { comfortOn, searchOn, guided } from "../../lib/next";
+const g = guided();
+const logo = settings.brand?.logo;
+const logoDark = settings.brand?.logo_inverse || settings.brand?.logo;
+const name = settings.org?.name || site.name;
+const modes = [["light", "sun", "Light background"], ["dark", "moon", "Dark background"], ...(g.bgImage ? [["image", "image", "Photo background"]] : [])];
+---
+<header class="gd-header">
+  <a href="/" class="gd-brand" aria-label={`${name} — home`}>
+    {logo && media(logo) ? (
+      <>
+        <Img id={logo} alt={name} class="gd-logo gd-logo-light" sizes="200px" widths={[200, 400]} priority />
+        {logoDark !== logo && <Img id={logoDark} alt="" class="gd-logo gd-logo-dark" sizes="200px" widths={[200, 400]} />}
+      </>
+    ) : <span class="gd-wordmark">{name}</span>}
+  </a>
+  {searchOn && (
+    <button type="button" class="gd-ask" data-open="nx-find" aria-label={`${g.search_label}: search this site`} aria-keyshortcuts="/ Control+K">
+      <Icon name="search" size={18} /><span>{g.search_label}</span><kbd>/</kbd>
+    </button>
+  )}
+  <span class="gd-grow"></span>
+  {g.switcher && (
+    <div class="gd-seg" role="group" aria-label="Background">
+      {modes.map(([v, ic, l]) => <button type="button" data-bg-set={v} aria-label={l} aria-pressed="false"><Icon name={ic} size={18} /></button>)}
+    </div>
+  )}
+  {comfortOn && <button type="button" class="gd-tool" data-open="nx-comfort" aria-label="Reading comfort: text size, contrast, motion"><Icon name="type" /></button>}
+  {g.panel.button_label && <a class="btn btn-primary gd-cta" href={g.panel.button_url} data-cta="header">{g.panel.button_label} <Icon name="arrow" size={16} /></a>}
+</header>

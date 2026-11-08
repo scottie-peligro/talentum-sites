@@ -1,0 +1,35 @@
+---
+// Guided layout, right column: the page's overview video, the person to talk to (photo, short line, Book button,
+// phone) and a link to the questions page. Settings → Layout & video → Right panel.
+import Img from "../Img.astro";
+import Icon from "../next/Icon.astro";
+import VideoButton from "../next/VideoButton.astro";
+import { settings, person } from "../../lib/content";
+import { guided, type VideoInfo } from "../../lib/next";
+const { video } = Astro.props as { video?: VideoInfo | null };
+const g = guided().panel;
+const who = person(g.member);
+const o = settings.org || {};
+const photo = g.photo;
+---
+{g.show && (
+  <aside class="gd-panel" aria-label="Talk to us">
+    <div class="gd-panel-in">
+      {video && <VideoButton video={video} variant="card" />}
+      <div class="gd-person">
+        {photo ? <Img id={photo} alt={who?.name || ""} cover aspect="1/1" class="gd-photo" sizes="280px" widths={[280, 560]} />
+          : who?.photo_file ? <Img file={who.photo_file} alt={who.name} cover aspect="1/1" class="gd-photo" sizes="280px" widths={[280, 560]} /> : null}
+        <p class="gd-p-h">{g.heading}</p>
+        {(g.text || who) && <p class="gd-p-t">{g.text || `With ${who!.name}${who!.job_title ? ", " + who!.job_title : ""}`}</p>}
+        {g.button_label && <a class="btn btn-primary gd-p-btn" href={g.button_url} data-cta="panel">{g.button_label}</a>}
+        {g.phone && o.phone && <p class="gd-p-call">or call <a href={`tel:${String(o.phone).replace(/[^\d+]/g, "")}`}>{o.phone}</a></p>}
+      </div>
+      {g.faq_url !== "#" && (
+        <a class="gd-faq" href={g.faq_url}>
+          <span class="gd-chip"><Icon name="question" size={22} /></span>
+          <span><strong>{g.faq_label}</strong><span>{g.faq_text}</span></span>
+        </a>
+      )}
+    </div>
+  </aside>
+)}

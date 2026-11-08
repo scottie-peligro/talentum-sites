@@ -1,0 +1,79 @@
+---
+// Book a time: pick what it's about → see who you'll meet → pick a time on that person's Talentum booking page
+// (loaded on demand, sized to fit). Without JavaScript each topic links to its booking page.
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import Img from "../components/Img.astro";
+import Icon from "../components/next/Icon.astro";
+import { href, person, type Block } from "../lib/content";
+const { block, first = false, entry } = Astro.props as { block: Block; first?: boolean; entry?: any };
+const d = block.data || {};
+const topics = (d.topics || []).filter((t: any) => t && t.label && t.booking_url).map((t: any) => {
+  const who = person(Array.isArray(t.member) ? t.member[0] : t.member);
+  const url = href(t.booking_url);
+  const embed = /^https?:\/\//.test(url) ? url + (url.includes("?") ? "&" : "?") + "embed=1&src=website" : "";
+  return { ...t, who, url, embed };
+});
+const id = "bk-" + block.id;
+---
+{topics.length > 0 && (
+  <Section bg={d.background || "white"} id={d.anchor} class="bk">
+    <div class="wrap">
+      <Heading eyebrow={d.eyebrow} heading={d.heading || (first ? entry?.title : undefined)} text={d.text} level={first ? 1 : 2} />
+      <h3 class="bk-step"><span>01</span> {d.topic_label || "What do you want to talk about?"}</h3>
+      <div class="bk-topics" role="group" aria-label="Topics" data-bk={id}>
+        {topics.map((t: any, i: number) => <a href={t.url} data-i={i} aria-pressed={i === 0 ? "true" : "false"} role="button">{t.label}</a>)}
+      </div>
+      <h3 class="bk-step"><span>02</span> {d.person_label || "You'll meet"}</h3>
+      {topics.map((t: any, i: number) => (
+        <div class="bk-person" data-p={i} hidden={i !== 0}>
+          {t.who?.photo_file ? <Img file={t.who.photo_file} alt="" cover aspect="1/1" class="bk-av" sizes="64px" widths={[64, 128]} /> : <span class="bk-av bk-ini" aria-hidden="true">{(t.who?.name || "?").split(" ").map((x: string) => x[0]).join("").slice(0, 2)}</span>}
+          <span class="bk-who"><strong>{t.who?.name || d.team_label || "Someone from our team"}</strong>{(t.who?.job_title || t.note) && <span>{[t.who?.job_title, t.note].filter(Boolean).join(" · ")}</span>}</span>
+        </div>
+      ))}
+      <h3 class="bk-step"><span>03</span> {d.time_label || "Pick a time"}</h3>
+      <div class="bk-frame" id={id}>
+        {topics.map((t: any, i: number) => (
+          <div class="bk-slot" data-p={i} hidden={i !== 0}>
+            {t.embed && <button type="button" class="btn btn-primary bk-load" data-src={t.embed}><Icon name="cal" size={18} /> {d.load_label || "See available times"}</button>}
+            <a class="bk-open" href={t.url} target="_blank" rel="noopener">{d.open_label || "Open the booking page"}</a>
+          </div>
+        ))}
+      </div>
+    </div>
+  </Section>
+)}
+<script is:inline>
+document.querySelectorAll("[data-bk]").forEach((g) => {
+  const root = g.closest(".wrap");
+  const show = (i) => root.querySelectorAll("[data-p]").forEach((el) => { el.hidden = el.dataset.p !== String(i); });
+  g.addEventListener("click", (e) => { const a = e.target.closest("a[data-i]"); if (!a) return; e.preventDefault();
+    g.querySelectorAll("a[data-i]").forEach((x) => x.setAttribute("aria-pressed", String(x === a))); show(a.dataset.i); });
+  root.addEventListener("click", (e) => {
+    const b = e.target.closest(".bk-load"); if (!b) return;
+    const f = document.createElement("iframe"); f.src = b.dataset.src; f.title = "Pick a time"; f.loading = "eager"; f.style.height = "640px";
+    b.replaceWith(f); window.tlEvent && tlEvent("booking_click", { from: "booking_block" });
+  });
+});
+window.addEventListener("message", (e) => {
+  const m = e.data; if (!m || m.type !== "talentum-booking:height") return;
+  document.querySelectorAll(".bk-slot iframe").forEach((f) => { if (f.contentWindow === e.source) f.style.height = Math.max(320, Math.min(2000, Number(m.height) || 640)) + "px"; });
+});
+</script>
+<style>
+  .bk .wrap > * { max-width: 52rem; }
+  .bk-step { display: flex; align-items: baseline; gap: .6rem; margin: 2rem 0 .9rem; font-size: 1.05rem; }
+  .bk-step span { font: 500 .75rem var(--font-mono, monospace); color: var(--accent-text); }
+  .bk-topics { display: flex; flex-wrap: wrap; gap: .6rem; }
+  .bk-topics a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 1rem; border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--heading); text-decoration: none; font-weight: 600; }
+  .bk-topics a:hover { border-color: var(--heading); }
+  .bk-topics a[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .bk-person { display: flex; align-items: center; gap: 1rem; padding: 1rem 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .bk-av { width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0; }
+  .bk-ini { display: grid; place-items: center; background: var(--accent); color: var(--on-accent); font: 600 1.1rem var(--font-heading); }
+  .bk-who strong { display: block; color: var(--heading); }
+  .bk-who span { display: block; font-size: .9rem; color: var(--muted); }
+  .bk-slot { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+  .bk-slot :global(iframe) { width: 100%; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
+  .bk-open { font-weight: 700; font-size: .95rem; }
+</style>

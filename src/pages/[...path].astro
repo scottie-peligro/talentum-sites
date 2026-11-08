@@ -13,6 +13,7 @@ import {
 import { imageFile } from "../lib/images";
 import { pageTitle, pageDescription, ogImageId, schemaFor, faqSchema, videoSchema, visibleBlocks } from "../lib/seo";
 import { overviewVideo } from "../lib/next";
+import { libraryFaqs } from "../lib/faqlib";
 import VideoButton from "../components/next/VideoButton.astro";
 
 export function getStaticPaths() {
@@ -23,7 +24,8 @@ const { entry } = Astro.props as { entry: Entry };
 const e = entry;
 const blocks = visibleBlocks(e.blocks);
 const has = (t: string) => blocks.some((b) => b.type === t || (b.type === "section_ref" && (bundle.sections?.[b.data?.key] || []).some((x) => x.type === t)));
-const startsWithHero = blocks[0]?.type === "hero" || blocks[0]?.type === "intent_chooser";
+// These blocks carry the page's main heading themselves when they come first.
+const startsWithHero = ["hero", "intent_chooser", "starting_points", "faq_library", "booking"].includes(blocks[0]?.type);
 const video = overviewVideo(e);
 const globalCta = bundle.sections?.cta ? [{ id: "gcta", type: "section_ref", data: { key: "cta" } } as Block] : [];
 const ctaLink = settings.header_cta?.label ? [{ label: settings.header_cta.label, href: settings.header_cta.url }] : [];
@@ -42,7 +44,7 @@ if ((e.type === "service" || e.type === "case_study" || e.type === "post") && !h
 const imgMedia = media(ogImageId(e));
 const imgFile = imageFile(imgMedia?.file);
 const schemaImage = imgFile ? absolute((await getImage({ src: imgFile, width: 1200, format: "jpg" })).src) : undefined;
-const faqItems = [...blocks, ...auto].filter((b) => b.type === "faq").flatMap((b) => resolveFaqs(b.data || {}, e));
+const faqItems = [...blocks, ...auto].flatMap((b) => b.type === "faq" ? resolveFaqs(b.data || {}, e) : b.type === "faq_library" ? libraryFaqs(b.data || {}, e) : []);
 let videoThumb = video?.posterUrl || "";
 const vPoster = imageFile(media(video?.poster)?.file);
 if (vPoster) videoThumb = absolute((await getImage({ src: vPoster, width: 1280, format: "jpg" })).src);

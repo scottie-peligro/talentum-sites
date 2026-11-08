@@ -2,6 +2,7 @@
    a site's own brand colours (Website → Settings → Brand) override them inline in <head>. */
 
 *, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { transition: none !important; animation: none !important; } }
 body {
@@ -87,3 +88,11 @@ p { margin: 0 0 1em; }
 /* Two bands in a row with the same background read as one: don't double the gap between them. */
 .bg-white + .bg-white, .bg-paper + .bg-paper { padding-top: 0; }
 .bg-dark + .bg-dark { padding-top: 0; border-top: 0; }
+
+/* "Show under Read more" (any block): the in-depth part of a page, one click away. */
+details.deep > summary { list-style: none; cursor: pointer; padding-block: 1.25rem; }
+details.deep > summary::-webkit-details-marker { display: none; }
+.deep-btn { display: inline-flex; align-items: center; gap: .5rem; min-height: 44px; padding: .55rem 1.1rem; border: 1px solid var(--line); border-radius: var(--radius-btn); background: var(--surface); color: var(--heading); font: 600 .95rem/1.2 var(--font-body); }
+.deep-btn::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-2px) rotate(45deg); transition: transform .2s ease; }
+details.deep[open] .deep-btn::after { transform: translateY(2px) rotate(-135deg); }
+details.deep > summary:hover .deep-btn { border-color: var(--heading); }

@@ -3,7 +3,9 @@ import { settings, bundle, entryById, menuHref, href, media, plain, type Entry, 
 import { assetUrl } from "./images";
 
 const display = (settings.display || {}) as Record<string, any>;
-export const isNext = display.layout === "next";
+/** "next" = the New layout; "guided" = the Guided layout, which builds on it (same dialogs, video, search, comfort). */
+export const isGuided = display.layout === "guided";
+export const isNext = display.layout === "next" || isGuided;
 export const comfortOn = display.comfort !== false;
 export const searchOn = display.search !== false;
 
@@ -82,7 +84,10 @@ const shortLabel = (s: string) => (s.length > 12 ? (/(contact|talk|conversation|
 export function iconFor(label: string): string {
   const l = label.toLowerCase();
   if (/service|what we do|solution/.test(l)) return "grid";
-  if (/case|result|work|portfolio|proof/.test(l)) return "trophy";
+  if (/question|faq|answer|help/.test(l)) return "question";
+  if (/result/.test(l)) return "chart";
+  if (/case|work|portfolio|proof/.test(l)) return "trophy";
+  if (/^(home|start)/.test(l)) return "home";
   if (/insight|blog|news|article|resource/.test(l)) return "book";
   if (/about|team|who/.test(l)) return "users";
   if (/consult|strategy|plan/.test(l)) return "compass";
@@ -91,3 +96,29 @@ export function iconFor(label: string): string {
   return "dot";
 }
 export { entryById };
+
+/** Guided layout settings (Website → Settings → Layout & video). */
+export function guided() {
+  const g = (display.guided || {}) as Record<string, any>;
+  const cta = settings.header_cta || {};
+  const bgImage = g.background_image ? media(g.background_image) : undefined;
+  return {
+    background: ["light", "dark", "image", "auto"].includes(g.background) ? g.background : "light",
+    switcher: g.switcher !== false,
+    bgImage: bgImage ? bgImage.id : "",
+    search_label: g.search_label || "Ask us anything",
+    panel: {
+      show: g.panel_show !== false,
+      member: Array.isArray(g.panel_member) ? g.panel_member[0] || "" : g.panel_member || "",
+      photo: g.panel_photo || "",
+      heading: g.panel_heading || "Talk to us",
+      text: g.panel_text || "",
+      button_label: g.panel_button_label || cta.label || "Book a time",
+      button_url: href(g.panel_button_url || cta.url || ""),
+      phone: g.panel_phone !== false,
+      faq_url: href(g.faq_url || ""),
+      faq_label: g.faq_label || "Have a question first?",
+      faq_text: g.faq_text || "Browse the answers",
+    },
+  };
+}

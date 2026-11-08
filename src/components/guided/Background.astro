@@ -1,0 +1,21 @@
+---
+// Guided layout: the photo background (when chosen) and the Light / Dark / Photo switcher. The starting mode is set
+// before paint by Base.astro's head script; a visitor's choice is remembered in their browser ("bg.v1").
+import Img from "../Img.astro";
+import { guided } from "../../lib/next";
+const g = guided();
+---
+{g.bgImage && <div class="gd-bgimg" aria-hidden="true"><Img id={g.bgImage} alt="" cover sizes="100vw" widths={[960, 1600, 2400]} /></div>}
+<script is:inline>
+(() => {
+  const H = document.documentElement;
+  const mark = () => document.querySelectorAll("[data-bg-set]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.bgSet === H.dataset.bg)));
+  mark();
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-bg-set]"); if (!b) return;
+    H.dataset.bg = b.dataset.bgSet; try { localStorage.setItem("bg.v1", b.dataset.bgSet); } catch (x) {}
+    const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.content = b.dataset.bgSet === "light" ? "#ffffff" : "#0a141a";
+    mark(); window.tlEvent && tlEvent("background_change", { mode: b.dataset.bgSet });
+  });
+})();
+</script>

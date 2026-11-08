@@ -1,0 +1,26 @@
+---
+// Guided layout, left column: the header menu as icon links. A section's sub-pages show under it while you're in it.
+import Icon from "../next/Icon.astro";
+import { bundle, menuHref } from "../../lib/content";
+import { iconFor } from "../../lib/next";
+const { path } = Astro.props as { path: string };
+const items = bundle.menus?.header || [];
+const on = (h: string) => (h === "/" ? path === "/" : h !== "#" && path.startsWith(h));
+const homeIn = items.some((it) => menuHref(it) === "/");
+---
+<nav class="gd-nav" aria-label="Main">
+  <ul>
+    {!homeIn && <li><a href="/" class={path === "/" ? "on" : ""} aria-current={path === "/" ? "page" : undefined}><Icon name="home" /><span>Start here</span></a></li>}
+    {items.map((it) => {
+      const h = menuHref(it);
+      return (
+        <li>
+          <a href={h} class={on(h) ? "on" : ""} aria-current={path === h ? "page" : undefined}><Icon name={iconFor(it.label)} /><span>{it.label}</span></a>
+          {it.children?.length > 0 && on(h) && (
+            <ul>{it.children.map((ch) => <li><a href={menuHref(ch)} class={path === menuHref(ch) ? "on" : ""}>{ch.label}</a></li>)}</ul>
+          )}
+        </li>
+      );
+    })}
+  </ul>
+</nav>

@@ -1,0 +1,27 @@
+---
+// Guided layout: a quiet footer at the end of the middle column (business details, legal links, socials).
+import Email from "../Email.astro";
+import { bundle, settings, site, menuHref } from "../../lib/content";
+const o = settings.org || {};
+const legal = bundle.menus?.legal || [];
+const cols = bundle.menus?.footer || [];
+const name = o.legal_name || o.name || site.name;
+const address = [o.street || o.address, [o.city, o.region].filter(Boolean).join(", ") + (o.postal ? " " + o.postal : "")].filter((x) => x && x.trim()).join(", ");
+---
+<footer class="gd-footer">
+  {cols.length > 0 && (
+    <nav class="gd-f-cols" aria-label="More">
+      {cols.map((c) => (
+        <div><p class="eyebrow">{c.label}</p><ul>{(c.children || []).map((it) => <li><a href={menuHref(it)}>{it.label}</a></li>)}</ul></div>
+      ))}
+    </nav>
+  )}
+  <div class="gd-f-line">
+    <span>© {new Date().getFullYear()} {name}</span>
+    {address && <span>{address}</span>}
+    {o.phone && <a href={`tel:${String(o.phone).replace(/[^\d+]/g, "")}`}>{o.phone}</a>}
+    {o.email && <Email email={o.email} />}
+    {legal.map((l) => <a href={menuHref(l)}>{l.label}</a>)}
+    {(o.socials || []).filter((s: any) => s.url).map((s: any) => <a href={s.url} rel="noopener me" target="_blank">{s.network || "Social"}</a>)}
+  </div>
+</footer>

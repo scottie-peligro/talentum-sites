@@ -32,6 +32,10 @@ if (!staging) {
   if (t.hubspot) { add(scriptSrc, "https://*.hs-scripts.com", "https://*.hs-analytics.net", "https://*.hs-banner.com", "https://*.usemessages.com", "https://*.hscollectedforms.net", "https://*.hubspot.com", "https://*.hsforms.net"); add(connectSrc, "https://*.hubspot.com", "https://*.hubapi.com", "https://*.hs-banner.com", "https://*.hscollectedforms.net", "https://*.hsforms.com"); add(imgSrc, "https://*.hubspot.com", "https://*.hsforms.com", "https://*.hs-analytics.net"); add(frameSrc, "https://*.hubspot.com", "https://*.hsforms.net"); }
   if (t.hotjar) { add(scriptSrc, "https://*.hotjar.com"); add(connectSrc, "https://*.hotjar.com", "https://*.hotjar.io", "wss://*.hotjar.com"); add(imgSrc, "https://*.hotjar.com"); add(frameSrc, "https://*.hotjar.com"); }
 }
+// Book-a-time blocks embed the team's Talentum booking pages.
+for (const en of bundle.entries || []) for (const bl of en.blocks || []) if (bl.type === "booking") for (const tp of bl.data?.topics || []) {
+  try { const o = new URL(tp.booking_url).origin; if (o.startsWith("https://") || o.startsWith("http://localhost")) frameSrc.push(o); } catch {}
+}
 if (t.cf_beacon) { add(scriptSrc, "https://static.cloudflareinsights.com"); add(connectSrc, "https://cloudflareinsights.com"); }
 if (s.forms?.turnstile_site_key) { add(scriptSrc, "https://challenges.cloudflare.com"); add(frameSrc, "https://challenges.cloudflare.com"); }
 // Custom code lists the domains it needs; code with scripts that doesn't makes the CSP report-only (rather than break it).

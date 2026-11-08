@@ -26,23 +26,43 @@ import DataBlock from "../blocks/DataBlock.astro";
 import Pricing from "../blocks/Pricing.astro";
 import Misc from "../blocks/Misc.astro";
 import IntentChooser from "../blocks/IntentChooser.astro";
-import { bundle, type Block, type Entry } from "../lib/content";
+import StartingPoints from "../blocks/StartingPoints.astro";
+import IconSteps from "../blocks/IconSteps.astro";
+import FaqLibrary from "../blocks/FaqLibrary.astro";
+import Booking from "../blocks/Booking.astro";
+import { bundle, settings, type Block, type Entry } from "../lib/content";
 
-const { blocks = [], entry, depth = 0 } = Astro.props as { blocks?: Block[]; entry?: Entry; depth?: number };
+const { blocks = [], entry, depth = 0, grouped = false, offset = 0 } = Astro.props as { blocks?: Block[]; entry?: Entry; depth?: number; grouped?: boolean; offset?: number };
 const C: Record<string, any> = {
   hero: Hero, steps: Steps, rich_text: RichText, image: ImageBlock, gallery: Gallery, video: Video, media_text: MediaText,
   service_groups: ServiceGroups, service_cards: ServiceCards, logo_strip: LogoStrip, stat_band: StatBand, results: Results,
   case_study_cards: CaseStudyCards, case_study_story: CaseStudyStory, testimonials: Testimonials, team_grid: TeamGrid,
   posts_list: PostsList, faq: Faq, cta: Cta, form: Form, comparison: Comparison, jobs_list: JobsList,
-  map: Misc, html: Misc, spacer: Misc, contact_details: Misc, data: DataBlock, pricing: Pricing, intent_chooser: IntentChooser,
+  map: Misc, html: Misc, spacer: Misc, contact_details: Misc, data: DataBlock, pricing: Pricing, intent_chooser: IntentChooser, starting_points: StartingPoints, icon_steps: IconSteps, faq_library: FaqLibrary, booking: Booking,
 };
 const shown = blocks.filter((b) => b && !b.hidden);
+// "Show under Read more": consecutive blocks with data.in_depth sit inside one <details> (still in the HTML, so
+// search engines read them), opened by "Read the in-depth answer" (or the first block's own label).
+type Seg = { deep: boolean; items: { b: Block; i: number }[] };
+const segs: Seg[] = [];
+shown.forEach((b, i) => {
+  const deep = !grouped && !!b.data?.in_depth;
+  const last = segs[segs.length - 1];
+  if (last && last.deep === deep && deep) last.items.push({ b, i });
+  else segs.push({ deep, items: [{ b, i }] });
+});
+const deepLabel = (s: Seg) => s.items[0].b.data?.in_depth_label || (settings.display as any)?.read_more_label || "Read the in-depth answer";
 ---
-{shown.map((b, i) => {
+{segs.map((s) => s.deep ? (
+  <details class="deep">
+    <summary class="deep-sum"><span class="wrap"><span class="deep-btn">{deepLabel(s)}</span></span></summary>
+    <Astro.self blocks={s.items.map((x) => x.b)} entry={entry} depth={depth} grouped offset={offset + s.items[0].i} />
+  </details>
+) : s.items.map(({ b, i }) => {
   if (b.type === "section_ref") {
     const inner = depth < 2 ? bundle.sections?.[b.data?.key] : null;
     return inner ? <Astro.self blocks={inner} entry={entry} depth={depth + 1} /> : null;
   }
   const Comp = C[b.type];
-  return Comp ? <Comp block={b} entry={entry} first={i === 0 && depth === 0} /> : null;
-})}
+  return Comp ? <Comp block={b} entry={entry} first={offset + i === 0 && depth === 0} /> : null;
+}))}

@@ -1,0 +1,32 @@
+---
+// Icon steps: two to four steps, each an icon, a number and a few words (optional line under it).
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import Buttons from "../components/Buttons.astro";
+import Icon from "../components/next/Icon.astro";
+import { type Block } from "../lib/content";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const items = (d.items || []).filter((x: any) => x && x.title).slice(0, 6);
+---
+{items.length > 0 && (
+  <Section bg={d.background} id={d.anchor} tight={d.tight !== false}>
+    <div class="wrap">
+      <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
+      <ol class="is">
+        {items.map((s: any, n: number) => (
+          <li><span class="is-chip"><Icon name={s.icon || "dot"} size={26} /></span><span class="is-n">0{n + 1}</span><span class="is-t">{s.title}</span>{s.text && <span class="is-d">{s.text}</span>}</li>
+        ))}
+      </ol>
+      <Buttons buttons={d.buttons} />
+    </div>
+  </Section>
+)}
+<style>
+  .is { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr)); gap: 1.5rem; max-width: 56rem; }
+  .is li { display: flex; flex-direction: column; gap: .6rem; }
+  .is-chip { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--g-chip, color-mix(in srgb, var(--accent) 10%, transparent)); color: var(--accent-text); }
+  .is-n { font: 500 .75rem var(--font-mono, monospace); color: var(--muted); }
+  .is-t { font: 600 1.2rem/1.25 var(--font-heading); color: var(--heading); }
+  .is-d { font-size: .95rem; color: var(--muted); }
+</style>

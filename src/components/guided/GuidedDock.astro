@@ -1,0 +1,20 @@
+---
+// Guided layout on phones: Start, Questions, the first main section, and a solid Book button.
+import Icon from "../next/Icon.astro";
+import { bundle, menuHref } from "../../lib/content";
+import { guided, iconFor } from "../../lib/next";
+const { path } = Astro.props as { path: string };
+const g = guided().panel;
+const first = (bundle.menus?.header || []).find((it) => menuHref(it) !== "/" && menuHref(it) !== g.faq_url);
+const items = [
+  { label: "Home", href: "/", icon: "home" },
+  ...(g.faq_url !== "#" ? [{ label: "Questions", href: g.faq_url, icon: "question" }] : []),
+  ...(first ? [{ label: first.label.split(" ")[0], href: menuHref(first), icon: iconFor(first.label) }] : []),
+];
+const on = (h: string) => (h === "/" ? path === "/" : h !== "#" && path.startsWith(h));
+---
+<nav class="gd-dock" aria-label="Quick links">
+  {items.map((it) => <a href={it.href} class={on(it.href) ? "on" : ""} aria-current={path === it.href ? "page" : undefined}><Icon name={it.icon} /><span>{it.label}</span></a>)}
+  <button type="button" data-open="nx-menu" aria-haspopup="dialog"><Icon name="menu" /><span>Menu</span></button>
+  {g.button_label && <a class="gd-dock-cta" href={g.button_url} data-cta="dock">{g.button_label.length > 14 ? "Book a time" : g.button_label}</a>}
+</nav>

@@ -12,10 +12,19 @@ import Rail from "../components/next/Rail.astro";
 import Panels from "../components/next/Panels.astro";
 import VideoPlayer from "../components/next/VideoPlayer.astro";
 import nextCssRaw from "../styles/next.css?raw";
+import guidedCssRaw from "../styles/guided.css?raw";
+import GuidedHeader from "../components/guided/GuidedHeader.astro";
+import GuidedNav from "../components/guided/GuidedNav.astro";
+import GuidedPanel from "../components/guided/GuidedPanel.astro";
+import GuidedDock from "../components/guided/GuidedDock.astro";
+import GuidedFooter from "../components/guided/GuidedFooter.astro";
+import Background from "../components/guided/Background.astro";
+import archivoUrl from "../styles/fonts/archivo-latin-wght-normal.woff2?url";
+import mulishUrl from "../styles/fonts/mulish-latin-wght-normal.woff2?url";
 // NLMC theme fonts, preloaded so text doesn't jump when they arrive (the main cause of layout shift on these pages).
 import bricolageUrl from "@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wght-normal.woff2?url";
 import hankenUrl from "@fontsource-variable/hanken-grotesk/files/hanken-grotesk-latin-wght-normal.woff2?url";
-import { isNext, comfortOn, type VideoInfo } from "../lib/next";
+import { isNext, isGuided, guided, comfortOn, type VideoInfo } from "../lib/next";
 import { site, settings, isStaging, absolute, media } from "../lib/content";
 import { imageFile, assetUrl } from "../lib/images";
 
@@ -25,6 +34,11 @@ interface Props {
 }
 const { title, description = "", path, image, type = "website", noindex = false, schema, published, modified, kind = "", video = null } = Astro.props;
 // New layout: its stylesheet is inlined only on sites that use it (comments and extra spaces stripped).
+const mini = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\s*\n\s*/g, "").replace(/\s{2,}/g, " ");
+const guidedCss = isGuided ? mini(guidedCssRaw) : "";
+const gd = guided();
+// Guided: the background before paint — the visitor's choice, else the site default ("auto" follows the device).
+const bgScript = `(function(){var d=${JSON.stringify(gd.background)},img=${gd.bgImage ? "true" : "false"},m;try{m=localStorage.getItem("bg.v1")}catch(e){}if(m!=="light"&&m!=="dark"&&m!=="image")m=null;if(!m)m=d==="auto"?(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):d;if(m==="image"&&!img)m="dark";document.documentElement.dataset.bg=m})()`;
 const nextCss = isNext ? nextCssRaw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\s*\n\s*/g, "").replace(/\s{2,}/g, " ") : "";
 
 const themes = import.meta.glob("../styles/themes/*.css", { eager: true });
@@ -53,7 +67,7 @@ const schemas = (Array.isArray(schema) ? schema : schema ? [schema] : []).filter
 const lang = settings.locale || "en-US";
 ---
 <!doctype html>
-<html lang={lang} class={`theme-${theme}${isNext ? " layout-next" : ""}`}>
+<html lang={lang} class={`theme-${theme}${isNext ? " layout-next" : ""}${isGuided ? " layout-guided" : ""}`}>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -80,6 +94,9 @@ const lang = settings.locale || "en-US";
   <link rel="sitemap" href="/sitemap.xml" />
   {theme === "nlmc" && [bricolageUrl, hankenUrl].map((u) => <link rel="preload" href={u} as="font" type="font/woff2" crossorigin />)}
   {isNext && <style is:inline set:html={nextCss} />}
+  {isGuided && <style is:inline set:html={guidedCss} />}
+  {isGuided && <script is:inline set:html={bgScript} />}
+  {theme === "nlmarcom" && [archivoUrl, mulishUrl].map((u) => <link rel="preload" href={u} as="font" type="font/woff2" crossorigin />)}
   {isNext && comfortOn && <script is:inline>try{var c=JSON.parse(localStorage.getItem("comfort.v1")||"{}"),h=document.documentElement;if(c.size)h.dataset.size=c.size;if(c.contrast==="1")h.classList.add("c-hc");if(c.motion==="1")h.classList.add("c-rm");if(c.font==="1")h.classList.add("c-rf")}catch(e){}</script>}
   {brandVars && <style is:inline set:html={`html.theme-${theme}{${brandVars}}`} />}
   {schemas.map((s) => <script type="application/ld+json" is:inline set:html={JSON.stringify(s).replace(/</g, "\\u003c")} />)}
@@ -93,7 +110,21 @@ const lang = settings.locale || "en-US";
   <Analytics part="body_start" path={path} kind={kind} />
   <a class="skip" href="#main">Skip to content</a>
   {isStaging && <div class="staging-flag" aria-hidden="true">Staging</div>}
-  {isNext ? (
+  {isGuided ? (
+    <>
+      <div class="gd-shell">
+        <GuidedHeader />
+        <GuidedNav path={path} />
+        <main id="main"><slot /><GuidedFooter /></main>
+        <GuidedPanel video={video} />
+      </div>
+      <Background />
+      <GuidedDock path={path} />
+      <Dock path={path} />
+      <Panels />
+      {video && <VideoPlayer video={video} />}
+    </>
+  ) : isNext ? (
     <>
       <NextHeader path={path} />
       <div class="nx-shell">
