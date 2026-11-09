@@ -256,7 +256,7 @@ export function crumbs(e: Entry): { name: string; path: string }[] {
     else if (ct?.archive) out.push({ name: ct.archive_title || ct.plural, path: "/" + ct.route + "/" });
   } else if (e.type !== "legal") {
     const prefix = "/" + String((routes as any)[e.type] || "").replace(/^\/+|\/+$/g, "") + "/";
-    const index = entries.find((x) => x.path === prefix);
+    const index = prefix === "/" ? null : entries.find((x) => x.path === prefix);   // "/" = no prefix (copied WordPress addresses)
     if (index) out.push({ name: inLang(index).title, path: inLang(index).path });
   }
   out.push({ name: e.title, path: e.path });
