@@ -10,6 +10,7 @@
     "build": "node scripts/fetch-content.mjs && astro build && node scripts/postbuild.mjs",
     "build:only": "astro build && node scripts/postbuild.mjs",
     "check": "astro check",
+    "test:blocks": "node scripts/test-blocks.mjs",
     "builder": "node builder/server.mjs"
   },
   "dependencies": {

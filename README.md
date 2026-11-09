@@ -22,7 +22,7 @@ Talentum (PocketBase)  ── publish ──▶  builder/server.mjs  ──▶  
 
 ## What's in a page
 
-- `src/blocks/*.astro`: one component per block type. Talentum's `frontend/src/lib/siteBlocks.ts` describes their fields. Add a block in both places.
+- `src/blocks/*.astro`: one component per block type, registered in `src/components/Blocks.astro` (interactive ones in `src/blocks/interactive/index.ts`). Their fields, defaults and sample data are defined once in Talentum's `frontend/src/lib/block-schema.json`; `src/data/block-schema.json` is a copy (see **Blocks** below).
 - `src/layouts/Base.astro`: head (title, description, canonical, robots, Open Graph/Twitter, JSON-LD, icons), header, footer, consent and analytics.
 - `src/lib/seo.ts`: titles, descriptions and the schema graph (Organization/ProfessionalService, WebSite, BreadcrumbList, WebPage, BlogPosting/Article, Service, JobPosting, FAQPage).
 - `src/pages/sitemap.xml.ts`, `robots.txt.ts`, `rss.xml.ts`, `llms.txt.ts`, `404.astro`.
@@ -49,3 +49,15 @@ BUILDER_SECRET=… PB_URL=http://localhost:8090 CLOUDFLARE_API_TOKEN=… CLOUDFL
 Locally it runs as the `site-builder` service in Talentum's `docker-compose.yml`, with secrets in `talentum-pb/sites.env`. Each site builds in its own working copy (`WORK_DIR/sites/<key>`), so its media and Astro's image cache carry over between builds. A normal publish takes a few seconds plus the upload.
 
 The Cloudflare API token needs **Account → Cloudflare Pages → Edit**. Projects (`<key>-staging`, `<key>`) are created on first deploy.
+
+## Blocks
+
+A block's fields are defined in ONE place: Talentum's `frontend/src/lib/block-schema.json` (what the editor shows, what the server accepts, and a `sample` that renders the block). This repo keeps a byte-for-byte copy in `src/data/block-schema.json` for its tests; it's never read at build time and isn't copied into a site's build. Talentum's `node scripts/block-schema/sync.mjs` writes the copy.
+
+**Add a block:** add it to the schema in Talentum (fields + sample) and run the sync there, then here write one component in `src/blocks/` (read `block.data` as `d.<key>`, using the schema's field keys) and register it in `src/components/Blocks.astro` `C` (or `src/blocks/interactive/index.ts`). Then:
+
+```bash
+npm run test:blocks      # ~5–30 s
+```
+
+It checks the copy matches `../talentum-pb` (when it's there), that every schema block has a registered component, lists data keys a component reads that have no field (and fields no component reads) as warnings, then builds a throwaway site in `.work/test-blocks` with one page per block from its sample (on its own and inside a 2-column container, plus a copy with `<script>`/`onerror`/`javascript:` strings in every text field) and fails on a build error, a block that renders nothing, or hostile markup that got through. `--only hero,cta`, `--no-build`, `--keep`, `--strict-keys`.

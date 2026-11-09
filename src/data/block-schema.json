@@ -1,0 +1,1021 @@
+{
+  "$comment": "Talentum website blocks: the ONE place a block's fields, defaults and sample data are defined. The editor (frontend/src/lib/siteBlocks.ts), the server whitelist (pb_hooks/lib/blocktypes.js) and the renderer's tests (talentum-sites npm run test:blocks) all read it. Edit here, then run: node scripts/block-schema/sync.mjs. A field written \"@name\" is shared_fields.name. extra_keys: data keys the renderer reads that have no editor field (set by starters/importers, or wording with a default). Every block also gets @background + @anchor (unless no_background) and @in_depth + @in_depth_label (unless no_in_depth) in the editor.",
+  "version": 1,
+  "groups": ["Layout","Content","Proof","Lists","Interactive","Forms & contact","Advanced"],
+  "shared_fields": {
+    "eyebrow": {"key":"eyebrow","label":"Eyebrow","type":"text","hint":"Small label above the heading."},
+    "heading": {"key":"heading","label":"Heading","type":"text"},
+    "intro": {"key":"text","label":"Intro","type":"textarea"},
+    "buttons": {"key":"buttons","label":"Buttons","type":"buttons"},
+    "service_line": {"key":"service_line","label":"Service line","type":"service_line","hint":"Leave empty on a service page to use that page's service line."},
+    "limit": {"key":"limit","label":"How many","type":"number"},
+    "background": {"key":"background","label":"Background","type":"select","options":[{"value":"","label":"Default"},{"value":"white","label":"White"},{"value":"paper","label":"Light grey"},{"value":"dark","label":"Dark"},{"value":"brand","label":"Brand colour"}]},
+    "anchor": {"key":"anchor","label":"Anchor","type":"text","placeholder":"e.g. pricing","hint":"Lets a button link straight to this section with #pricing."},
+    "in_depth": {"key":"in_depth","label":"Show under \"Read more\" (in-depth detail, still read by search engines)","type":"bool"},
+    "in_depth_label": {"key":"in_depth_label","label":"\"Read more\" button text","type":"text","placeholder":"Read the in-depth answer","when":{"key":"in_depth","is":[true]}}
+  },
+  "container_grid_fields": [
+    {"key":"gap","label":"Space between columns","type":"select","options":[{"value":"","label":"Medium"},{"value":"none","label":"None"},{"value":"s","label":"Small"},{"value":"l","label":"Large"}]},
+    {"key":"row_gap","label":"Space between rows","type":"select","options":[{"value":"","label":"Same as between columns"},{"value":"none","label":"None"},{"value":"s","label":"Small"},{"value":"m","label":"Medium"},{"value":"l","label":"Large"}],"hint":"When columns wrap onto a new row, or stack on phones."},
+    {"key":"col_align","label":"Line columns up","type":"select","options":[{"value":"","label":"At the top"},{"value":"center","label":"In the middle"},{"value":"bottom","label":"At the bottom"},{"value":"stretch","label":"Same height"}]},
+    {"key":"reverse_phone","label":"On phones: stack columns in reverse order","type":"bool"}
+  ],
+  "sample_context": {
+    "note": "Fixtures the samples refer to by id. The renderer's block test (talentum-sites: npm run test:blocks) merges these into its test bundle.",
+    "settings": {"org":{"name":"Sample Co","phone":"+1 555 0100","email":"hello@example.com","street":"1 Main Street","city":"Springfield","region":"IL","postal":"62701","hours":"Mon–Fri 9–5"},"header_cta":{"label":"Book a time","url":"/contact/"}},
+    "media": {
+      "m1": {"id":"m1","url":"","file":"sample-photo-1.svg","raster":false,"name":"Photo one","alt":"Sample photo one","caption":"","credit":"","focal":null,"width":1200,"height":800,"mime":"image/svg+xml"},
+      "m2": {"id":"m2","url":"","file":"sample-photo-2.svg","raster":false,"name":"Photo two","alt":"Sample photo two","caption":"","credit":"","focal":null,"width":1200,"height":800,"mime":"image/svg+xml"},
+      "m3": {"id":"m3","url":"","file":"sample-logo-1.svg","raster":false,"name":"Logo one","alt":"Logo one","caption":"","credit":"","focal":null,"width":300,"height":100,"mime":"image/svg+xml"},
+      "m4": {"id":"m4","url":"","file":"sample-logo-2.svg","raster":false,"name":"Logo two","alt":"Logo two","caption":"","credit":"","focal":null,"width":300,"height":100,"mime":"image/svg+xml"}
+    },
+    "entries": [
+      {"id":"svc1","type":"service","title":"Sample service","slug":"sample-service","path":"/services/sample-service/","excerpt":"What the sample service does.","service_line":"sl1"},
+      {"id":"cs1","type":"case_study","title":"Sample case study","slug":"sample-case","path":"/case-studies/sample-case/","excerpt":"How a client grew.","service_line":"sl1","published_at":"2026-10-01"},
+      {"id":"post1","type":"post","title":"Sample post","slug":"sample-post","path":"/insights/sample-post/","excerpt":"A short post.","categories":["cat1"],"published_at":"2026-10-02"},
+      {"id":"job1","type":"job","title":"Sample job","slug":"sample-job","path":"/careers/sample-job/","excerpt":"A role we're hiring for.","published_at":"2026-10-03"}
+    ],
+    "categories": [{"id":"cat1","name":"News","slug":"news","description":"","seo":{}}],
+    "service_lines": [{"id":"sl1","name":"Marketing","slug":"marketing"}],
+    "proof": [
+      {
+        "id": "pr1",
+        "kind": "stat",
+        "title": "Traffic",
+        "metric": "More organic visits",
+        "value": "120",
+        "unit": "%",
+        "change": "",
+        "period": "12 months",
+        "baseline": "",
+        "detail": "",
+        "source": "Google Analytics",
+        "as_of": "2026-09-01",
+        "images": [],
+        "video_url": "",
+        "client": "",
+        "case_study": "cs1",
+        "service_lines": ["sl1"]
+      },
+      {
+        "id": "pr2",
+        "kind": "stat",
+        "title": "Leads",
+        "metric": "Leads a month",
+        "value": "45",
+        "unit": "",
+        "change": "",
+        "period": "",
+        "baseline": "",
+        "detail": "",
+        "source": "CRM",
+        "as_of": "2026-09-01",
+        "images": [],
+        "video_url": "",
+        "client": "",
+        "case_study": "",
+        "service_lines": ["sl1"]
+      }
+    ],
+    "testimonials": [{"id":"t1","quote":"They made the whole thing easy.","person":"Pat Lee","role":"Director","company":"Acme","photo":"","rating":5,"service_lines":[]}],
+    "faqs": [
+      {"id":"f1","question":"How long does it take?","answer":"<p>Usually four to six weeks.</p>","group":"General","service_lines":[]},
+      {"id":"f2","question":"What does it cost?","answer":"<p>It depends on the scope.</p>","group":"Pricing","service_lines":[]}
+    ],
+    "team": [{"id":"u1","name":"Darren Smith","job_title":"Founder","photo":"","linkedin":""}],
+    "users": {"u1":{"id":"u1","name":"Darren Smith","job_title":"Founder","photo":"","linkedin":""}},
+    "booking_links": [
+      {"id":"bl1","user":"u1","user_name":"Darren Smith","title":"Intro call","slug":"darren-15","duration":15,"description":"","path":"/book/darren-15","url":"https://talentum.example.com/book/darren-15"}
+    ],
+    "data": {"ds1":{"name":"Sample data","fetched":"2026-11-01","fields":[{"key":"name","label":"Name","type":"text"},{"key":"count","label":"Count","type":"number"}],"items":[{"name":"Alpha","count":1200},{"name":"Beta","count":300}]}},
+    "sections": {"cta":[{"id":"sec-cta","type":"cta","data":{"heading":"Ready to talk?","text":"Fifteen minutes, no deck.","buttons":[{"label":"Book a call","href":"/contact/","style":"primary"}]}}]}
+  },
+  "blocks": [
+    {
+      "type": "hero",
+      "label": "Hero",
+      "group": "Layout",
+      "description": "Big heading, intro and buttons at the top of a page.",
+      "no_background": true,
+      "no_in_depth": true,
+      "fields": [
+        "@eyebrow",
+        {"key":"heading","label":"Heading","type":"text","hint":"The page's main heading (H1) when it's the first block."},
+        "@intro",
+        "@buttons",
+        {"key":"columns","label":"Layout","type":"select","options":[{"value":"","label":"Standard"},{"value":"one","label":"One column, full-width text"}],"hint":"One column lets the heading and intro use the full width of the section. An image set to \"Beside the text\" moves below the text."},
+        {"key":"text_width","label":"Text width","type":"select","when":{"key":"columns","is":["one"]},"options":[{"value":"","label":"Full width"},{"value":"75","label":"Three quarters"},{"value":"66","label":"Two thirds"},{"value":"50","label":"Half"},{"value":"custom","label":"Custom"}],"hint":"How wide the heading and intro can run. Headings wrap at this width."},
+        {"key":"text_width_custom","label":"Custom width (% of the section)","type":"number","when":{"key":"text_width","is":["custom"]},"placeholder":"60"},
+        {"key":"image","label":"Image","type":"image"},
+        {"key":"image_layout","label":"Image position","type":"select","options":[{"value":"side","label":"Beside the text"},{"value":"background","label":"Behind the text"},{"value":"below","label":"Below the text"}],"when":{"key":"image","is":[true]}},
+        {"key":"align","label":"Text alignment","type":"select","options":[{"value":"center","label":"Centred"},{"value":"left","label":"Left"}]},
+        {"key":"background","label":"Background","type":"select","options":[{"value":"dark","label":"Dark"},{"value":"white","label":"White"},{"value":"paper","label":"Light grey"},{"value":"brand","label":"Brand colour"}]},
+        "@anchor"
+      ],
+      "defaults": {"background":"dark","align":"center","buttons":[]},
+      "sample": {
+        "eyebrow": "Recruitment marketing",
+        "heading": "Hire the people who grow your firm",
+        "text": "We plan, build and run the marketing that brings in clients and candidates.",
+        "buttons": [{"label":"Book a call","href":"/contact/","style":"primary"},{"label":"See our work","href":"/work/","style":"secondary"}],
+        "image": "m1",
+        "image_layout": "side",
+        "align": "left",
+        "background": "dark"
+      }
+    },
+    {
+      "type": "intent_chooser",
+      "label": "What brings you here?",
+      "group": "Layout",
+      "description": "Big choices that send each kind of visitor down their own path (e.g. \"I need marketing\", \"Show me results\", \"I'm a client\").",
+      "no_in_depth": true,
+      "fields": [
+        "@eyebrow",
+        {"key":"heading","label":"Heading","type":"text","hint":"The page's main heading (H1) when it's the first block."},
+        "@intro",
+        {"key":"items","label":"Choices","type":"list","itemLabel":"Choice","max":4, "fields": [
+          {"key":"title","label":"Choice","type":"text","placeholder":"I need marketing for my firm"},
+          {"key":"text","label":"Short line","type":"text"},
+          {"key":"href","label":"Goes to","type":"link"},
+          {"key":"icon","label":"Icon","type":"icon"}
+        ]},
+        {"key":"remember","label":"Remember the choice (returning visitors see \"Continue: …\")","type":"bool"},
+        {"key":"align","label":"Heading alignment","type":"select","options":[{"value":"center","label":"Centred"},{"value":"","label":"Left"}]},
+        "@anchor"
+      ],
+      "defaults": {"eyebrow":"Start here","heading":"What brings you here?","align":"center","background":"paper","remember":true,"items":[]},
+      "sample": {
+        "eyebrow": "Start here",
+        "heading": "What brings you here?",
+        "text": "Pick the one that fits.",
+        "items": [
+          {"title":"I need marketing","text":"Plans, sites and content.","href":"/services/"},
+          {"title":"Show me results","text":"Case studies and numbers.","href":"/work/"}
+        ],
+        "remember": true,
+        "align": "center",
+        "background": "paper"
+      }
+    },
+    {
+      "type": "rich_text",
+      "label": "Text",
+      "group": "Content",
+      "description": "Headings, paragraphs, lists, links and tables.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        {"key":"html","label":"Text","type":"rich"},
+        "@buttons",
+        {"key":"width","label":"Width","type":"select","options":[{"value":"narrow","label":"Reading width"},{"value":"wide","label":"Full width"}]},
+        {"key":"align","label":"Alignment","type":"select","options":[{"value":"","label":"Left"},{"value":"center","label":"Centred"}]}
+      ],
+      "extra_keys": {"tight":"Less space above and below (starters set it)."},
+      "sample": {
+        "eyebrow": "About",
+        "heading": "Who we are",
+        "html": "<p>We are a <strong>small team</strong> with <a href=\"/about/\">a long history</a>.</p><ul><li>One</li><li>Two</li></ul>",
+        "buttons": [{"label":"Book a call","href":"/contact/","style":"primary"}],
+        "width": "narrow"
+      }
+    },
+    {
+      "type": "media_text",
+      "label": "Image and text",
+      "group": "Content",
+      "description": "An image beside a heading, text and buttons. Leave the image out for heading-left, text-right.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        {"key":"html","label":"Text","type":"rich"},
+        {"key":"image","label":"Image","type":"image"},
+        {"key":"image_side","label":"Image side","type":"select","options":[{"value":"left","label":"Left"},{"value":"right","label":"Right"}]},
+        "@buttons"
+      ],
+      "extra_keys": {"text":"Older blocks: plain text used when there's no html."},
+      "sample": {"eyebrow":"How we work","heading":"A plan before anything else","html":"<p>We start with a plan you can read in ten minutes.</p>","image":"m1","image_side":"left","buttons":[{"label":"Book a call","href":"/contact/","style":"primary"}]}
+    },
+    {
+      "type": "steps",
+      "label": "Steps",
+      "group": "Content",
+      "description": "Numbered steps — e.g. Guide, Plan, Choose.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"items","label":"Steps","type":"list","itemLabel":"Step", "fields": [
+          {"key":"title","label":"Title","type":"text"},
+          {"key":"text","label":"Text","type":"textarea"}
+        ]},
+        "@buttons"
+      ],
+      "sample": {
+        "eyebrow": "The process",
+        "heading": "Three steps",
+        "text": "Simple and quick.",
+        "items": [{"title":"Guide","text":"We listen."},{"title":"Plan","text":"We write it down."},{"title":"Choose","text":"You decide."}],
+        "buttons": [{"label":"Book a call","href":"/contact/","style":"primary"}]
+      }
+    },
+    {
+      "type": "image",
+      "label": "Image",
+      "group": "Content",
+      "description": "One image, full width or reading width, with a caption.",
+      "fields": [
+        {"key":"image","label":"Image","type":"image"},
+        {"key":"caption","label":"Caption","type":"text"},
+        {"key":"width","label":"Width","type":"select","options":[{"value":"wide","label":"Full width"},{"value":"narrow","label":"Reading width"}]}
+      ],
+      "sample": {"image":"m1","caption":"Our office","width":"wide"}
+    },
+    {
+      "type": "gallery",
+      "label": "Gallery",
+      "group": "Content",
+      "description": "A grid of images.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"images","label":"Images","type":"images"},
+        {"key":"columns","label":"Columns","type":"select","options":[{"value":"2","label":"2"},{"value":"3","label":"3"},{"value":"4","label":"4"}]},
+        {"key":"aspect","label":"Shape","type":"select","options":[{"value":"4/3","label":"Landscape"},{"value":"1/1","label":"Square"},{"value":"16/9","label":"Wide"},{"value":"3/4","label":"Portrait"}]}
+      ],
+      "sample": {"eyebrow":"Gallery","heading":"Our work","text":"A few recent projects.","images":["m1","m2"],"columns":"3","aspect":"4/3"}
+    },
+    {
+      "type": "video",
+      "label": "Video",
+      "group": "Content",
+      "description": "YouTube or Vimeo (loads only when played), or an uploaded MP4.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"url","label":"YouTube or Vimeo link","type":"text","placeholder":"https://www.youtube.com/watch?v=…"},
+        {"key":"file","label":"Or upload a video","type":"image","media":"video","hint":"MP4 or WebM, up to 25 MB. Used when there's no link. Longer videos are better on YouTube or Vimeo."},
+        {"key":"poster","label":"Cover image","type":"image","hint":"Optional — YouTube's own thumbnail is used otherwise."},
+        {"key":"width","label":"Width","type":"select","options":[{"value":"","label":"Reading width"},{"value":"wide","label":"Full width"}]}
+      ],
+      "extra_keys": {"title":"Accessible name for the player (default: the heading, or \"Video\")."},
+      "sample": {"eyebrow":"Watch","heading":"Our story in two minutes","text":"Short and sweet.","url":"https://www.youtube.com/watch?v=dQw4w9WgXcQ","width":""}
+    },
+    {
+      "type": "service_groups",
+      "label": "Service groups",
+      "group": "Lists",
+      "description": "Cards for groups of services, each with a short list of links.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"groups","label":"Groups","type":"list","itemLabel":"Group", "fields": [
+          {"key":"title","label":"Title","type":"text"},
+          {"key":"href","label":"Links to","type":"link"},
+          {"key":"text","label":"Text","type":"textarea"},
+          {"key":"items","label":"Links","type":"list","itemLabel":"Link", "fields": [
+            {"key":"label","label":"Label","type":"text"},
+            {"key":"href","label":"Links to","type":"link"}
+          ]}
+        ]},
+        "@buttons"
+      ],
+      "defaults": {"background":"paper"},
+      "sample": {
+        "eyebrow": "Services",
+        "heading": "What we do",
+        "text": "Four groups of services.",
+        "groups": [
+          {"title":"Strategy","href":"/strategy/","text":"Plans that work.","items":[{"label":"Marketing plans","href":"/plans/"}]},
+          {"title":"Websites","href":"/websites/","text":"Sites that convert.","items":[{"label":"New sites","href":"/sites/"}]}
+        ],
+        "buttons": [{"label":"Book a call","href":"/contact/","style":"primary"}]
+      }
+    },
+    {
+      "type": "service_cards",
+      "label": "Service cards",
+      "group": "Lists",
+      "description": "Cards for your Service pages — all of them, or the ones you pick.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"items","label":"Services","type":"entries","entryType":"service","hint":"Leave empty to show all, in order."},
+        {"key":"columns","label":"Columns","type":"select","options":[{"value":"3","label":"3"},{"value":"2","label":"2"},{"value":"4","label":"4"}]},
+        {"key":"show_images","label":"Show featured images","type":"bool"},
+        "@buttons"
+      ],
+      "sample": {"eyebrow":"Services","heading":"Our services","text":"Pick one to read more.","items":["svc1"],"columns":"3","show_images":false,"buttons":[{"label":"Book a call","href":"/contact/","style":"primary"}]}
+    },
+    {
+      "type": "stat_band",
+      "label": "Stats",
+      "group": "Proof",
+      "description": "Big numbers in a row — typed in, or picked from your Proof stats.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"items","label":"Numbers","type":"list","itemLabel":"Number", "fields": [
+          {"key":"value","label":"Value","type":"text","placeholder":"200+"},
+          {"key":"label","label":"Label","type":"text","placeholder":"Clients supported"}
+        ]},
+        {"key":"proof","label":"Or pick proof stats","type":"proof","proofKinds":["stat"]}
+      ],
+      "sample": {"eyebrow":"In numbers","heading":"Results that add up","text":"A few of our numbers.","items":[{"value":"200+","label":"Clients supported"},{"value":"15","label":"Years in business"}],"proof":["pr2"]}
+    },
+    {
+      "type": "results",
+      "label": "Results",
+      "group": "Proof",
+      "description": "Proof for a service — stats, screenshots, before/after. Fills itself from Proof tagged with the service line.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        "@service_line",
+        {"key":"items","label":"Or pick items","type":"proof"},
+        "@limit",
+        {"key":"show_source","label":"Show where each number comes from","type":"bool"}
+      ],
+      "defaults": {"eyebrow":"Results","heading":"The results we deliver","show_source":true},
+      "extra_keys": {"kinds":"Only these proof kinds when filling from the service line (starters set it)."},
+      "sample": {"eyebrow":"Results","heading":"The results we deliver","text":"Real numbers, with sources.","service_line":"sl1","items":["pr1","pr2"],"limit":6,"show_source":true}
+    },
+    {
+      "type": "case_study_cards",
+      "label": "Case study cards",
+      "group": "Proof",
+      "description": "Cards linking to case studies — the newest, a service line's, or the ones you pick.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"items","label":"Case studies","type":"entries","entryType":"case_study","hint":"Leave empty for the newest."},
+        "@service_line",
+        "@limit",
+        "@buttons"
+      ],
+      "extra_keys": {"auto_line":"false = on a service page, don't limit to that page's service line (importer)."},
+      "sample": {"eyebrow":"Case studies","heading":"Recent work","text":"How our clients grew.","items":["cs1"],"limit":3,"buttons":[{"label":"See our work","href":"/work/","style":"secondary"}]}
+    },
+    {
+      "type": "case_study_story",
+      "label": "Case study story",
+      "group": "Proof",
+      "description": "Challenge → Plan → What we did → Results.",
+      "fields": [
+        {"key":"challenge","label":"The challenge","type":"rich"},
+        {"key":"plan","label":"The plan","type":"rich"},
+        {"key":"execution","label":"What we did","type":"rich"},
+        {"key":"results","label":"The results","type":"rich"}
+      ],
+      "extra_keys": {"challenge_title":"Panel title (default \"The challenge\").","plan_title":"Panel title (default \"The plan\").","execution_title":"Panel title (default \"What we did\").","results_title":"Panel title (default \"The results\")."},
+      "sample": {"challenge":"<p>Leads had dried up.</p>","plan":"<p>A new site and a content plan.</p>","execution":"<p>We built it in six weeks.</p>","results":"<p>Leads doubled.</p>"}
+    },
+    {
+      "type": "testimonials",
+      "label": "Testimonials",
+      "group": "Proof",
+      "description": "One big quote, or a grid. Picked, or the service line's.",
+      "fields": [
+        "@heading",
+        {"key":"layout","label":"Layout","type":"select","options":[{"value":"","label":"One quote"},{"value":"grid","label":"Grid"}]},
+        {"key":"items","label":"Testimonials","type":"testimonials"},
+        "@service_line",
+        "@limit"
+      ],
+      "sample": {"heading":"What clients say","layout":"grid","items":["t1"],"limit":6}
+    },
+    {
+      "type": "logo_strip",
+      "label": "Logo strip",
+      "group": "Proof",
+      "description": "Client or partner logos in a row (shown in greyscale).",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"logos","label":"Logos","type":"images"}
+      ],
+      "defaults": {"background":"dark"},
+      "sample": {"eyebrow":"Trusted by","heading":"Clients we work with","text":"A few of them.","logos":["m3","m4"],"background":"dark"}
+    },
+    {
+      "type": "team_grid",
+      "label": "Team",
+      "group": "Lists",
+      "description": "People from your Team, with headshots and job titles.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"members","label":"People","type":"members","hint":"Leave empty for everyone listed under Settings → Team."}
+      ],
+      "sample": {"eyebrow":"Team","heading":"Meet the team","text":"The people you'll work with.","members":["u1"]}
+    },
+    {
+      "type": "posts_list",
+      "label": "Insights list",
+      "group": "Lists",
+      "description": "Latest posts, one category's, or all of them (for the Insights page).",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"category","label":"Category","type":"category"},
+        "@limit",
+        {"key":"show_all","label":"Show every post (Insights page)","type":"bool"},
+        {"key":"show_excerpt","label":"Show excerpts","type":"bool"},
+        "@buttons"
+      ],
+      "defaults": {"limit":3,"show_excerpt":true},
+      "sample": {"eyebrow":"Insights","heading":"Latest insights","text":"What we're thinking about.","category":"","limit":3,"show_excerpt":true,"buttons":[{"label":"See our work","href":"/work/","style":"secondary"}]}
+    },
+    {
+      "type": "faq",
+      "label": "FAQ",
+      "group": "Lists",
+      "description": "Questions and answers — adds FAQ markup for search and AI answers.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"items","label":"From the FAQ library","type":"faqs"},
+        {"key":"group","label":"Or a whole group","type":"text","placeholder":"Home"},
+        "@service_line",
+        {"key":"inline","label":"Questions just for this page","type":"list","itemLabel":"Question", "fields": [
+          {"key":"question","label":"Question","type":"text"},
+          {"key":"answer","label":"Answer","type":"textarea"}
+        ]},
+        {"key":"layout","label":"Layout","type":"select","options":[{"value":"","label":"Two columns"},{"value":"accordion","label":"Accordion"}]}
+      ],
+      "extra_keys": {"limit":"Most questions shown (default 30)."},
+      "sample": {"eyebrow":"FAQ","heading":"Questions","text":"The ones we hear most.","items":["f1"],"inline":[{"question":"Do you work with small firms?","answer":"Yes, most of our clients are small."}],"layout":""}
+    },
+    {
+      "type": "jobs_list",
+      "label": "Open roles",
+      "group": "Lists",
+      "description": "Every published Job.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"empty","label":"When there are none","type":"text"}
+      ],
+      "sample": {"eyebrow":"Careers","heading":"Open roles","text":"Come and work with us.","empty":"No open roles right now."}
+    },
+    {
+      "type": "comparison",
+      "label": "Comparison table",
+      "group": "Content",
+      "description": "Compare options side by side.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"columns","label":"Columns (one per line)","type":"lines"},
+        {"key":"rows","label":"Rows","type":"list","itemLabel":"Row", "fields": [
+          {"key":"label","label":"Feature","type":"text"},
+          {"key":"values","label":"Values (comma-separated, yes/no for ✓/—)","type":"csv"}
+        ]}
+      ],
+      "sample": {"eyebrow":"Compare","heading":"Which plan fits","text":"Side by side.","columns":["Starter","Growth"],"rows":[{"label":"Website","values":["yes","yes"]},{"label":"Content plan","values":["no","yes"]}]}
+    },
+    {
+      "type": "cta",
+      "label": "Call to action",
+      "group": "Layout",
+      "description": "A band with a heading and buttons.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        {"key":"text","label":"Text","type":"textarea"},
+        "@buttons",
+        {"key":"align","label":"Layout","type":"select","options":[{"value":"","label":"Text left, buttons right"},{"value":"center","label":"Centred"}]}
+      ],
+      "defaults": {"background":"brand"},
+      "sample": {
+        "eyebrow": "Next step",
+        "heading": "Ready to talk?",
+        "text": "Fifteen minutes, no deck.",
+        "buttons": [{"label":"Book a call","href":"/contact/","style":"primary"},{"label":"See our work","href":"/work/","style":"secondary"}],
+        "align": "",
+        "background": "brand"
+      }
+    },
+    {
+      "type": "form",
+      "label": "Contact form",
+      "group": "Forms & contact",
+      "description": "One of the website's forms (made in Forms & leads): a few questions one at a time, then contact details. Submissions go to Requests.",
+      "fields": [
+        {"key":"form","label":"Form","type":"site_form","hint":"Make and edit forms in Forms & leads. Leave empty for the Contact form."},
+        "@eyebrow",
+        "@heading",
+        "@intro"
+      ],
+      "extra_keys": {
+        "questions": "Older blocks: their own questions (now made in Forms & leads).",
+        "fields": "Older blocks: their own contact fields.",
+        "mode": "From the picked form: \"classic\" = one form.",
+        "form_key": "From the picked form.",
+        "form_name": "From the picked form.",
+        "contact_heading": "Form wording, from the picked form.",
+        "contact_text": "Form wording, from the picked form.",
+        "next_label": "Form wording, from the picked form.",
+        "submit_label": "Form wording, from the picked form.",
+        "success": "Form wording, from the picked form.",
+        "fallback": "Form wording, from the picked form."
+      },
+      "sample": {"form":"","eyebrow":"Contact","heading":"Tell us what you need","text":"We reply within a day."}
+    },
+    {
+      "type": "contact_details",
+      "label": "Contact details",
+      "group": "Forms & contact",
+      "description": "Phone, email, address and hours from Settings.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"hours","label":"Hours","type":"text"}
+      ],
+      "sample": {"eyebrow":"Contact","heading":"Get in touch","text":"Call, email or drop by.","hours":"Mon–Fri 9–5"}
+    },
+    {
+      "type": "map",
+      "label": "Map",
+      "group": "Forms & contact",
+      "description": "A map image that opens Google Maps — no heavy embed.",
+      "fields": [
+        "@heading",
+        {"key":"address","label":"Address","type":"text","hint":"Leave empty for the address in Settings."},
+        {"key":"image","label":"Map image","type":"image"}
+      ],
+      "sample": {"heading":"Find us","address":"1 Main Street, Springfield, IL","image":"m1"}
+    },
+    {
+      "type": "pricing",
+      "label": "Pricing / packages",
+      "group": "Content",
+      "description": "Plan cards with features and a button; highlight one.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"plans","label":"Plans","type":"list","itemLabel":"Plan", "fields": [
+          {"key":"name","label":"Name","type":"text"},
+          {"key":"price","label":"Price","type":"text","placeholder":"$1,500 or From $500"},
+          {"key":"period","label":"Per","type":"text","placeholder":"month"},
+          {"key":"description","label":"Short description","type":"textarea"},
+          {"key":"features","label":"Features (one per line)","type":"textarea"},
+          {"key":"button_label","label":"Button text","type":"text"},
+          {"key":"button_url","label":"Button link","type":"link"},
+          {"key":"highlight","label":"Highlight this plan","type":"bool"}
+        ]},
+        {"key":"highlight_label","label":"Highlight label","type":"text","placeholder":"Most popular"},
+        {"key":"note","label":"Note under the plans","type":"text"}
+      ],
+      "sample": {
+        "eyebrow": "Pricing",
+        "heading": "Simple packages",
+        "text": "Pick one, change any time.",
+        "plans": [
+          {"name":"Starter","price":"$500","period":"month","description":"For small firms.","features":"Website\nMonthly report","button_label":"Start","button_url":"/contact/"},
+          {"name":"Growth","price":"$1,500","period":"month","description":"For growing firms.","features":"Everything in Starter\nContent plan","button_label":"Talk to us","button_url":"/contact/","highlight":true}
+        ],
+        "highlight_label": "Most popular",
+        "note": "Prices exclude tax."
+      }
+    },
+    {
+      "type": "data",
+      "label": "Outside data",
+      "group": "Advanced",
+      "description": "A table, cards, list or stats from a data source (Website → Data sources), refreshed automatically.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"source","label":"Data source","type":"data_source"},
+        {"key":"layout","label":"Layout","type":"select","options":[{"value":"table","label":"Table"},{"value":"cards","label":"Cards"},{"value":"list","label":"List"},{"value":"stats","label":"Stats"}]},
+        {"key":"columns","label":"Columns to show (keys, comma-separated)","type":"csv","when":{"key":"layout","is":["table",""]}},
+        {"key":"title_field","label":"Title field (key)","type":"text","when":{"key":"layout","is":["cards","list"]}},
+        {"key":"text_field","label":"Text field (key)","type":"text","when":{"key":"layout","is":["cards"]}},
+        {"key":"meta_field","label":"Small text field (key)","type":"text","when":{"key":"layout","is":["cards","list"]}},
+        {"key":"image_field","label":"Image field (key)","type":"text","when":{"key":"layout","is":["cards"]}},
+        {"key":"link_field","label":"Link field (key)","type":"text","when":{"key":"layout","is":["cards","list"]}},
+        {"key":"label_field","label":"Label field (key)","type":"text","when":{"key":"layout","is":["stats"]}},
+        {"key":"value_field","label":"Number field (key)","type":"text","when":{"key":"layout","is":["stats"]}},
+        "@limit",
+        {"key":"source_label","label":"Source shown under it","type":"text","placeholder":"e.g. Google Search Console"},
+        {"key":"show_source","label":"Show the source line","type":"bool"}
+      ],
+      "defaults": {"layout":"table","show_source":true},
+      "extra_keys": {"link_text":"Text for link cells in a table (default \"View\")."},
+      "sample": {"eyebrow":"Data","heading":"Live numbers","text":"Refreshed every day.","source":"ds1","layout":"table","columns":["name","count"],"limit":10,"source_label":"Sample source","show_source":true}
+    },
+    {
+      "type": "starting_points",
+      "label": "Starting points",
+      "group": "Layout",
+      "description": "Picture tiles (\"Which sounds like your firm?\"). Picking one shows its answer: a big picture, the headline, three icon steps, Book and the full answer, with the detail behind \"Read why\".",
+      "no_in_depth": true,
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"items","label":"Starting points","type":"list","itemLabel":"Starting point","max":9, "fields": [
+          {"key":"label","label":"Tile text","type":"text","placeholder":"We're busy but not growing"},
+          {"key":"image","label":"Tile picture","type":"image","hint":"Landscape (4:3). Real photos of your team and clients work best."},
+          {"key":"icon","label":"Icon (shown until there's a picture)","type":"icon"},
+          {"key":"title","label":"Answer headline","type":"text","placeholder":"Busy is not the same as growing"},
+          {"key":"image_large","label":"Answer picture","type":"image","hint":"Portrait (4:5). Leave empty to reuse the tile picture."},
+          {"key":"steps","label":"What we'd do (2–4 steps, a few words each)","type":"list","itemLabel":"Step","max":4, "fields": [
+            {"key":"title","label":"Step","type":"text"},
+            {"key":"icon","label":"Icon","type":"icon"}
+          ]},
+          {"key":"href","label":"Full answer page","type":"link"},
+          {"key":"href_label","label":"Full answer button","type":"text","placeholder":"See the full answer"},
+          {"key":"why","label":"\"Read why\" text","type":"textarea","hint":"The detail, one click away."},
+          {"key":"services","label":"Services that fit","type":"text","placeholder":"Marketing Strategy & Consulting, Email Marketing"}
+        ]},
+        {"key":"book_label","label":"Book button text","type":"text","hint":"Leave empty to use the header button."},
+        {"key":"book_href","label":"Book button link","type":"link"},
+        {"key":"preview_eyebrow","label":"Answer label","type":"text","placeholder":"What we'd do"},
+        {"key":"why_label","label":"\"Read why\" link text","type":"text","placeholder":"Read why"}
+      ],
+      "defaults": {"heading":"Pick the one that sounds like your firm","items":[]},
+      "sample": {
+        "eyebrow": "Start here",
+        "heading": "Pick the one that sounds like your firm",
+        "text": "Each one opens our answer.",
+        "items": [
+          {
+            "label": "We're busy but not growing",
+            "image": "m1",
+            "title": "Busy is not the same as growing",
+            "steps": [{"title":"Audit","icon":"lucide:search"},{"title":"Plan","icon":"lucide:map"}],
+            "href": "/answers/busy/",
+            "href_label": "See the full answer",
+            "why": "Because growth needs a plan.",
+            "services": "Marketing strategy"
+          },
+          {"label":"Our website is old","icon":"lucide:globe","title":"A site that works","steps":[{"title":"Rebuild","icon":"lucide:hammer"}],"href":"/answers/site/","why":"Old sites lose leads."}
+        ],
+        "book_label": "Book a time",
+        "book_href": "/contact/",
+        "preview_eyebrow": "What we'd do",
+        "why_label": "Read why"
+      }
+    },
+    {
+      "type": "icon_steps",
+      "label": "Icon steps",
+      "group": "Content",
+      "description": "Two to four steps shown as icons with a few words each: the quick version before the detail.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"items","label":"Steps","type":"list","itemLabel":"Step","max":6, "fields": [
+          {"key":"title","label":"Step (a few words)","type":"text"},
+          {"key":"icon","label":"Icon","type":"icon"},
+          {"key":"text","label":"Short line (optional)","type":"text"}
+        ]},
+        "@buttons"
+      ],
+      "defaults": {"eyebrow":"What we'd do","items":[]},
+      "extra_keys": {"tight":"false = normal spacing (default is tight)."},
+      "sample": {
+        "eyebrow": "What we'd do",
+        "heading": "The quick version",
+        "text": "Three steps.",
+        "items": [{"title":"Listen","icon":"lucide:ear","text":"Half an hour."},{"title":"Plan","icon":"lucide:map"},{"title":"Build","icon":"lucide:hammer"}],
+        "buttons": [{"label":"Book a call","href":"/contact/","style":"primary"}]
+      }
+    },
+    {
+      "type": "faq_library",
+      "label": "Question library",
+      "group": "Lists",
+      "description": "Every question in your FAQ library, by topic (the FAQ group), with a search box. Given to search engines as FAQ data: the page that does the heavy lifting for SEO.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"groups","label":"Only these topics (FAQ groups, one per line)","type":"lines","hint":"Leave empty for every question. Order here is the order shown."},
+        "@service_line",
+        {"key":"search_placeholder","label":"Search box hint","type":"text","placeholder":"Search, e.g. cost, website, LinkedIn"},
+        {"key":"ask_label","label":"Link under each answer","type":"text","placeholder":"Ask us in a 15-minute call"},
+        {"key":"ask_href","label":"That link goes to","type":"link","hint":"Leave empty to use the header button."},
+        {"key":"open_first","label":"Open the first answer","type":"bool"}
+      ],
+      "defaults": {"eyebrow":"Questions","heading":"What our clients ask us"},
+      "extra_keys": {"other_label":"Topic for questions with no group (default \"General\")."},
+      "sample": {
+        "eyebrow": "Questions",
+        "heading": "What our clients ask us",
+        "text": "Search or browse by topic.",
+        "groups": ["General","Pricing"],
+        "search_placeholder": "Search, e.g. cost",
+        "ask_label": "Ask us in a 15-minute call",
+        "ask_href": "/contact/",
+        "open_first": true
+      }
+    },
+    {
+      "type": "booking",
+      "label": "Book a time",
+      "group": "Forms & contact",
+      "description": "Pick a topic → see who you'll meet → pick a time on their Talentum booking page (Bookings → Booking links), shown right on the page.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"topics","label":"Topics","type":"list","itemLabel":"Topic","max":8, "fields": [
+          {"key":"label","label":"Topic","type":"text","placeholder":"A marketing plan"},
+          {"key":"booking_link","label":"Booking link","type":"booking_link","hint":"The team member's booking page (Bookings → Booking links). Their photo and name show automatically."},
+          {"key":"member","label":"Show a different person (optional)","type":"members","hint":"Leave empty to show the booking link's owner."},
+          {"key":"booking_url","label":"Or paste a booking link","type":"text","placeholder":"https://talentum.nlmarcom.com/book/darren-15","hint":"Only if the link isn't in the list above."},
+          {"key":"note","label":"Short note (optional)","type":"text"}
+        ]},
+        {"key":"topic_label","label":"Step 1 heading","type":"text","placeholder":"What do you want to talk about?"},
+        {"key":"person_label","label":"Step 2 heading","type":"text","placeholder":"You'll meet"},
+        {"key":"time_label","label":"Step 3 heading","type":"text","placeholder":"Pick a time"}
+      ],
+      "defaults": {"heading":"Fifteen minutes. No deck.","topics":[]},
+      "extra_keys": {"team_label":"Shown when a topic has no person (default \"Someone from our team\").","load_label":"Button text (default \"See available times\").","open_label":"Link text (default \"Open the booking page\")."},
+      "sample": {
+        "eyebrow": "Book",
+        "heading": "Fifteen minutes. No deck.",
+        "text": "Pick a topic and a time.",
+        "topics": [
+          {"label":"A marketing plan","booking_link":"bl1","note":"Bring your questions."},
+          {"label":"A new website","booking_url":"https://talentum.example.com/book/darren-15"}
+        ],
+        "topic_label": "What do you want to talk about?",
+        "person_label": "You'll meet",
+        "time_label": "Pick a time"
+      }
+    },
+    {
+      "type": "book_card",
+      "label": "Book with me",
+      "group": "Forms & contact",
+      "description": "One team member and a button to their booking page: photo, name, role and how long the call is. As a card, a full-width band, or with their calendar right on the page.",
+      "fields": [
+        {"key":"booking_link","label":"Booking link","type":"booking_link","hint":"Whose calendar this books (Bookings → Booking links)."},
+        {"key":"layout","label":"Layout","type":"select","options":[{"value":"card","label":"Card"},{"value":"band","label":"Full-width band"},{"value":"inline","label":"Calendar on the page"}]},
+        "@eyebrow",
+        {"key":"heading","label":"Heading","type":"text","placeholder":"Talk it through with Darren","hint":"Leave empty for \"Talk it through with <first name>\"."},
+        {"key":"text","label":"Short line","type":"textarea","placeholder":"15 minutes. No deck."},
+        {"key":"button_label","label":"Button text","type":"text","placeholder":"Book a time"},
+        {"key":"show_duration","label":"Show how long the call is","type":"bool"},
+        {"key":"show_role","label":"Show their job title","type":"bool"},
+        {"key":"member","label":"Show a different person (optional)","type":"members","hint":"Leave empty to show the booking link's owner."}
+      ],
+      "defaults": {"layout":"card","button_label":"Book a time","show_duration":true},
+      "extra_keys": {"booking_url":"A pasted booking link, used when no booking link is picked."},
+      "sample": {"booking_link":"bl1","layout":"card","eyebrow":"Talk to us","heading":"Talk it through with Darren","text":"15 minutes. No deck.","button_label":"Book a time","show_duration":true,"show_role":true}
+    },
+    {
+      "type": "container",
+      "label": "Container",
+      "group": "Layout",
+      "description": "A band or card with its own background (colour, gradient, photo or looping video) holding other blocks, in 1 to 4 columns. Containers can go inside a container's columns, up to 3 levels deep.",
+      "no_background": true,
+      "fields": [
+        {"key":"shape","label":"Shape","type":"select","options":[{"value":"band","label":"Full-width band"},{"value":"card","label":"Inset card"}]},
+        {"key":"radius","label":"Card corners","type":"select","options":[{"value":"soft","label":"Slightly rounded"},{"value":"none","label":"Square"},{"value":"round","label":"Rounded"}],"when":{"key":"shape","is":["card"]}},
+        {"key":"bg_type","label":"Background","type":"select","options":[{"value":"none","label":"None"},{"value":"color","label":"Colour"},{"value":"gradient","label":"Gradient"},{"value":"image","label":"Photo"},{"value":"video","label":"Looping video"}]},
+        {"key":"bg_color","label":"Colour","type":"color","when":{"key":"bg_type","is":["color"]}},
+        {"key":"g_kind","label":"Gradient type","type":"select","options":[{"value":"linear","label":"Straight"},{"value":"radial","label":"Circle"}],"when":{"key":"bg_type","is":["gradient"]}},
+        {"key":"g_angle","label":"Angle (degrees)","type":"number","placeholder":"135","when":{"key":"bg_type","is":["gradient"]}},
+        {"key":"g_from","label":"From","type":"color","when":{"key":"bg_type","is":["gradient"]}},
+        {"key":"g_via","label":"Middle (optional)","type":"color","when":{"key":"bg_type","is":["gradient"]}},
+        {"key":"g_to","label":"To","type":"color","when":{"key":"bg_type","is":["gradient"]}},
+        {"key":"bg_image","label":"Photo","type":"image","when":{"key":"bg_type","is":["image"]},"hint":"Wide photos work best. Set the focal point in Media."},
+        {"key":"bg_video","label":"Video (MP4 or WebM)","type":"image","media":"video","when":{"key":"bg_type","is":["video"]},"hint":"Short, silent and under 10 MB. It plays muted on a loop, and only while on screen."},
+        {"key":"bg_poster","label":"Still image","type":"image","when":{"key":"bg_type","is":["video"]},"hint":"Shown while the video loads, and instead of it for visitors who prefer less motion or are saving data."},
+        {"key":"overlay_color","label":"Tint colour","type":"color","when":{"key":"bg_type","is":["image","video"]}},
+        {"key":"overlay","label":"Tint strength (0–95%)","type":"number","placeholder":"55","when":{"key":"bg_type","is":["image","video"]}},
+        {"key":"tone","label":"Text colour","type":"select","options":[{"value":"","label":"Automatic"},{"value":"light","label":"Dark text (light background)"},{"value":"dark","label":"Light text (dark background)"}],"hint":"Automatic: light text on photos and videos, dark text otherwise."},
+        {"key":"padding","label":"Space inside","type":"select","options":[{"value":"m","label":"Medium"},{"value":"none","label":"None"},{"value":"s","label":"Small"},{"value":"l","label":"Large"},{"value":"xl","label":"Extra large"}]},
+        {"key":"inner_width","label":"Content width","type":"select","options":[{"value":"normal","label":"Normal"},{"value":"reading","label":"Reading · narrow"},{"value":"wide","label":"Wide"},{"value":"full","label":"Full width"}]},
+        {"key":"min_height","label":"Minimum height","type":"select","options":[{"value":"none","label":"Fit the content"},{"value":"s","label":"Short"},{"value":"m","label":"Medium"},{"value":"l","label":"Tall"},{"value":"screen","label":"Full screen"}]},
+        {"key":"valign","label":"Content position","type":"select","options":[{"value":"center","label":"Middle"},{"value":"top","label":"Top"},{"value":"bottom","label":"Bottom"}]},
+        "@anchor"
+      ],
+      "defaults": {"cols":[{"blocks":[]}],"bg_type":"color","bg_color":"#f1f2f2","padding":"m","shape":"band"},
+      "extra_keys": {"ratio":"Older 2-column containers: 50-50, 40-60, 60-40, 33-67, 67-33, 25-75, 75-25.","g_pos":"Radial gradient centre (default \"50% 50%\")."},
+      "sample": {
+        "shape": "band",
+        "bg_type": "color",
+        "bg_color": "#f1f2f2",
+        "padding": "m",
+        "cols": [
+          {"blocks":[{"id":"ct-a","type":"rich_text","data":{"html":"<p>Left column text.</p>"}}]},
+          {"blocks":[{"id":"ct-b","type":"rich_text","data":{"html":"<p>Right column text.</p>"}}]}
+        ]
+      }
+    },
+    {
+      "type": "section_ref",
+      "label": "Global section",
+      "group": "Layout",
+      "description": "A section you edit once and use everywhere (e.g. the CTA band).",
+      "no_background": true,
+      "no_in_depth": true,
+      "fields": [
+        {"key":"key","label":"Section","type":"section"}
+      ],
+      "sample": {"key":"cta"}
+    },
+    {
+      "type": "spacer",
+      "label": "Spacer",
+      "group": "Layout",
+      "description": "Extra space.",
+      "no_background": true,
+      "fields": [
+        {"key":"size","label":"Size","type":"select","options":[{"value":"sm","label":"Small"},{"value":"md","label":"Medium"},{"value":"lg","label":"Large"}]}
+      ],
+      "sample": {"size":"md"}
+    },
+    {
+      "type": "html",
+      "label": "Custom code",
+      "group": "Advanced",
+      "description": "Raw HTML — embeds and one-offs. Owner and Admins only.",
+      "admin_only": true,
+      "no_background": true,
+      "fields": [
+        {"key":"html","label":"HTML","type":"textarea","hint":"Scripts here can slow the page or break the layout. Prefer a proper block when one exists."}
+      ],
+      "extra_keys": {"wrap":"false = no page-width wrapper around the code."},
+      "sample": {"html":"<div class=\"sample-html\"><p>Custom code block.</p></div>"}
+    },
+    {
+      "type": "tabs",
+      "label": "Tabs",
+      "group": "Interactive",
+      "description": "A row of tabs, each showing its own text and picture. Good for options, audiences or services side by side.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"items","label":"Tabs","type":"list","itemLabel":"Tab","max":8, "fields": [
+          {"key":"title","label":"Tab name","type":"text","placeholder":"For employers"},
+          {"key":"html","label":"Text","type":"rich"},
+          {"key":"image","label":"Picture (optional)","type":"image"}
+        ]},
+        {"key":"layout","label":"Tab position","type":"select","options":[{"value":"","label":"Along the top"},{"value":"side","label":"Down the side"}],"hint":"Tabs down the side move to the top on phones."}
+      ],
+      "defaults": {"items":[]},
+      "sample": {"eyebrow":"Options","heading":"For everyone","text":"Pick your side.","items":[{"title":"For employers","html":"<p>Hire better.</p>","image":"m1"},{"title":"For candidates","html":"<p>Find a better job.</p>"}],"layout":""}
+    },
+    {
+      "type": "accordion",
+      "label": "Accordion",
+      "group": "Interactive",
+      "description": "Titles that open to show more. For details, policies or steps (use the FAQ block for questions you want search engines to see as FAQs).",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"items","label":"Sections","type":"list","itemLabel":"Section","max":30, "fields": [
+          {"key":"title","label":"Title","type":"text"},
+          {"key":"html","label":"Text","type":"rich"}
+        ]},
+        {"key":"single","label":"Only one open at a time","type":"bool"},
+        {"key":"open_first","label":"Open the first one","type":"bool"}
+      ],
+      "defaults": {"items":[],"open_first":true},
+      "sample": {"eyebrow":"Details","heading":"The small print","text":"Open any section.","items":[{"title":"Privacy","html":"<p>We keep your data safe.</p>"},{"title":"Terms","html":"<p>Plain terms.</p>"}],"single":false,"open_first":true}
+    },
+    {
+      "type": "carousel",
+      "label": "Carousel",
+      "group": "Interactive",
+      "description": "Slides that scroll sideways, with previous and next buttons. Pictures with a title, a line of text and a link.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"items","label":"Slides","type":"list","itemLabel":"Slide","max":20, "fields": [
+          {"key":"image","label":"Picture","type":"image"},
+          {"key":"title","label":"Title","type":"text"},
+          {"key":"text","label":"Text","type":"textarea"},
+          {"key":"href","label":"Links to (optional)","type":"link"},
+          {"key":"link_label","label":"Link text","type":"text","placeholder":"Read more"}
+        ]},
+        {"key":"per_view","label":"Slides showing at once","type":"select","options":[{"value":"1","label":"1"},{"value":"2","label":"2"},{"value":"3","label":"3"}],"hint":"On phones one slide shows at a time."},
+        {"key":"aspect","label":"Picture shape","type":"select","options":[{"value":"16/9","label":"Wide"},{"value":"4/3","label":"Landscape"},{"value":"1/1","label":"Square"},{"value":"3/4","label":"Portrait"}]},
+        {"key":"autoplay","label":"Move on by itself","type":"bool","hint":"Off is best for most sites. Visitors can always pause it, and it stays still for anyone who prefers less motion."},
+        {"key":"interval","label":"Seconds per slide","type":"number","placeholder":"6","when":{"key":"autoplay","is":[true]}}
+      ],
+      "defaults": {"items":[],"per_view":"1","aspect":"16/9"},
+      "sample": {
+        "eyebrow": "Work",
+        "heading": "Recent projects",
+        "text": "Swipe through.",
+        "items": [
+          {"image":"m1","title":"Project one","text":"A new site.","href":"/work/one/","link_label":"Read more"},
+          {"image":"m2","title":"Project two","text":"A campaign."}
+        ],
+        "per_view": "1",
+        "aspect": "16/9",
+        "autoplay": false
+      }
+    },
+    {
+      "type": "logo_marquee",
+      "label": "Logo marquee",
+      "group": "Interactive",
+      "description": "Client or partner logos gliding slowly across the page. Pauses when hovered, and stays still for anyone who prefers less motion.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"logos","label":"Logos","type":"images","hint":"Six or more works best. Logos with transparent backgrounds look cleanest."},
+        {"key":"greyscale","label":"Show logos in greyscale","type":"bool"},
+        {"key":"speed","label":"Speed","type":"select","options":[{"value":"","label":"Normal"},{"value":"slow","label":"Slow"},{"value":"fast","label":"Fast"}]},
+        {"key":"size","label":"Logo size","type":"select","options":[{"value":"","label":"Medium"},{"value":"s","label":"Small"},{"value":"l","label":"Large"}]}
+      ],
+      "defaults": {"greyscale":true,"speed":"","size":"","logos":[]},
+      "sample": {"eyebrow":"Clients","heading":"Who we work with","text":"And many more.","logos":["m3","m4","m3","m4"],"greyscale":true,"speed":"","size":""}
+    },
+    {
+      "type": "before_after",
+      "label": "Before and after",
+      "group": "Interactive",
+      "description": "Two pictures on top of each other with a handle to slide between them. Use pictures of the same size and framing.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"before","label":"Before picture","type":"image"},
+        {"key":"after","label":"After picture","type":"image"},
+        {"key":"before_label","label":"Before label","type":"text","placeholder":"Before"},
+        {"key":"after_label","label":"After label","type":"text","placeholder":"After"},
+        {"key":"start","label":"Handle starts at (% from the left)","type":"number","placeholder":"50"},
+        {"key":"caption","label":"Caption","type":"text"}
+      ],
+      "defaults": {"before_label":"Before","after_label":"After","start":50},
+      "sample": {"eyebrow":"Redesign","heading":"Before and after","text":"Slide to compare.","before":"m1","after":"m2","before_label":"Before","after_label":"After","start":50,"caption":"The old and new home page."}
+    },
+    {
+      "type": "counters",
+      "label": "Counters",
+      "group": "Interactive",
+      "description": "Big numbers that count up when they scroll into view (e.g. 1,200 placements). Search engines and phones always see the real numbers.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"items","label":"Numbers","type":"list","itemLabel":"Number","max":8, "fields": [
+          {"key":"value","label":"Number","type":"text","placeholder":"1,200"},
+          {"key":"prefix","label":"Before the number","type":"text","placeholder":"$"},
+          {"key":"suffix","label":"After the number","type":"text","placeholder":"+ or % or k"},
+          {"key":"label","label":"Label","type":"text","placeholder":"Placements made"}
+        ]},
+        {"key":"align","label":"Alignment","type":"select","options":[{"value":"center","label":"Centred"},{"value":"left","label":"Left"}]}
+      ],
+      "defaults": {"items":[],"align":"center"},
+      "sample": {"eyebrow":"In numbers","heading":"Placements made","text":"Since 2010.","items":[{"value":"1,200","suffix":"+","label":"Placements made"},{"value":"98","suffix":"%","label":"Clients who come back"}],"align":"center"}
+    },
+    {
+      "type": "timeline",
+      "label": "Timeline",
+      "group": "Interactive",
+      "description": "Dated moments down a line: your history, a project plan or the steps of a hire. Alternates sides on wide screens.",
+      "fields": [
+        "@eyebrow",
+        "@heading",
+        "@intro",
+        {"key":"items","label":"Moments","type":"list","itemLabel":"Moment","max":30, "fields": [
+          {"key":"date","label":"Date","type":"text","placeholder":"2019 or Spring 2024 or Week 1"},
+          {"key":"title","label":"Title","type":"text"},
+          {"key":"html","label":"Text","type":"rich"},
+          {"key":"image","label":"Picture (optional)","type":"image"}
+        ]},
+        {"key":"layout","label":"Layout","type":"select","options":[{"value":"","label":"Alternate sides on wide screens"},{"value":"left","label":"One column"}]}
+      ],
+      "defaults": {"items":[]},
+      "sample": {
+        "eyebrow": "History",
+        "heading": "Our story",
+        "text": "From one desk to a team.",
+        "items": [{"date":"2010","title":"Founded","html":"<p>One desk, one phone.</p>"},{"date":"2020","title":"Ten people","html":"<p>A real office.</p>","image":"m1"}],
+        "layout": ""
+      }
+    }
+  ]
+}
