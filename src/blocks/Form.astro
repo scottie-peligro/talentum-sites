@@ -5,9 +5,20 @@ import Email from "../components/Email.astro";
 // site, the block shows the site's email and phone instead, so nothing is ever lost.
 import Section from "../components/Section.astro";
 import Heading from "../components/Heading.astro";
-import { settings, type Block } from "../lib/content";
+import { bundle, settings, entries, href, escape, type Block } from "../lib/content";
+import { uploadRules } from "../lib/files";
+import Upload from "../components/Upload.astro";
 const { block } = Astro.props as { block: Block };
-const d = block.data || {};
+const raw = block.data || {};
+// The form itself is made in Talentum → Forms & leads (bundle.forms); the block picks one. Older blocks with their own
+// questions/fields keep them; a block with neither uses the site's "contact" form.
+const forms: Record<string, any> = (bundle as any).forms || {};
+const saved = (raw.form && forms[raw.form]) || (!raw.form && !raw.questions?.length && !raw.fields?.length ? Object.values(forms).find((f: any) => f.key === "contact") : null);
+const d: Record<string, any> = saved ? { ...raw, form_key: saved.key, form_name: saved.name, mode: saved.mode, questions: saved.questions, fields: saved.fields, ...(saved.labels || {}) } : raw;
+// "Book a consult call" (Talentum → Forms & leads → the form): a second button on the last step that sends the form,
+// then opens the right team member's booking page in a pop-up, pre-filled (Talentum's /book/route/<form> picks who).
+const bookBase: string = (bundle as any).booking_base || "";
+const book = saved && saved.booking?.on && bookBase ? saved.booking : null;
 const endpoint: string = settings.forms?.endpoint || (settings.forms?.enabled ? "/api/forms" : "");
 const turnstile: string = settings.forms?.turnstile_site_key || "";
 const key = d.form_key || "contact";
@@ -21,26 +32,108 @@ const fields = (d.fields?.length ? d.fields : [
 ]).map((f: any) => ({ ...f, name: String(f.name || f.label || "field").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "field", options: (f.options || []).filter(Boolean) }))
   .filter((f: any) => f.label) as { name: string; label: string; type: string; required?: boolean; options?: string[] }[];
 const ac: Record<string, string> = { name: "name", email: "email", company: "organization", phone: "tel" };
+// Step by step (the default): a few questions about what they need, one at a time, then their contact details.
+// "classic" = the single form. Without JavaScript every step shows at once, as one normal form.
+const slug = (x: any) => String(x || "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 40);
+const steps = d.mode !== "classic";
+const questions = (Array.isArray(d.questions) && d.questions.length ? d.questions : [
+  { question: "What can we help you with?", key: "help_with", type: "single", options: ["A marketing plan", "A new or better website", "More leads and candidates", "Social media and content", "Brand and design", "Something else"] },
+  { question: "When are you hoping to start?", key: "timing", type: "single", options: ["As soon as possible", "In the next few months", "Later this year", "Just exploring for now"] },
+  { question: "Anything else we should know?", key: "message", type: "textarea", required: false, hint: "Optional. A sentence or two is plenty." },
+]).filter((q: any) => q && q.question).slice(0, 8).map((q: any, i: number) => ({
+  ...q, key: slug(q.key || q.question) || "q" + (i + 1), type: ["single", "multi", "text", "textarea", "upload"].includes(q.type) ? q.type : "single",
+  options: (Array.isArray(q.options) ? q.options : String(q.options || "").split(",")).map((o: any) => String(o).trim()).filter(Boolean).slice(0, 12),
+  required: q.required !== false && q.type !== "textarea" && q.type !== "upload",
+}));
+const hasFiles = questions.some((q: any) => q.type === "upload") || fields.some((f: any) => f.type === "file");
+const contactFields = steps ? fields.filter((f) => !questions.some((q: any) => q.key === f.name) && !(f.name === "message" && questions.some((q: any) => q.key === "message"))) : fields;
+const total = questions.length + 1;
+
+// Privacy & consent (Talentum → Forms & leads → the form → Privacy & consent). {company} and {privacy} are filled in;
+// {privacy} becomes a link to the policy (the form's own link, else the site's legal page with "privacy" in its address).
+const pv: Record<string, any> = saved?.privacy || {};
+const company = o.name || "us";
+const policyPage = entries.find((e: any) => e.type === "legal" && /privacy/i.test(e.path || e.slug || ""));
+const policyHref = pv.link ? href(pv.link) : policyPage?.path || "";
+const policyLabel = pv.link_label || "privacy policy";
+const fill = (t: string) => escape(t).replace(/\{company\}/g, escape(company))
+  .replace(/\{privacy\}/g, policyHref ? `<a href="${escape(policyHref)}" target="_blank" rel="noopener">${escape(policyLabel)}</a>` : escape(policyLabel));
+const plain = (t: string) => t.replace(/\{company\}/g, company).replace(/\{privacy\}/g, policyLabel);
+const noteText = pv.show_note === false ? "" : pv.note || "We'll only use your details to reply to you. See our {privacy}.";
+const consentText = pv.consent_text || "I've read and agree to the {privacy}.";
+const smsText = pv.sms_text || "Yes, {company} may text me at the number above about my enquiry. Message frequency varies. Msg & data rates may apply. Reply STOP to opt out or HELP for help. Consent isn't a condition of purchase.";
+const hasPhone = (steps ? contactFields : fields).some((f) => f.type === "tel" || f.name === "phone");
 ---
 <Section bg={d.background} id={d.anchor || "contact"}>
   <div class="wrap form-wrap">
     <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
     {endpoint ? (
-      <form class="card form" method="post" action={`${endpoint.replace(/\/+$/, "")}/${key}`} data-form={key} data-name={d.heading || ""}>
-        {fields.map((f) => (
-          <label class={f.type === "textarea" ? "full" : ""}>
+      <form class={`card form${steps ? " fs" : ""}`} enctype={hasFiles ? "multipart/form-data" : undefined} method="post" action={`${endpoint.replace(/\/+$/, "")}/${key}`} data-form={key} data-name={d.heading || ""} data-steps={steps ? String(total) : undefined}
+        data-book-url={book ? `${bookBase}/book/route/${saved.id}` : undefined} data-book-q={book ? book.question || "" : undefined}>
+        {steps && (
+          <div class="full fs-top" aria-hidden="true"><span class="fs-count">Step <b>1</b> of {total}</span><span class="fs-bar"><i></i></span></div>
+        )}
+        {steps && questions.map((q: any, i: number) => (
+          <fieldset class="full fs-step" data-step={i}>
+            <legend tabindex="-1">{q.question}{q.required && <em aria-hidden="true"> *</em>}</legend>
+            {q.hint && <p class="fs-hint">{q.hint}</p>}
+            {(q.type === "single" || q.type === "multi") ? (
+              <div class="fs-opts">
+                {q.options.map((o: string) => (
+                  <label class="fs-opt"><input type={q.type === "multi" ? "checkbox" : "radio"} name={q.key} value={o} required={q.type === "single" && q.required} /><span>{o}</span></label>
+                ))}
+              </div>
+            ) : q.type === "upload" ? <Upload name={q.key} rules={uploadRules(q)} label={q.question} />
+              : q.type === "textarea" ? <textarea name={q.key} rows="4" required={q.required} aria-label={q.question} /> : <input name={q.key} type="text" required={q.required} aria-label={q.question} />}
+          </fieldset>
+        ))}
+        {steps ? (
+          <fieldset class="full fs-step fs-contact" data-step={questions.length}>
+            <legend tabindex="-1">{d.contact_heading || "Where should we send our reply?"}</legend>
+            {d.contact_text && <p class="fs-hint">{d.contact_text}</p>}
+            <div class="fs-grid">
+              {contactFields.map((f) => (
+                <label class={f.type === "textarea" || f.type === "file" ? "full" : ""}>
+                  <span>{f.label}{f.required && <em aria-hidden="true"> *</em>}</span>
+                  {f.type === "file" ? <Upload name={f.name} rules={uploadRules(f)} label={f.label} wrapped /> : f.type === "textarea" ? <textarea name={f.name} rows="4" required={f.required} /> :
+                    f.type === "select" ? <select name={f.name} required={f.required}><option value="">Choose…</option>{(f.options || []).map((o) => <option>{o}</option>)}</select> :
+                    <input name={f.name} type={(f.type || "text") as any} required={f.required} autocomplete={(ac[f.name] || "on") as any} />}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        ) : fields.map((f) => (
+          <label class={f.type === "textarea" || f.type === "file" ? "full" : ""}>
             <span>{f.label}{f.required && <em aria-hidden="true"> *</em>}</span>
-            {f.type === "textarea" ? <textarea name={f.name} rows="5" required={f.required} /> :
+            {f.type === "file" ? <Upload name={f.name} rules={uploadRules(f)} label={f.label} wrapped /> : f.type === "textarea" ? <textarea name={f.name} rows="5" required={f.required} /> :
               f.type === "select" ? <select name={f.name} required={f.required}><option value="">Choose…</option>{(f.options || []).map((o) => <option>{o}</option>)}</select> :
               <input name={f.name} type={(f.type || "text") as any} required={f.required} autocomplete={(ac[f.name] || "on") as any} />}
           </label>
         ))}
+        {(pv.consent || (pv.sms && hasPhone) || noteText) && (
+          <div class="full fs-privacy">
+            {pv.consent && (
+              <label class="fs-check"><input type="checkbox" name="privacy_consent" value="yes" required={!!pv.consent_required} /><span set:html={fill(consentText) + (pv.consent_required ? ' <em aria-hidden="true">*</em>' : "")} /></label>
+            )}
+            {pv.consent && <input type="hidden" name="privacy_consent_text" value={plain(consentText)} />}
+            {pv.sms && hasPhone && (
+              <label class="fs-check"><input type="checkbox" name="sms_consent" value="yes" data-sms /><span set:html={fill(smsText)} /></label>
+            )}
+            {pv.sms && hasPhone && <input type="hidden" name="sms_consent_text" value={plain(smsText)} />}
+            {noteText && <p class="fs-note" set:html={fill(noteText)} />}
+          </div>
+        )}
         <input type="text" name="_hp" tabindex="-1" autocomplete="off" class="hp" aria-hidden="true" />
         <input type="hidden" name="_page" value={Astro.url.pathname} />
         <input type="hidden" name="_form_name" value={d.form_name || d.heading || "Website form"} />
         <input type="hidden" name="_t" value="" />
         {turnstile && <div class="full cf-turnstile" data-sitekey={turnstile} data-size="flexible"></div>}
-        <div class="full"><button class="btn btn-primary" type="submit">{d.submit_label || "Send"}</button></div>
+        <div class="full fs-nav">
+          {steps && <button class="btn btn-secondary fs-back" type="button" hidden>Back</button>}
+          {steps && <button class="btn btn-primary fs-next" type="button" hidden>{d.next_label || "Next"}</button>}
+          <button class="btn btn-primary fs-send" type="submit">{d.submit_label || "Send"}</button>
+          {book && <button class="btn btn-secondary fs-book" type="button" hidden>{book.label || "Book a consult call"}</button>}
+        </div>
         <p class="full ok" hidden role="status">{d.success || "Thanks — we'll be in touch shortly."}</p>
         <p class="full bad" hidden role="alert"><span class="msg">Sorry — that didn't send. Please try again</span>{o.email ? <> or email <Email email={o.email} /></> : null}.</p>
       </form>
@@ -55,6 +148,12 @@ const ac: Record<string, string> = { name: "name", email: "email", company: "org
     )}
   </div>
 </Section>
+{endpoint && book && (
+  <dialog class="book-dlg" aria-label={book.label || "Book a consult call"}>
+    <div class="book-top"><span>{book.label || "Book a consult call"}</span><button type="button" class="book-x" aria-label="Close">×</button></div>
+    <iframe title="Pick a time" loading="lazy"></iframe>
+  </dialog>
+)}
 {endpoint && turnstile && <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>}
 {endpoint && (
   <script is:inline>
@@ -62,24 +161,96 @@ const ac: Record<string, string> = { name: "name", email: "email", company: "org
       f.elements._t.value = String(Date.now());
       // No-script fallback came back with ?sent=1 / ?error=1.
       const q = new URLSearchParams(location.search);
-      const done = () => { f.querySelectorAll("label, .full:not(.ok), .cf-turnstile").forEach((x) => x.remove()); f.querySelector(".ok").hidden = false; };
+      const bookBtn = f.querySelector(".fs-book");
+      if (bookBtn && !f.dataset.steps) bookBtn.hidden = false;
+      // "Book a consult call": the same checks and send as Send, then the booking pop-up.
+      if (bookBtn) {
+        bookBtn.addEventListener("click", () => { f.dataset.mode = "book"; f.requestSubmit(); setTimeout(() => { if (!f.dataset.sending) delete f.dataset.mode; }, 0); });
+      }
+      const openBooking = (fd, data) => {
+        const dlg = document.querySelector(".book-dlg"); if (!dlg) return;
+        const qk = f.dataset.bookQ || "";
+        const option = qk ? fd.getAll(qk).filter((v) => typeof v === "string").join("|") : "";
+        // Their answers, as notes for the call.
+        const lines = [];
+        f.querySelectorAll(".fs-step:not(.fs-contact)").forEach((s) => {
+          const vals = [...s.querySelectorAll("input:checked, textarea, input[type=text]")].map((el) => el.value.trim()).filter(Boolean);
+          if (vals.length) lines.push(s.querySelector("legend").textContent.replace(/\s*\*\s*$/, "").trim() + ": " + vals.join(", "));
+        });
+        if (!lines.length && data.message) lines.push(data.message);
+        // Details go after the #, so they're never sent to a server or kept in its logs.
+        const pre = new URLSearchParams({ name: data.name || "", email: data.email || "", phone: data.phone || "", company: data.company || "", notes: lines.join("\n").slice(0, 2000) });
+        dlg.querySelector("iframe").src = f.dataset.bookUrl + "?embed=1&src=website&option=" + encodeURIComponent(option) + "#" + pre.toString();
+        dlg.querySelector(".book-x").onclick = () => dlg.close();
+        dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
+        dlg.showModal();
+        const ok = f.querySelector(".ok"); ok.textContent = "Thanks — your message is in. Pick a time in the window that's opened.";
+        window.addEventListener("message", (e) => { if (e.data && e.data.type === "talentum-booking:booked") ok.textContent = e.data.status === "requested" ? "Thanks — your call is requested. We'll email you when it's confirmed." : "You're booked — the details are in your email."; });
+        window.tlEvent && tlEvent("booking_opened", { form: f.dataset.form });
+      };
+      const done = () => { f.querySelectorAll("label, .full:not(.ok), .cf-turnstile, .fs-step, .fs-top, .fs-privacy").forEach((x) => x.remove()); f.querySelector(".ok").hidden = false; };
+      // Step by step: one question at a time, Back / Next, single choices move on by themselves.
+      if (f.dataset.steps) {
+        const stepsEls = [...f.querySelectorAll(".fs-step")], back = f.querySelector(".fs-back"), next = f.querySelector(".fs-next"), send = f.querySelector(".fs-send");
+        const count = f.querySelector(".fs-count b"), bar = f.querySelector(".fs-bar i"), extras = f.querySelectorAll(".cf-turnstile, .fs-privacy");
+        let at = 0;
+        f.classList.add("fs-js");
+        const show = (i, focus) => {
+          at = i;
+          stepsEls.forEach((s, j) => { s.hidden = j !== i; });
+          const last = i === stepsEls.length - 1;
+          back.hidden = i === 0; next.hidden = last; send.hidden = !last;
+          if (bookBtn) bookBtn.hidden = !last;
+          extras.forEach((x) => { x.hidden = !last; });
+          if (count) count.textContent = String(i + 1);
+          if (bar) bar.style.width = Math.round(((i + 1) / stepsEls.length) * 100) + "%";
+          if (focus) stepsEls[i].querySelector("legend").focus();
+        };
+        const valid = () => {
+          const s = stepsEls[at];
+          for (const el of s.querySelectorAll("input, textarea, select")) if (!el.checkValidity()) { el.reportValidity(); return false; }
+          const fe = s.querySelector(".fs-file-err:not([hidden])"); if (fe) { fe.scrollIntoView({ block: "center" }); return false; }
+          return true;
+        };
+        next.addEventListener("click", () => { if (valid()) show(at + 1, true); });
+        back.addEventListener("click", () => show(at - 1, true));
+        f.addEventListener("change", (e) => { if (e.target.type === "radio" && at < stepsEls.length - 1) setTimeout(() => show(at + 1, true), 220); });
+        f.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.tagName === "INPUT" && at < stepsEls.length - 1) { e.preventDefault(); next.click(); } });
+        show(0, false);
+      }
       if (q.get("sent")) done(); else if (q.get("error")) f.querySelector(".bad").hidden = false;
       f.addEventListener("submit", async (e) => {
         e.preventDefault();
-        const btn = f.querySelector("button[type=submit]"); btn.disabled = true;
+        const booking = f.dataset.mode === "book" && !!bookBtn; delete f.dataset.mode; f.dataset.sending = "1";
+        const btn = booking ? bookBtn : f.querySelector("button[type=submit]"); btn.disabled = true; const btnLabel = btn.textContent;
         const bad = f.querySelector(".bad"); bad.hidden = true;
-        const data = Object.fromEntries(new FormData(f));
+        const fd = new FormData(f), data = {};
+        for (const k of new Set(fd.keys())) data[k] = fd.getAll(k).filter((v) => typeof v === "string" && v !== "").join(", ");
+        const sms = f.querySelector("[data-sms]"); if (sms) data.sms_consent = sms.checked ? "yes" : "no";
+        const withFiles = [...f.querySelectorAll("input[type=file]")].some((i) => i.files && i.files.length);
+        if (withFiles && f.querySelector(".fs-file-err:not([hidden])")) { btn.disabled = false; return; }
         data._attr = window.tlAttribution ? tlAttribution() : { referrer: document.referrer };
+        if (booking) data.next_step = "Chose to book a consult call";
         try {
-          const r = await fetch(f.action, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+          let r;
+          if (withFiles) {
+            // Files go as multipart: every field once (multi-choice joined), then the files.
+            const mp = new FormData();
+            for (const [k, v] of Object.entries(data)) if (k !== "_attr") mp.append(k, v);
+            mp.append("_attr", JSON.stringify(data._attr || {}));
+            f.querySelectorAll("input[type=file]").forEach((i) => { for (const file of i.files || []) mp.append(i.name, file, file.name); });
+            btn.textContent = "Sending…";
+            r = await fetch(f.action, { method: "POST", headers: { Accept: "application/json" }, body: mp });
+          } else r = await fetch(f.action, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
           if (!r.ok) { let m = ""; try { m = (await r.json()).error || ""; } catch (x) {} throw new Error(m || String(r.status)); }
           done();
           window.tlEvent && tlEvent("generate_lead", { form: f.dataset.form, form_name: data._form_name });
+          if (booking) openBooking(fd, data);
         } catch (x) {
-          btn.disabled = false; bad.hidden = false;
+          btn.disabled = false; btn.textContent = btnLabel; bad.hidden = false;
           if (x && x.message && !/^\d+$/.test(x.message)) bad.querySelector(".msg").textContent = x.message.replace(/[.!]\s*$/, "");
           if (window.turnstile) try { turnstile.reset(); } catch (y) {}
-        }
+        } finally { delete f.dataset.sending; }
       });
     });
   </script>
@@ -93,6 +264,42 @@ const ac: Record<string, string> = { name: "name", email: "email", company: "org
   input, textarea, select { width: 100%; font: inherit; font-size: 1rem; padding: .7rem .8rem; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); }
   input:focus, textarea:focus, select:focus { outline: 2px solid var(--focus); outline-offset: 1px; border-color: transparent; }
   .bad { color: #b42318; font-weight: 600; }
+  .fs-privacy { display: grid; gap: .75rem; padding-top: .25rem; }
+  .fs-check { display: flex; gap: .65rem; align-items: flex-start; cursor: pointer; }
+  .fs-check input { flex-shrink: 0; width: 1.15rem; height: 1.15rem; margin: .2rem 0 0; padding: 0; accent-color: var(--accent); }
+  .fs-check span { display: block; margin: 0; font-weight: 400; font-size: .9rem; line-height: 1.5; color: var(--text); }
+  .fs-check em { color: var(--accent-text); font-style: normal; }
+  .fs-note { margin: 0; font-size: .85rem; line-height: 1.5; color: var(--muted); }
+  .fs-privacy a { color: var(--link); text-decoration: underline; }
+  .fs-nav { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+  .fs-js .fs-send[hidden], .fs-js .fs-next[hidden], .fs-js .fs-back[hidden] { display: none; }
+  .fs:not(.fs-js) .fs-top, .fs:not(.fs-js) .fs-next, .fs:not(.fs-js) .fs-back { display: none; }
+  .fs-step { border: 0; margin: 0; padding: 0; min-width: 0; }
+  .fs-step legend { padding: 0; margin-bottom: .9rem; font: 600 clamp(1.2rem, 2vw, 1.5rem)/1.25 var(--font-heading); color: var(--heading); outline: none; }
+  .fs-step legend em { color: var(--accent-text); font-style: normal; }
+  .fs:not(.fs-js) .fs-step + .fs-step { margin-top: 1.5rem; }
+  .fs-hint { margin: -.4rem 0 1rem; color: var(--muted); font-size: .95rem; }
+  .fs-opts { display: grid; gap: .6rem; }
+  @media (min-width: 640px) { .fs-opts { grid-template-columns: 1fr 1fr; } }
+  .fs-opt { position: relative; display: block; cursor: pointer; }
+  .fs-opt input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .fs-opt span { display: flex; align-items: center; min-height: 52px; padding: .75rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--heading); font-weight: 600; margin: 0; transition: border-color .15s, background .15s; }
+  .fs-opt:hover span { border-color: var(--heading); }
+  .fs-opt input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .fs-opt input:checked + span { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); box-shadow: inset 0 0 0 1px var(--accent); }
+  .fs-grid { display: grid; gap: 1rem 1.25rem; }
+  @media (min-width: 720px) { .fs-grid { grid-template-columns: 1fr 1fr; } }
+  .fs-top { display: flex; align-items: center; gap: 1rem; font-size: .85rem; color: var(--muted); }
+  .fs-bar { flex: 1; height: 4px; border-radius: 4px; background: var(--line); overflow: hidden; }
+  .fs-bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+  @media (prefers-reduced-motion: reduce) { .fs-bar i, .fs-opt span { transition: none; } }
+  .book-dlg { width: min(960px, calc(100vw - 2rem)); height: min(860px, calc(100dvh - 2rem)); padding: 0; border: 0; border-radius: var(--radius); background: var(--surface, #fff); color: var(--text); box-shadow: 0 24px 60px rgba(0,0,0,.35); overflow: hidden; }
+  .book-dlg[open] { display: flex; flex-direction: column; }
+  .book-dlg::backdrop { background: rgba(5, 11, 31, .6); }
+  .book-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .6rem .6rem .6rem 1.1rem; border-bottom: 1px solid var(--line); font-weight: 700; color: var(--heading); }
+  .book-x { width: 44px; height: 44px; border: 0; border-radius: 999px; background: transparent; color: inherit; font-size: 1.6rem; line-height: 1; cursor: pointer; }
+  .book-x:hover { background: color-mix(in srgb, var(--heading) 8%, transparent); }
+  .book-dlg iframe { flex: 1; width: 100%; border: 0; background: #fff; }
   .hp { position: absolute; left: -9999px; width: 1px; height: 1px; }
   .alt ul { list-style: none; padding: 0; margin: 0; font-size: 1.15rem; font-weight: 600; }
   .alt li + li { margin-top: .4rem; }

@@ -96,3 +96,28 @@ details.deep > summary::-webkit-details-marker { display: none; }
 .deep-btn::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-2px) rotate(45deg); transition: transform .2s ease; }
 details.deep[open] .deep-btn::after { transform: translateY(2px) rotate(-135deg); }
 details.deep > summary:hover .deep-btn { border-color: var(--heading); }
+
+/* A block's own styling (src/lib/blockStyle.ts). The wrapper adds no box of its own. */
+.bs { display: contents; }
+.bs[data-bw] .wrap, .bs[data-bw] .wrap.narrow { width: min(100% - 2 * var(--gutter), var(--b-w)); }
+.bs[data-bw="full"] .wrap, .bs[data-bw="full"] .wrap.narrow { width: calc(100% - 2 * var(--gutter)); }
+.bs[data-bpt] > * { padding-top: var(--b-pt) !important; }
+.bs[data-bpb] > * { padding-bottom: var(--b-pb) !important; }
+/* Alignment beats a block's own (e.g. a centred hero): text, the copy column and the button row. */
+.bs[data-al="left"] { --b-al: left; --b-jc: flex-start; } .bs[data-al="center"] { --b-al: center; --b-jc: center; } .bs[data-al="right"] { --b-al: right; --b-jc: flex-end; }
+.bs[data-al] > *, .bs[data-al] :is(.copy, .heading, .sec-head, .lede, .prose, h1, h2, h3, p) { text-align: var(--b-al) !important; }
+.bs[data-al] :is(.btns, .buttons) { justify-content: var(--b-jc) !important; }
+.bs[data-al] .ov { display: flex; flex-direction: column; align-items: var(--b-jc) !important; }
+.bs[data-al] .ov-tr { text-align: var(--b-al) !important; }
+.bs[data-al="left"] :is(.copy, .lede, .heading, .sec-head) { margin-inline: 0 auto !important; }
+.bs[data-al="center"] :is(.copy, .lede, .heading, .sec-head) { margin-inline: auto !important; }
+.bs[data-al="right"] :is(.copy, .lede, .heading, .sec-head) { margin-inline: auto 0 !important; }
+.bs[data-bhw] :is(h1, h2, h3) { font-weight: var(--b-hw); }
+.bs[data-bfs] :is(p, li, blockquote, .lede):not(.eyebrow) { font-size: var(--b-fs) !important; }
+/* A chosen column split wins over the layouts' own stacking, from tablet width up. */
+@media (min-width: 900px) {
+  html .bs[data-bcols] .mt.has-img.has-img, html .bs[data-bcols] .mt:not(.has-img) .copy.copy { grid-template-columns: var(--b-cols); }
+  html .bs[data-bcols] .mt.img-right .media.media { order: 2; }
+}
+@media (max-width: 699px) { .bs[data-hide="mobile"] { display: none; } }
+@media (min-width: 700px) { .bs[data-hide="desktop"] { display: none; } }

@@ -24,6 +24,10 @@ html.layout-guided[data-bg="image"] {
   --g-panel: rgba(1,30,47,.78); --g-tile: rgba(255,255,255,.10); --g-header: rgba(10,20,26,.55); --g-field: rgba(10,20,26,.55);
 }
 html.layout-guided[data-bg="image"] body { background: #0a141a; }
+/* Pop-ups (reading comfort, search, menu sheet) stay solid over the photo so they are easy to read. */
+html.layout-guided[data-bg="image"] dialog { background: #121d24; }
+/* Photo mode: the dark hero / page header let the photo show through instead of a solid band. */
+html.layout-guided[data-bg="image"] .hero.bg-dark, html.layout-guided[data-bg="image"] .ph.bg-dark { background: transparent; }
 html.layout-guided[data-bg="dark"] .bg-white, html.layout-guided[data-bg="image"] .bg-white { background: transparent; }
 html.layout-guided[data-bg="dark"] .bg-paper, html.layout-guided[data-bg="image"] .bg-paper { background: var(--paper); }
 html.layout-guided[data-bg="dark"] .btn-secondary:hover, html.layout-guided[data-bg="image"] .btn-secondary:hover { color: #0a141a; }
@@ -37,7 +41,7 @@ html.layout-guided[data-bg="image"] .gd-bgimg { display: block; }
 .gd-nav, .gd-panel { display: none; }
 @media (min-width: 1000px) {
   html.layout-guided body { overflow: hidden; }
-  .gd-shell { height: 100dvh; display: grid; grid-template-rows: 68px minmax(0, 1fr); grid-template-columns: 216px minmax(0, 1fr); grid-template-areas: "h h" "n m"; }
+  .gd-shell { height: 100dvh; display: grid; grid-template-rows: var(--head-h, 68px) minmax(0, 1fr); grid-template-columns: 216px minmax(0, 1fr); grid-template-areas: "h h" "n m"; }
   .gd-header { grid-area: h; }
   .gd-nav { grid-area: n; display: block; overflow-y: auto; }
   html.layout-guided #main { grid-area: m; overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
@@ -45,16 +49,20 @@ html.layout-guided[data-bg="image"] .gd-bgimg { display: block; }
 @media (min-width: 1240px) {
   .gd-shell { grid-template-columns: 232px minmax(0, 1fr) 320px; grid-template-areas: "h h h" "n m p"; }
   .gd-panel { grid-area: p; display: block; overflow-y: auto; }
+  /* A page that hides the panel gives its column to the content. */
+  .gd-shell.gd-nopanel { grid-template-columns: 232px minmax(0, 1fr); grid-template-areas: "h h" "n m"; }
 }
 @media (max-width: 999px) { html.layout-next.layout-guided { --nx-dock: 72px; } }
 
 /* ---- Header ---- */
-.gd-header { position: sticky; top: 0; z-index: 50; height: 64px; display: flex; align-items: center; gap: 12px; padding: 0 12px 0 20px; border-bottom: 1px solid var(--line); background: var(--g-header); color: var(--heading); view-transition-name: gd-header; }
-@media (min-width: 1000px) { .gd-header { height: 68px; gap: 20px; padding: 0 24px 0 28px; } }
+.gd-header { position: sticky; top: 0; z-index: 50; height: var(--head-h-m, 64px); display: flex; align-items: center; gap: 12px; padding: 0 12px 0 20px; border-bottom: 1px solid var(--line); background: var(--g-header); color: var(--heading); view-transition-name: gd-header; }
+@media (min-width: 1000px) { .gd-header { height: var(--head-h, 68px); gap: 20px; padding: 0 24px 0 28px; } }
 html.layout-guided[data-bg="image"] .gd-header { backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
 .gd-brand { display: inline-flex; align-items: center; flex-shrink: 0; text-decoration: none; color: inherit; }
-@media (min-width: 1000px) { .gd-brand { width: 188px; } }
-.gd-logo { height: 30px; width: auto; }
+/* The logo keeps its full width (at least the nav column); the search box always starts after it, never over it. */
+@media (min-width: 1000px) { .gd-brand { width: auto; min-width: 188px; } }
+.gd-logo { height: var(--logo-h-m, var(--logo-h, 30px)); width: auto; max-width: 58vw; }
+@media (min-width: 1000px) { .gd-logo { height: var(--logo-h, 30px); max-width: 320px; } }
 .gd-logo-dark { display: none; }
 html[data-bg="dark"] .gd-header .gd-logo-light:has(+ .gd-logo-dark), html[data-bg="image"] .gd-header .gd-logo-light:has(+ .gd-logo-dark) { display: none; }
 html[data-bg="dark"] .gd-logo-dark, html[data-bg="image"] .gd-logo-dark { display: block; }
@@ -130,6 +138,6 @@ html.layout-guided[data-bg="image"] .gd-dock { backdrop-filter: blur(14px); -web
 html.layout-guided .nx-dock { display: none; }
 
 /* The Site Assistant button: clear of the right panel on wide screens, above the bottom bar on phones. */
-@media (min-width: 1240px) { html.layout-guided .sa-open, html.layout-guided .sa { right: 352px; } }
+@media (min-width: 1240px) { html.layout-guided body:not(:has(.gd-nopanel)) :is(.sa-open, .sa) { right: 352px; } }
 @media (max-width: 999px) { html.layout-guided .sa-open { bottom: calc(var(--nx-dock) + 16px + env(safe-area-inset-bottom, 0px)); } }
 html.layout-guided #main > .section:first-child { padding-top: clamp(2rem, 4vw, 3rem); }

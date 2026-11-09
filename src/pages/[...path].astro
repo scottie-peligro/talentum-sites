@@ -8,8 +8,9 @@ import Img from "../components/Img.astro";
 import { getImage } from "astro:assets";
 import {
   entries, bundle, settings, media, person, lineName, accountName, category, formatDate, rich, resolveFaqs, readingMinutes,
-  proofFor, caseStudies, testimonialsFor, faqsFor, absolute, type Entry, type Block,
+  proofFor, caseStudies, testimonialsFor, faqsFor, absolute, contentType, type Entry, type Block,
 } from "../lib/content";
+import CustomFields from "../components/CustomFields.astro";
 import { imageFile } from "../lib/images";
 import { pageTitle, pageDescription, ogImageId, schemaFor, faqSchema, videoSchema, visibleBlocks } from "../lib/seo";
 import { overviewVideo } from "../lib/next";
@@ -52,10 +53,11 @@ const schemas = [schemaFor(e, schemaImage), faqSchema(faqItems), video ? videoSc
 
 const authors = (e.authors || []).map((id) => person(id)).filter(Boolean);
 const client = e.fields?.client_name || accountName(e.account);
+const ct = contentType(e.type);
 const csStats = e.type === "case_study" ? bundle.proof.filter((p) => p.case_study === e.id && p.kind === "stat").slice(0, 4) : [];
 ---
 <Base kind={e.type} title={pageTitle(e)} description={pageDescription(e)} path={e.path} image={ogImageId(e)} type={e.type === "post" || e.type === "case_study" ? "article" : "website"}
-  noindex={!!e.seo?.noindex} schema={schemas} video={video} published={e.type === "post" ? e.published_at : undefined} modified={e.type === "post" ? e.updated : undefined}>
+  noindex={!!e.seo?.noindex} schema={schemas} video={video} panel={e.fields?.panel} published={e.type === "post" ? e.published_at : undefined} modified={e.type === "post" ? e.updated : undefined}>
 
   {e.type === "post" ? (
     <article>
@@ -119,9 +121,10 @@ const csStats = e.type === "case_study" ? bundle.proof.filter((p) => p.case_stud
   ) : (
     <>
       {!startsWithHero && (
-        <PageHeader entry={e} eyebrow={e.type === "service" ? lineName(e.service_line) || "Services" : undefined} text={e.excerpt}
+        <PageHeader entry={e} eyebrow={e.type === "service" ? lineName(e.service_line) || "Services" : ct ? ct.label : undefined} text={e.excerpt}
           tone={e.type === "legal" ? "paper" : "dark"} buttons={e.type === "service" ? ctaLink : undefined} />
       )}
+      {ct && ct.show_fields && <div class="wrap ct-fields"><CustomFields entry={e} ct={ct} /></div>}
       <Blocks blocks={blocks} entry={e} />
       <Blocks blocks={auto} entry={e} />
     </>
@@ -130,6 +133,7 @@ const csStats = e.type === "case_study" ? bundle.proof.filter((p) => p.case_stud
 
 <style>
   .post-head { padding-block: clamp(3rem, 7vw, 5rem) 0; }
+  .ct-fields { margin-block: clamp(1.5rem, 3vw, 2rem) 0; }
   .post-head h1 { font-size: clamp(2.1rem, 4.6vw, 3.4rem); }
   .byline { display: flex; align-items: center; gap: .75rem; margin-top: 1.5rem; font-weight: 600; color: var(--heading); }
   .byline small { display: block; font-weight: 400; color: var(--muted); font-size: .85rem; }

@@ -59,3 +59,10 @@ export async function turnstileOk(env, token, request) {
 }
 
 export const BOT_UA = /bot|crawl|spider|slurp|facebookexternalhit|preview|monitor|curl|wget|python|httpclient|headless|lighthouse/i;
+
+// File types a form can accept (kept the same as Talentum's pb_hooks/lib/websites.js FILE_GROUPS). The page tells the
+// visitor the form's own limits; this is the hard ceiling for anything sent here.
+export const FILE_EXT = new Set(["jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "pdf", "doc", "docx", "odt", "rtf", "xls", "xlsx", "csv", "ods",
+  "ppt", "pptx", "odp", "key", "txt", "md", "zip", "ai", "eps", "psd", "svg", "indd", "fig", "sketch", "mp4", "mov", "webm", "m4v", "mp3", "wav", "m4a"]);
+export const UPLOAD_MAX = 25 * 1048576;          // per file
+export const UPLOAD_TOTAL = 60 * 1048576;        // per entry

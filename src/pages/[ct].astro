@@ -1,0 +1,45 @@
+---
+// A custom content type's own listing page at its address (e.g. /events/), when "Listing page" is on and no page
+// of the site already lives there. Cards: image, title, short description and the type's fields.
+import Base from "../layouts/Base.astro";
+import Img from "../components/Img.astro";
+import CustomFields from "../components/CustomFields.astro";
+import { contentTypes, entries, entriesOf, type ContentType } from "../lib/content";
+
+export function getStaticPaths() {
+  return contentTypes.filter((t) => t.archive && t.route && !entries.some((e) => e.path === "/" + t.route + "/")).map((t) => ({ params: { ct: t.route }, props: { ct: t } }));
+}
+const { ct } = Astro.props as { ct: ContentType };
+const list = entriesOf("x_" + ct.key);
+const title = ct.archive_title || ct.plural;
+---
+<Base title={title} description={ct.archive_intro || `${ct.plural}.`} path={"/" + ct.route + "/"} kind="archive">
+  <section class="section">
+    <div class="wrap">
+      <h1>{title}</h1>
+      {ct.archive_intro && <p class="lede">{ct.archive_intro}</p>}
+      {list.length ? (
+        <ul class="ct-grid">
+          {list.map((e) => (
+            <li class="card ct-card">
+              {e.featured_image && <a href={e.path} class="ct-img" tabindex="-1" aria-hidden="true"><Img id={e.featured_image} cover aspect="16/10" sizes="(min-width: 900px) 360px, 100vw" widths={[360, 720]} /></a>}
+              <h2 class="ct-t"><a href={e.path}>{e.title}</a></h2>
+              {e.excerpt && <p class="ct-x">{e.excerpt}</p>}
+              <CustomFields entry={e} ct={ct} compact />
+            </li>
+          ))}
+        </ul>
+      ) : <p class="ct-none">Nothing here yet.</p>}
+    </div>
+  </section>
+</Base>
+<style>
+  .ct-grid { list-style: none; margin: 2rem 0 0; padding: 0; display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr)); }
+  .ct-card { display: flex; flex-direction: column; gap: .5rem; }
+  .ct-img { display: block; margin: -1px -1px .5rem; overflow: hidden; border-radius: var(--radius) var(--radius) 0 0; }
+  .ct-t { font-size: 1.2rem; margin: 0; }
+  .ct-t a { color: var(--heading); text-decoration: none; }
+  .ct-t a:hover { text-decoration: underline; }
+  .ct-x { margin: 0; color: var(--muted); }
+  .ct-none { color: var(--muted); }
+</style>

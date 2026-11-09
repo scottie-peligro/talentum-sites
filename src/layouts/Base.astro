@@ -24,15 +24,18 @@ import mulishUrl from "../styles/fonts/mulish-latin-wght-normal.woff2?url";
 // NLMC theme fonts, preloaded so text doesn't jump when they arrive (the main cause of layout shift on these pages).
 import bricolageUrl from "@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wght-normal.woff2?url";
 import hankenUrl from "@fontsource-variable/hanken-grotesk/files/hanken-grotesk-latin-wght-normal.woff2?url";
-import { isNext, isGuided, guided, comfortOn, type VideoInfo } from "../lib/next";
+import { isNext, isGuided, guided, panelFor, comfortOn, type VideoInfo } from "../lib/next";
 import { site, settings, isStaging, absolute, media } from "../lib/content";
 import { imageFile, assetUrl } from "../lib/images";
+import { stylesCss, fontPreloads, customFonts } from "../lib/styles";
 
 interface Props {
   title: string; description?: string; path: string; image?: string; type?: string; noindex?: boolean;
   schema?: object | object[] | null; published?: string; modified?: string; dark?: boolean; kind?: string; video?: VideoInfo | null;
+  /** Guided layout: this page's own right-hand panel choices (entry.fields.panel). */
+  panel?: Record<string, any> | null;
 }
-const { title, description = "", path, image, type = "website", noindex = false, schema, published, modified, kind = "", video = null } = Astro.props;
+const { title, description = "", path, image, type = "website", noindex = false, schema, published, modified, kind = "", video = null, panel = null } = Astro.props;
 // New layout: its stylesheet is inlined only on sites that use it (comments and extra spaces stripped).
 const mini = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\s*\n\s*/g, "").replace(/\s{2,}/g, " ");
 const guidedCss = isGuided ? mini(guidedCssRaw) : "";
@@ -60,6 +63,19 @@ const c = settings.brand?.colors || {};
 const brandVars = Object.entries({ "--accent": c.accent, "--accent-hover": c.accent_hover, "--accent-text": c.accent, "--brand-band": c.band || c.accent, "--dark": c.dark, "--heading": c.heading, "--link": c.link })
   .filter(([, v]) => typeof v === "string" && /^#[0-9a-f]{3,8}$/i.test(v)).map(([k, v]) => `${k}:${v}`).join(";");
 
+// Live view (Talentum page editor): outline the block under the pointer, a click opens it in the editor instead of
+// following links, and the scroll position survives the reloads that come with every change.
+const LIVE_JS = `(function(){var P=window.parent,K="live.scroll."+location.pathname,box=null,tag=null;
+function sc(){return document.querySelector("main#main")}
+try{var s=JSON.parse(sessionStorage.getItem(K)||"null");if(s)addEventListener("load",function(){window.scrollTo(0,s.w);var m=sc();if(m)m.scrollTop=s.m})}catch(e){}
+addEventListener("beforeunload",function(){try{var m=sc();sessionStorage.setItem(K,JSON.stringify({w:scrollY,m:m?m.scrollTop:0}))}catch(e){}});
+function first(el){var c=el.firstElementChild;while(c&&getComputedStyle(c).display==="contents")c=c.firstElementChild;return c}
+function mark(b){if(box)box.style.outline="";box=b?first(b):null;if(box){box.style.outline="2px solid #2563eb";box.style.outlineOffset="-2px"}
+if(!tag){tag=document.createElement("div");tag.style.cssText="position:fixed;z-index:99999;padding:3px 8px;border-radius:4px;background:#2563eb;color:#fff;font:600 12px system-ui;pointer-events:none;display:none";document.body.appendChild(tag)}
+if(box){var r=box.getBoundingClientRect();tag.textContent="Edit "+b.dataset.liveType.replace(/_/g," ");tag.style.top=Math.max(4,r.top+4)+"px";tag.style.left=(r.left+8)+"px";tag.style.display="block"}else tag.style.display="none"}
+document.addEventListener("mouseover",function(e){mark(e.target.closest&&e.target.closest("[data-live-block]"))});
+document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-live-block]");if(!b)return;var a=e.target.closest("a,button,summary,input,textarea,select,label");if(a&&!e.altKey&&a.tagName!=="A")return;e.preventDefault();e.stopPropagation();P.postMessage({type:"talentum-live:pick",id:b.dataset.liveBlock},"*")},true);
+P.postMessage({type:"talentum-live:ready"},"*")})()`;
 const canonical = absolute(path);
 const robots = isStaging ? "noindex, nofollow" : noindex ? "noindex, follow" : "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
 const siteName = settings.org?.name || site.name;
@@ -92,13 +108,17 @@ const lang = settings.locale || "en-US";
   {c.dark && <meta name="theme-color" content={c.dark} />}
   <link rel="alternate" type="application/rss+xml" title={`${siteName} — Insights`} href="/rss.xml" />
   <link rel="sitemap" href="/sitemap.xml" />
-  {theme === "nlmc" && [bricolageUrl, hankenUrl].map((u) => <link rel="preload" href={u} as="font" type="font/woff2" crossorigin />)}
+  {fontPreloads.map((u) => <link rel="preload" href={u} as="font" type="font/woff2" crossorigin />)}
+  {theme === "nlmc" && !customFonts && [bricolageUrl, hankenUrl].map((u) => <link rel="preload" href={u} as="font" type="font/woff2" crossorigin />)}
   {isNext && <style is:inline set:html={nextCss} />}
   {isGuided && <style is:inline set:html={guidedCss} />}
   {isGuided && <script is:inline set:html={bgScript} />}
-  {theme === "nlmarcom" && [archivoUrl, mulishUrl].map((u) => <link rel="preload" href={u} as="font" type="font/woff2" crossorigin />)}
+  {theme === "nlmarcom" && !customFonts && [archivoUrl, mulishUrl].map((u) => <link rel="preload" href={u} as="font" type="font/woff2" crossorigin />)}
   {isNext && comfortOn && <script is:inline>try{var c=JSON.parse(localStorage.getItem("comfort.v1")||"{}"),h=document.documentElement;if(c.size)h.dataset.size=c.size;if(c.contrast==="1")h.classList.add("c-hc");if(c.motion==="1")h.classList.add("c-rm");if(c.font==="1")h.classList.add("c-rf")}catch(e){}</script>}
-  {brandVars && <style is:inline set:html={`html.theme-${theme}{${brandVars}}`} />}
+  {brandVars && <style is:inline set:html={`html.theme-${theme}.theme-${theme}{${brandVars}}`} />}
+  {isGuided && gd.popup < 100 && <style is:inline set:html={`html.layout-guided.layout-guided[data-bg="image"] dialog{background:rgba(18,29,36,${gd.popup / 100})}`} />}
+  {stylesCss && <style is:inline set:html={stylesCss} />}
+  {(site as any).live && <script is:inline set:html={LIVE_JS} />}
   {schemas.map((s) => <script type="application/ld+json" is:inline set:html={JSON.stringify(s).replace(/</g, "\\u003c")} />)}
   {!isStaging && settings.seo?.google_verification && <meta name="google-site-verification" content={settings.seo.google_verification} />}
   {!isStaging && settings.seo?.bing_verification && <meta name="msvalidate.01" content={settings.seo.bing_verification} />}
@@ -112,11 +132,11 @@ const lang = settings.locale || "en-US";
   {isStaging && <div class="staging-flag" aria-hidden="true">Staging</div>}
   {isGuided ? (
     <>
-      <div class="gd-shell">
+      <div class={`gd-shell${isGuided && !panelFor(panel).show ? " gd-nopanel" : ""}`}>
         <GuidedHeader />
         <GuidedNav path={path} />
         <main id="main"><slot /><GuidedFooter /></main>
-        <GuidedPanel video={video} />
+        <GuidedPanel video={video} own={panel} />
       </div>
       <Background />
       <GuidedDock path={path} />

@@ -1,0 +1,27 @@
+---
+// A custom content type's own fields on its page (Talentum → Website → Content types → "Show the fields on the page").
+import Img from "./Img.astro";
+import { formatDate, href, type ContentType, type Entry } from "../lib/content";
+const { entry, ct, compact = false } = Astro.props as { entry: Entry; ct: ContentType; compact?: boolean };
+const rows = ct.fields.map((f) => ({ f, v: entry.fields?.[f.key] })).filter((x) => x.v !== undefined && x.v !== null && x.v !== "");
+---
+{rows.length > 0 && (
+  <dl class={`cf${compact ? " compact" : ""}`}>
+    {rows.map(({ f, v }) => (
+      <div class={f.type === "image" ? "cf-img" : ""}>
+        <dt>{f.label}</dt>
+        <dd>{f.type === "date" ? formatDate(String(v)) : f.type === "link" ? <a href={href(String(v))}>{String(v).startsWith("entry:") ? "Open" : String(v).replace(/^https?:\/\//, "").replace(/\/$/, "")}</a>
+          : f.type === "image" ? <Img id={String(v)} sizes="320px" widths={[320, 640]} /> : String(v)}</dd>
+      </div>
+    ))}
+  </dl>
+)}
+<style>
+  .cf { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: 1rem 2rem; margin: 0; padding: 1.25rem 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .cf dt { font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .cf dd { margin: .25rem 0 0; color: var(--heading); font-weight: 600; }
+  .cf-img { grid-column: 1 / -1; }
+  .cf-img :global(img) { max-width: 320px; border-radius: var(--radius); }
+  .cf.compact { padding: .5rem 0 0; border: 0; gap: .25rem 1rem; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); }
+  .cf.compact dd { font-size: .9rem; }
+</style>

@@ -5,6 +5,10 @@
 //                 header X-Builder-Secret. Answers 202 at once; progress and the result go back to
 //                 Talentum: POST {PB_URL}/api/site-builds/{build_id}/report.
 //   GET  /health
+//   POST /live    { site_key, bundle, path }   header X-Builder-Secret. The Live view in Talentum's page editor:
+//                 writes this content (the unsaved draft already merged in) into a long-running `astro dev` and
+//                 answers { url } — the page at LIVE_PUBLIC_URL, which reloads itself whenever the content changes.
+//                 Same renderer code as a real build, so what you see is what publishes. One site at a time.
 //
 // Each site builds in its own working copy (WORK_DIR/sites/<key>) so its downloaded media and Astro's image cache
 // survive between builds — a normal publish only re-renders pages and re-optimises new images.
@@ -26,6 +30,8 @@ const SECRET = process.env.BUILDER_SECRET || process.env.SITE_BUILDER_SECRET || 
 const PB = (process.env.PB_URL || "http://pocketbase:8090").replace(/\/+$/, "");
 const WORK = process.env.WORK_DIR || join(REPO, ".work");
 const KEEP = Number(process.env.KEEP_BUILDS || 5);
+const LIVE_PORT = Number(process.env.LIVE_PORT || 4321);
+const LIVE_PUBLIC = (process.env.LIVE_PUBLIC_URL || `http://localhost:${LIVE_PORT}`).replace(/\/+$/, "");
 if (!SECRET) { console.error("BUILDER_SECRET is not set."); process.exit(1); }
 
 const queue = [];
@@ -90,6 +96,7 @@ async function configureProject(job, log) {
     for (const [k, v] of Object.entries(e.secrets || {})) env_vars[k] = { type: "secret_text", value: String(v ?? "") };
     const c = { compatibility_date: "2025-01-01", env_vars };
     if (e.d1_id) c.d1_databases = { DB: { id: e.d1_id } };
+    if (e.r2_bucket) c.r2_buckets = { UPLOADS: { name: e.r2_bucket } };   // form uploads
     return c;
   };
   const body = { deployment_configs: { production: cfg(envName), preview: cfg("preview") } };
@@ -156,6 +163,57 @@ async function handle(job) {
   }
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// Live view: one `astro dev` at a time, in WORK/live/<key>.
+// ---------------------------------------------------------------------------------------------------------------
+let live = null;   // { key, dir, proc, ready: Promise }
+let liveBusy = Promise.resolve();
+
+function liveWorkspace(key) {
+  const dir = join(WORK, "live", key);
+  mkdirSync(join(dir, "src", "media"), { recursive: true });
+  mkdirSync(join(dir, "src", "data"), { recursive: true });
+  for (const f of ["astro.config.mjs", "package.json", "tsconfig.json"]) if (existsSync(join(REPO, f))) cpSync(join(REPO, f), join(dir, f));
+  for (const d of ["scripts", "public"]) if (existsSync(join(REPO, d))) cpSync(join(REPO, d), join(dir, d), { recursive: true });
+  for (const d of readdirSync(join(REPO, "src"))) {
+    if (d === "media" || d === "data") continue;
+    rmSync(join(dir, "src", d), { recursive: true, force: true });
+    cpSync(join(REPO, "src", d), join(dir, "src", d), { recursive: true });
+  }
+  if (!existsSync(join(dir, "node_modules"))) symlinkSync(join(REPO, "node_modules"), join(dir, "node_modules"), "dir");
+  return dir;
+}
+
+function waitFor(url, ms) {
+  const end = Date.now() + ms;
+  return new Promise((resolve, reject) => {
+    const tick = () => fetch(url).then(() => resolve()).catch(() => (Date.now() > end ? reject(new Error("The live view didn't start in time.")) : setTimeout(tick, 400)));
+    tick();
+  });
+}
+
+async function liveUpdate(key, bundle) {
+  if (live && live.key !== key) { try { live.proc.kill(); } catch {} live = null; }
+  const dir = live ? live.dir : liveWorkspace(key);
+  // Already running: bring the renderer's code up to date too (astro dev hot-reloads it), so theme/block changes
+  // show in the Live view without restarting the builder.
+  if (live) for (const d of readdirSync(join(REPO, "src"))) if (d !== "media" && d !== "data") cpSync(join(REPO, "src", d), join(dir, "src", d), { recursive: true, force: true });
+  const file = join(dir, ".live-bundle.json");
+  writeFileSync(file, JSON.stringify(bundle));
+  const env = { ...process.env, BUNDLE_FILE: file, SITE_ENV: "staging", ASTRO_TELEMETRY_DISABLED: "1" };
+  const log = [];
+  // Media and fonts (cached between updates), then src/data/bundle.json, which astro dev picks up and reloads.
+  await run("node", ["scripts/fetch-content.mjs"], { cwd: dir, env }, log);
+  if (!live) {
+    const proc = spawn("npx", ["astro", "dev", "--host", "0.0.0.0", "--port", String(LIVE_PORT)], { cwd: dir, env: { ...env, NODE_ENV: "development", ASTRO_CACHE_DIR: join(WORK, "astro-cache") }, shell: false });
+    proc.stdout.on("data", (d) => process.stdout.write(`[live] ${d}`));
+    proc.stderr.on("data", (d) => process.stderr.write(`[live] ${d}`));
+    proc.on("close", () => { if (live && live.proc === proc) live = null; });
+    live = { key, dir, proc };
+    await waitFor(`http://127.0.0.1:${LIVE_PORT}/`, 60000);
+  }
+}
+
 async function pump() {
   if (busy) return;
   busy = true;
@@ -174,6 +232,21 @@ async function pump() {
 http.createServer((req, res) => {
   const send = (code, body) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(body)); };
   if (req.method === "GET" && req.url === "/health") return send(200, { ok: true, queued: queue.length, busy, cloudflare: !!(process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_ACCOUNT_ID) });
+  if (req.method === "POST" && req.url === "/live") {
+    if (req.headers["x-builder-secret"] !== SECRET) return send(403, { error: "Wrong secret" });
+    let raw = "";
+    req.on("data", (d) => { raw += d; if (raw.length > 30_000_000) req.destroy(); });
+    req.on("end", () => {
+      let b;
+      try { b = JSON.parse(raw); } catch { return send(400, { error: "Bad JSON" }); }
+      if (!/^[a-z0-9-]{1,60}$/.test(b.site_key || "") || !b.bundle || !b.bundle.site) return send(400, { error: "Missing or invalid fields" });
+      const path = typeof b.path === "string" && b.path.startsWith("/") ? b.path : "/";
+      // Updates run one after another; a newer one simply overwrites the content.
+      liveBusy = liveBusy.then(() => liveUpdate(b.site_key, b.bundle))
+        .then(() => send(200, { url: LIVE_PUBLIC + path }), (err) => send(500, { error: err.message }));
+    });
+    return;
+  }
   if (req.method !== "POST" || req.url !== "/build") return send(404, { error: "Not found" });
   if (req.headers["x-builder-secret"] !== SECRET) return send(403, { error: "Wrong secret" });
   let raw = "";

@@ -56,15 +56,17 @@ export function overviewVideo(e?: Entry | null): VideoInfo | null {
   const own = e?.fields?.overview_video;
   const v = own && (own.url || own.file) ? own : e?.path === "/" ? display.welcome_video : null;
   if (!v || !(v.url || v.file)) return null;
-  const up = v.file ? media(v.file) : undefined;
+  // A link wins over an upload (switching an uploaded video for a YouTube link shouldn't need the upload removed).
+  const linked = v.url ? parseVideo(v.url) : null;
+  const up = !linked && v.file ? media(v.file) : undefined;
   const fileUrl = up ? assetUrl(up.file) || "" : "";
-  const parsed = fileUrl ? { kind: "file" as const, embed: "", file: fileUrl, thumb: "" } : parseVideo(v.url);
+  const parsed = linked || (fileUrl ? { kind: "file" as const, embed: "", file: fileUrl, thumb: "" } : null);
   if (!parsed) return null;
   const cap = v.captions ? media(v.captions) : undefined;
   const dur = seconds(v.duration);
   const chapters: Chapter[] = (Array.isArray(v.chapters) ? v.chapters : []).map((c: any) => ({ at: seconds(c?.time), label: String(c?.label || "").trim() })).filter((c: Chapter) => c.label).sort((a: Chapter, b: Chapter) => a.at - b.at);
   return {
-    key: (e?.id || "site") + ":" + (v.url || v.file), title: String(v.title || (e?.path === "/" ? "Watch the welcome video" : `${e?.title || ""} — overview`)).trim(),
+    key: (e?.id || "site") + ":" + (linked ? v.url : v.file), title: String(v.title || (e?.path === "/" ? "Watch the welcome video" : `${e?.title || ""} — overview`)).trim(),
     kind: parsed.kind, embed: parsed.embed, file: parsed.file, poster: v.poster || "", posterUrl: parsed.thumb,
     captions: cap ? assetUrl(cap.file) || "" : "", transcript: String(v.transcript || "").trim(), chapters, duration: dur, durationLabel: dur ? clock(dur) : "",
     uploaded: v.uploaded || e?.published_at || bundle.generated_at, description: String(v.description || plain(e?.excerpt || "") || v.title || "").slice(0, 300),
@@ -97,6 +99,20 @@ export function iconFor(label: string): string {
 }
 export { entryById };
 
+/** The right-hand panel for one page: the site's panel, with the page's own choices on top (page editor →
+ *  Right-hand panel, entry.fields.panel: show "" | "show" | "hide", and any field filled in replaces the site's). */
+export function panelFor(own?: Record<string, any> | null) {
+  const p = { ...guided().panel };
+  if (!own || typeof own !== "object") return p;
+  if (own.show === "show") p.show = true; else if (own.show === "hide") p.show = false;
+  const member = Array.isArray(own.member) ? own.member[0] : own.member;
+  if (member) { p.member = member; if (!own.photo) p.photo = ""; }
+  for (const k of ["photo", "heading", "text", "button_label"] as const) if (own[k]) (p as any)[k] = own[k];
+  if (own.button_url) p.button_url = href(own.button_url);
+  if (own.phone === "show") p.phone = true; else if (own.phone === "hide") p.phone = false;
+  return p;
+}
+
 /** Guided layout settings (Website → Settings → Layout & video). */
 export function guided() {
   const g = (display.guided || {}) as Record<string, any>;
@@ -107,6 +123,8 @@ export function guided() {
     switcher: g.switcher !== false,
     bgImage: bgImage ? bgImage.id : "",
     search_label: g.search_label || "Ask us anything",
+    // How solid pop-ups (reading comfort, search, menu) are over the photo background: 50–100 %, default solid.
+    popup: Math.min(100, Math.max(50, Number(g.popup_opacity) || 100)),
     panel: {
       show: g.panel_show !== false,
       member: Array.isArray(g.panel_member) ? g.panel_member[0] || "" : g.panel_member || "",

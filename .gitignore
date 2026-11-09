@@ -8,3 +8,8 @@ src/media/*
 builds/
 .build-manifest.json
 .work/
+src/data/fonts.json
+public/_fonts/
+
+# local sync archives
+*.tgz

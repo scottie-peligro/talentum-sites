@@ -5,7 +5,7 @@ import sanitizeHtml from "sanitize-html";
 export type Link = { label?: string; href?: string; style?: string; new_tab?: boolean };
 export type Block = { id: string; type: string; hidden?: boolean; data: Record<string, any> };
 export type Entry = {
-  id: string; type: "page" | "service" | "case_study" | "post" | "job" | "legal" | "landing"; title: string; slug: string; path: string;
+  id: string; type: "page" | "service" | "case_study" | "post" | "job" | "legal" | "landing" | `x_${string}`; title: string; slug: string; path: string;
   blocks: Block[]; excerpt: string; featured_image: string; authors: string[]; categories: string[]; tags: string[];
   service_line: string; account: string; fields: Record<string, any>; seo: Record<string, any>; parent: string; sort_order: number;
   published_at: string; updated: string;
@@ -24,6 +24,7 @@ type Bundle = {
   team: Person[]; users: Record<string, Person>; service_lines: { id: string; name: string; slug: string }[]; accounts: Record<string, { id: string; name: string; website: string }>;
   media: Record<string, Media>; redirects: { from: string; to: string; code: number }[];
   booking_links?: BookingLink[];
+  forms?: Record<string, { id: string; key: string; name: string; mode: string; questions: any[]; fields: any[]; labels: Record<string, string> }>;
 };
 export type BookingLink = { id: string; user: string; user_name: string; title: string; slug: string; duration: number; description: string; path: string; url: string };
 
@@ -48,6 +49,17 @@ export function resolveBooking(d: { booking_link?: string; booking_url?: string;
   const memberId = (Array.isArray(d.member) ? d.member[0] : d.member) || link?.user;
   const embed = /^https?:\/\//.test(url) ? url + (url.includes("?") ? "&" : "?") + "embed=1&src=website" : "";
   return { url, embed, who: person(memberId), duration: link?.duration || 0, title: link?.title || "" };
+}
+// Custom content types (Talentum → Website → Content types). Their entries have type "x_<key>".
+export type ContentType = { key: string; label: string; plural: string; route: string; archive: boolean; archive_title: string; archive_intro: string; show_fields: boolean; fields: { key: string; label: string; type: string; options: string[] }[] };
+export const contentTypes: ContentType[] = Array.isArray((settings as any).content_types) ? (settings as any).content_types : [];
+export const contentType = (type?: string) => (type && type.startsWith("x_") ? contentTypes.find((t) => "x_" + t.key === type) : undefined);
+/** A type's entries, soonest date first when it has a date field, otherwise by order then title. */
+export function entriesOf(type: string) {
+  const ct = contentType(type);
+  const dateKey = ct?.fields.find((f) => f.type === "date")?.key;
+  return entries.filter((e) => e.type === type).sort((a, b) => dateKey ? String(a.fields?.[dateKey] || "9999").localeCompare(String(b.fields?.[dateKey] || "9999"))
+    : (a.sort_order - b.sort_order) || a.title.localeCompare(b.title));
 }
 export const lineName = (id?: string) => bundle.service_lines.find((l) => l.id === id)?.name || "";
 export const accountName = (id?: string) => (id ? bundle.accounts?.[id]?.name || "" : "");
@@ -115,6 +127,11 @@ export function crumbs(e: Entry): { name: string; path: string }[] {
     let p = entryById(e.parent);
     while (p && chain.length < 5) { chain.unshift(p); p = entryById(p.parent); }
     chain.forEach((x) => out.push({ name: x.title, path: x.path }));
+  } else if (e.type.startsWith("x_")) {
+    const ct = contentType(e.type);
+    const index = ct && entries.find((x) => x.path === "/" + ct.route + "/");
+    if (index) out.push({ name: index.title, path: index.path });
+    else if (ct?.archive) out.push({ name: ct.archive_title || ct.plural, path: "/" + ct.route + "/" });
   } else if (e.type !== "legal") {
     const prefix = "/" + String((routes as any)[e.type] || "").replace(/^\/+|\/+$/g, "") + "/";
     const index = entries.find((x) => x.path === prefix);

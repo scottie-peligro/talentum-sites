@@ -3,6 +3,10 @@
 import { defineConfig } from "astro/config";
 import { readFileSync, existsSync } from "node:fs";
 
+// The builder image sets NODE_ENV=production, which makes `astro dev` (the page editor's Live view) think it isn't in
+// dev mode — and Astro's dev image endpoint then refuses every optimised photo. Dev is dev.
+if (process.argv.includes("dev")) process.env.NODE_ENV = "development";
+
 const bundlePath = new URL("./src/data/bundle.json", import.meta.url);
 const bundle = existsSync(bundlePath) ? JSON.parse(readFileSync(bundlePath, "utf8")) : null;
 const site = process.env.SITE_URL || bundle?.site?.url || "http://localhost:4321";

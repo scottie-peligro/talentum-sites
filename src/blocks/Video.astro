@@ -11,7 +11,8 @@ const url: string = d.url || "";
 const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/);
 const vm = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
 const embed = yt ? `https://www.youtube-nocookie.com/embed/${yt[1]}?autoplay=1&rel=0` : vm ? `https://player.vimeo.com/video/${vm[1]}?autoplay=1&dnt=1` : "";
-const file = d.file ? assetUrl(media(d.file)?.file) : "";
+const file = !embed && d.file ? assetUrl(media(d.file)?.file) : "";
+const filePoster = file && d.poster ? assetUrl(media(d.poster)?.file) : "";
 const ytPoster = yt && !d.poster ? `https://i.ytimg.com/vi/${yt[1]}/hqdefault.jpg` : "";
 const title = d.title || d.heading || "Video";
 ---
@@ -20,7 +21,7 @@ const title = d.title || d.heading || "Video";
     <div class={`wrap${d.width === "wide" ? "" : " narrow"}`}>
       <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
       {file ? (
-        <video class="vid" src={file} controls preload="none" playsinline poster={undefined}><track kind="captions" /></video>
+        <video class="vid" src={file} controls preload="none" playsinline poster={filePoster || undefined}></video>
       ) : (
         <button type="button" class="facade" data-embed={embed} aria-label={`Play: ${title}`}>
           {d.poster ? <Img id={d.poster} alt="" cover sizes="(min-width: 760px) 736px, 100vw" /> : ytPoster ? <img src={ytPoster} alt="" loading="lazy" width="480" height="360" /> : null}

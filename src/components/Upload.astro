@@ -1,0 +1,73 @@
+---
+// A form's upload area: choose files or drag them in. Checks count, size and type before anything is sent (the site's
+// form handler and Talentum check again). Without JavaScript it's a plain file input.
+interface Props { name: string; label: string; wrapped?: boolean; rules: { ext: string[]; max_mb: number; max_files: number; accept: string; hint: string } }
+const { name, label, rules, wrapped = false } = Astro.props;
+// Inside a field's own <label> (contact details) the drop area must not be a second label.
+const Drop = wrapped ? "span" : "label";
+const id = "up-" + name + "-" + Math.random().toString(36).slice(2, 7);
+---
+<div class="up" data-up data-max-mb={rules.max_mb} data-max-files={rules.max_files} data-ext={rules.ext.join(",")}>
+  <input class="up-input" type="file" id={id} name={name} accept={rules.accept} multiple={rules.max_files > 1} aria-describedby={id + "-hint"} />
+  <Drop class="up-drop" for={wrapped ? undefined : id}>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+    <span><strong>Choose {rules.max_files > 1 ? "files" : "a file"}</strong> or drag {rules.max_files > 1 ? "them" : "it"} here<span class="up-sr"> for {label}</span></span>
+    <small id={id + "-hint"}>{rules.hint}</small>
+  </Drop>
+  <ul class="up-list" aria-live="polite"></ul>
+  <p class="up-err fs-file-err" role="alert" hidden></p>
+</div>
+<script is:inline>
+(function(){
+  if (window.__upInit) return; window.__upInit = 1;
+  var fmt = function(b){ return b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB"; };
+  function setup(box){
+    var input = box.querySelector(".up-input"), list = box.querySelector(".up-list"), err = box.querySelector(".up-err"), drop = box.querySelector(".up-drop");
+    var max = Number(box.dataset.maxMb) * 1048576, maxN = Number(box.dataset.maxFiles), ext = (box.dataset.ext || "").split(",");
+    var files = [];
+    function sync(){
+      var bad = [];
+      if (files.length > maxN) bad.push("Please choose " + maxN + " file" + (maxN > 1 ? "s" : "") + " at most.");
+      files.forEach(function(f){
+        var e = (f.name.split(".").pop() || "").toLowerCase();
+        if (ext.indexOf(e) === -1) bad.push(f.name + ": that type of file can't be sent here.");
+        else if (f.size > max) bad.push(f.name + " is too big (" + fmt(f.size) + "; " + box.dataset.maxMb + " MB at most).");
+      });
+      try { var dt = new DataTransfer(); files.forEach(function(f){ dt.items.add(f); }); input.files = dt.files; } catch (x) {}
+      list.innerHTML = "";
+      files.forEach(function(f, i){
+        var li = document.createElement("li");
+        li.innerHTML = '<span class="up-name"></span><span class="up-size"></span><button type="button" class="up-x">Remove</button>';
+        li.querySelector(".up-name").textContent = f.name; li.querySelector(".up-size").textContent = fmt(f.size);
+        li.querySelector(".up-x").setAttribute("aria-label", "Remove " + f.name);
+        li.querySelector(".up-x").onclick = function(){ files.splice(i, 1); sync(); };
+        list.appendChild(li);
+      });
+      err.hidden = !bad.length; err.textContent = bad.join(" ");
+    }
+    input.addEventListener("change", function(){ files = files.concat([].slice.call(input.files || [])).filter(function(f, i, a){ return a.findIndex(function(g){ return g.name === f.name && g.size === f.size; }) === i; }); sync(); });
+    ["dragenter", "dragover"].forEach(function(t){ drop.addEventListener(t, function(e){ e.preventDefault(); box.classList.add("over"); }); });
+    ["dragleave", "drop"].forEach(function(t){ drop.addEventListener(t, function(e){ e.preventDefault(); box.classList.remove("over"); }); });
+    drop.addEventListener("drop", function(e){ files = files.concat([].slice.call(e.dataTransfer.files || [])); sync(); });
+  }
+  function all(){ document.querySelectorAll("[data-up]").forEach(function(b){ if (!b.__up) { b.__up = 1; setup(b); } }); }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", all); else all();
+})();
+</script>
+<style>
+  .up { display: grid; gap: .5rem; }
+  .up-input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .up-drop { display: grid; justify-items: center; gap: .35rem; padding: 1.4rem 1rem; border: 1.5px dashed var(--line-strong, var(--line)); border-radius: var(--radius); background: var(--surface); color: var(--text); text-align: center; cursor: pointer; font-weight: 400; }
+  .up-drop strong { color: var(--accent-text); }
+  .up-drop small { color: var(--muted); font-size: .82rem; }
+  .up-drop svg { color: var(--accent-text); }
+  .up.over .up-drop, .up-drop:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+  .up-input:focus-visible + .up-drop { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .up-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .up-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
+  .up-list :global(li) { display: flex; align-items: center; gap: .75rem; padding: .5rem .75rem; border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: .9rem; }
+  .up-list :global(.up-name) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--heading); font-weight: 600; }
+  .up-list :global(.up-size) { color: var(--muted); font-size: .8rem; }
+  .up-list :global(.up-x) { border: 0; background: none; color: var(--muted); font: 600 .8rem var(--font-body); cursor: pointer; text-decoration: underline; }
+  .up-err { margin: 0; color: #b42318; font-weight: 600; font-size: .9rem; }
+</style>

@@ -53,9 +53,10 @@ const active = (h: string) => h !== "/" && h !== "#" && path.startsWith(h);
 
 <style>
   .site-header { background: var(--header-bg); color: var(--header-text); position: sticky; top: 0; z-index: 50; border-bottom: 1px solid rgba(255,255,255,.06); }
-  .bar { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; min-height: 72px; }
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; min-height: var(--head-h, 72px); }
   .brand { display: inline-flex; align-items: center; color: inherit; text-decoration: none; flex-shrink: 0; }
-  .brand :global(.logo), .brand :global(img) { height: 38px; width: auto; }
+  .brand :global(.logo), .brand :global(img) { height: var(--logo-h-m, var(--logo-h, 38px)); width: auto; max-width: 70vw; }
+  @media (min-width: 900px) { .brand :global(.logo), .brand :global(img) { height: var(--logo-h, 38px); } }
   .wordmark { font: 700 1.25rem/1 var(--font-heading); }
   ul { list-style: none; margin: 0; padding: 0; }
   summary { list-style: none; cursor: pointer; }

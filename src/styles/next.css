@@ -10,7 +10,7 @@ html.c-rm::view-transition-group(*), html.c-rm::view-transition-old(*), html.c-r
 
 /* ---- Tokens: fluid, measured against the space a block actually has ---- */
 html.layout-next {
-  --max: 80rem; --nx-head: 64px; --nx-dock: 0px; --nx-rail-r: 18.5rem; --nx-rail-l: 15rem;
+  --max: 80rem; --nx-head: var(--head-h, 64px); --nx-dock: 0px; --nx-rail-r: 18.5rem; --nx-rail-l: 15rem;
   --fs-h1: clamp(2.2rem, 1.15rem + 4.1cqi, 4.4rem);
   --fs-h2: clamp(1.7rem, 1.05rem + 2.5cqi, 3rem);
   --fs-h3: clamp(1.1rem, .98rem + .5cqi, 1.35rem);
@@ -56,7 +56,8 @@ html.layout-next .mt.img-right .media { order: 0; }
 .nx-header { position: sticky; top: 0; z-index: 50; background: var(--header-bg); color: var(--header-text); border-bottom: 1px solid rgba(255,255,255,.07); view-transition-name: nx-header; }
 .nx-bar { display: flex; align-items: center; gap: 1rem; min-height: var(--nx-head); padding-inline: clamp(1rem, 3vw, 2rem); max-width: 160rem; margin-inline: auto; }
 .nx-brand { display: inline-flex; flex-shrink: 0; color: inherit; text-decoration: none; }
-.nx-brand img { height: 32px; width: auto; }
+.nx-brand img { height: var(--logo-h-m, var(--logo-h, 32px)); width: auto; max-width: 60vw; }
+@media (min-width: 1000px) { .nx-brand img { height: var(--logo-h, 32px); } }
 .nx-brand .wordmark { font: 700 1.2rem/1 var(--font-heading); }
 .nx-nav { display: none; margin-left: auto; }
 .nx-nav ul { list-style: none; margin: 0; padding: 0; }

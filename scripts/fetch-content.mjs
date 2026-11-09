@@ -90,5 +90,55 @@ for (const m of Object.values(bundle.media || {})) {
   m.height = num("height") || Math.round(Number(vb[2]) || 0);
 }
 
+// Styles page fonts: any Google Font, downloaded now and served from the site itself (fast, private, no CLS from
+// a third-party stylesheet). Latin + Latin Extended only. Writes src/data/fonts.json { css, preload }.
+const fontOut = { css: "", preload: [] };
+const fontDir = join(root, "public", "_fonts");
+// Fonts named on the Styles page, plus any a block's own Style tab uses (src/lib/blockStyle.ts: heading_font, body_font).
+const blockFonts = [];
+const scan = (blocks) => { for (const bl of blocks || []) { const st = bl?.data?.style; if (st) blockFonts.push(st.heading_font, st.body_font); if (bl?.type === "container") for (const col of bl.data?.cols || []) scan(col?.blocks); } };
+for (const en of bundle.entries || []) scan(en.blocks);
+for (const sec of Object.values(bundle.sections || {})) scan(sec);
+const want = [bundle.site.settings?.styles?.fonts?.heading, bundle.site.settings?.styles?.fonts?.body, ...blockFonts].map((x) => String(x || "").replace(/[^A-Za-z0-9 ]+/g, "").trim()).filter(Boolean);
+// Same fonts as last time and the files are still there: keep them (live view updates, repeat builds).
+const fontsJson = join(root, "src", "data", "fonts.json");
+const famKey = JSON.stringify([...new Set(want)].slice(0, 6));
+let reuse = false;
+try { const old = JSON.parse(readFileSync(fontsJson, "utf8")); reuse = old.families === famKey && (old.preload || []).every((u) => existsSync(join(root, "public", u))); if (reuse) Object.assign(fontOut, old); } catch {}
+if (!reuse) rmSync(fontDir, { recursive: true, force: true });
+fontOut.families = famKey;
+if (want.length && !reuse) {
+  mkdirSync(fontDir, { recursive: true });
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
+  for (const fam of [...new Set(want)].slice(0, 6)) {
+    let css = "";
+    for (const axis of [":wght@100..900", ":wght@400;500;600;700;800", ":wght@400;700", ""]) {
+      try {
+        const r = await fetch(`https://fonts.googleapis.com/css2?family=${encodeURIComponent(fam).replace(/%20/g, "+")}${axis}&display=swap`, { headers: { "User-Agent": UA } });
+        if (r.ok) { css = await r.text(); break; }
+      } catch (e) { console.warn("Google Fonts unreachable:", e.message); break; }
+    }
+    if (!css) { console.warn(`Font "${fam}" not found on Google Fonts; using the theme font.`); continue; }
+    const blocks = css.split(/(?=\/\*\s*[a-z-]+\s*\*\/)/).filter((x) => /\/\*\s*latin(-ext)?\s*\*\//.test(x));
+    let i = 0;
+    for (const blk of blocks) {
+      const isLatin = /\/\*\s*latin\s*\*\//.test(blk);
+      let out = blk;
+      for (const m of [...blk.matchAll(/url\((https:\/\/fonts\.gstatic\.com\/[^)\s]+)\)/g)]) {
+        const file = `${fam.toLowerCase().replace(/\s+/g, "-")}-${i++}.woff2`;
+        try {
+          const r = await fetch(m[1]); if (!r.ok) throw new Error(String(r.status));
+          writeFileSync(join(fontDir, file), Buffer.from(await r.arrayBuffer()));
+          out = out.replace(m[1], `/_fonts/${file}`);
+          if (isLatin && !fontOut.preload.includes(`/_fonts/${file}`) && fontOut.preload.length < 3) fontOut.preload.push(`/_fonts/${file}`);
+        } catch (e) { console.warn("Font file skipped:", file, e.message); }
+      }
+      fontOut.css += out.replace(/\/\*[^*]*\*\//g, "").replace(/\s*\n\s*/g, "");
+    }
+    console.log(`Font: ${fam} (${i} file${i === 1 ? "" : "s"})`);
+  }
+}
+writeFileSync(fontsJson, JSON.stringify(fontOut));
+
 writeFileSync(join(root, "src", "data", "bundle.json"), JSON.stringify(bundle));
 console.log(`Fetched ${bundle.site.name} (${ENV}): ${bundle.entries.length} entries, ${Object.keys(bundle.media || {}).length} media (${fetched} downloaded).`);
