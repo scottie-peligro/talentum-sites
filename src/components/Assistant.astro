@@ -53,7 +53,7 @@ const { path = "/" } = Astro.props as { path?: string };
           busy = true; ask.q.value = ""; add("user", q); msgs.push({ role: "user", text: q });
           var wait = add("assistant", "…"); wait.classList.add("sa-wait");
           try {
-            var r = await fetch("/api/assistant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: msgs, page: path }) });
+            var r = await fetch("/api/assistant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: msgs, page: path, lang: document.documentElement.lang || "" }) });
             var j = await r.json(); wait.remove();
             var text = j.reply || j.error || "Sorry — something went wrong.";
             add("assistant", text, j.sources); msgs.push({ role: "assistant", text: text });

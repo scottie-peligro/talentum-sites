@@ -58,6 +58,34 @@ export async function turnstileOk(env, token, request) {
   } catch { return false; }
 }
 
+// --- Site Assistant question log (functions/api/assistant.js) ------------------------------------------------------
+// "Questions people ask" in Talentum (Library → FAQs) learns from what visitors ask the assistant. Only the question's
+// text is kept (no IP, no visitor id, no conversation), trimmed and with anything that looks personal swapped out here,
+// before it's stored. Talentum's pb_hooks/lib/sitequestions.js runs the same redaction again when it pulls the rows.
+export function redactQuestion(s, max = 300) {
+  let t = String(s || "").replace(/[\u0000-\u001f\u007f]+/g, " ");
+  t = t.replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, "[email]");
+  t = t.replace(/\b(?:https?:\/\/|www\.)\S+/gi, "[link]");
+  t = t.replace(/(?:\+|\b)\d[\d\s().-]{5,}\d\b/g, (m) => (m.replace(/\D/g, "").length >= 7 ? "[phone]" : m));
+  t = t.replace(/\d{6,}/g, "[number]");
+  t = t.replace(/\b((?:[Mm]y name is|[Mm]y name's|[Ii] am called|[Tt]his is|[Ii]'m|[Ii] am)\s+)[A-Z][\p{L}'-]+(?:\s+[A-Z][\p{L}'-]+)?/gu, (m, lead, off, all) => {
+    const word = m.slice(lead.length).split(/\s+/)[0];
+    return /^(I|The|A|An|Looking|Interested|Trying|Wondering|Not|In|From|With|At|On)$/.test(word) ? m : lead + "[name]";
+  });
+  t = t.replace(/\s+/g, " ").trim();
+  if (t.length > max) t = t.slice(0, max - 1).replace(/\s+\S*$/, "") + "…";
+  return t;
+}
+/** Small talk ("thanks", "ok") and one-word replies aren't questions worth learning from. */
+export function worthLogging(q) {
+  const t = String(q || "").trim();
+  if (t.length < 8 || !/[a-z]{2,}.*\s+.*[a-z]{2,}/i.test(t)) return false;
+  if (t.length < 30 && /^(thanks?|thank you|thx|ok(ay)?|yes|yeah|no|nope|hi|hello|hey|great|cool|bye|good ?bye|perfect|awesome)\b/i.test(t)) return false;
+  return true;
+}
+/** A retrieval score at or above this means the site's content had something on the question. */
+export const GOOD_MATCH = 2;
+
 export const BOT_UA = /bot|crawl|spider|slurp|facebookexternalhit|preview|monitor|curl|wget|python|httpclient|headless|lighthouse/i;
 
 // File types a form can accept (kept the same as Talentum's pb_hooks/lib/websites.js FILE_GROUPS). The page tells the

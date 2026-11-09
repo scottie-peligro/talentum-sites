@@ -81,6 +81,9 @@ document.addEventListener("mouseover",function(e){mark(e.target.closest&&e.targe
 document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-live-block]");if(!b)return;var a=e.target.closest("a,button,summary,input,textarea,select,label");if(a&&!e.altKey&&a.tagName!=="A")return;e.preventDefault();e.stopPropagation();P.postMessage({type:"talentum-live:pick",id:b.dataset.liveBlock},"*")},true);
 P.postMessage({type:"talentum-live:ready"},"*")})()`;
 const canonical = absolute(path);
+// A clean Markdown copy of the page for AI assistants (written by scripts/postbuild.mjs for every page carrying this
+// link; noindex pages and the 404 page have none).
+const mdHref = !noindex && !(site as any).live && path !== "/404/" && path.endsWith("/") ? canonical + "index.md" : "";
 const robots = isStaging ? "noindex, nofollow" : noindex ? "noindex, follow" : "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
 const siteName = settings.org?.name || site.name;
 const schemas = (Array.isArray(schema) ? schema : schema ? [schema] : []).filter(Boolean);
@@ -97,6 +100,7 @@ const alts = here && !noindex ? versionsOf(here) : [];
   <title>{title}</title>
   {description && <meta name="description" content={description} />}
   <link rel="canonical" href={canonical} />
+  {mdHref && <link rel="alternate" type="text/markdown" href={mdHref} />}
   {alts.length > 1 && alts.map((a) => <link rel="alternate" hreflang={a.hreflang} href={absolute(a.path)} />)}
   {alts.length > 1 && <link rel="alternate" hreflang="x-default" href={absolute(alts[0].path)} />}
   <meta name="robots" content={robots} />

@@ -12,7 +12,7 @@ import {
 } from "../lib/content";
 import CustomFields from "../components/CustomFields.astro";
 import { imageFile } from "../lib/images";
-import { pageTitle, pageDescription, ogImageId, schemaFor, faqSchema, videoSchema, visibleBlocks } from "../lib/seo";
+import { pageTitle, pageDescription, ogImageId, schemaFor, faqSchema, videoSchema, visibleBlocks, peopleFor } from "../lib/seo";
 import { overviewVideo } from "../lib/next";
 import { libraryFaqs } from "../lib/faqlib";
 import VideoButton from "../components/next/VideoButton.astro";
@@ -63,7 +63,13 @@ const faqItems = [...blocks, ...auto].flatMap((b) => b.type === "faq" ? resolveF
 let videoThumb = video?.posterUrl || "";
 const vPoster = imageFile(media(video?.poster)?.file);
 if (vPoster) videoThumb = absolute((await getImage({ src: vPoster, width: 1280, format: "jpg" })).src);
-const schemas = [schemaFor(e, schemaImage), faqSchema(faqItems), video ? videoSchema(video, e, videoThumb || schemaImage) : null].filter(Boolean) as object[];
+// People on the page (authors, Team blocks, the home page's team): a square photo URL for their Person node.
+const photos: Record<string, string> = {};
+for (const p of peopleFor(e, [...blocks, ...auto])) {
+  const f = imageFile(p.photo_file);
+  if (f) photos[p.id] = absolute((await getImage({ src: f, width: Math.min(400, f.width), height: Math.min(400, f.width), fit: "cover", format: "jpg", quality: 80 })).src);
+}
+const schemas = [schemaFor(e, schemaImage, [...blocks, ...auto], photos), faqSchema(faqItems), video ? videoSchema(video, e, videoThumb || schemaImage) : null].filter(Boolean) as object[];
 
 const authors = (e.authors || []).map((id) => person(id)).filter(Boolean);
 const client = e.fields?.client_name || accountName(e.account);
