@@ -1,6 +1,6 @@
 // After `astro build`: Cloudflare Pages _headers and _redirects, the logo at /logo.<ext> (for Organization schema),
 // and a manifest (path → content hash) the builder sends back to Talentum so the Builds tab can show what changed.
-import { readFileSync, writeFileSync, readdirSync, statSync, copyFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync, statSync, copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { join, dirname, relative } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
@@ -65,6 +65,9 @@ const headers = [
   "/_astro/*",
   "  Cache-Control: public, max-age=31536000, immutable",
   "",
+  "/_og/*",
+  "  Cache-Control: public, max-age=31536000, immutable",
+  "",
   "/_assistant/*",
   "  X-Robots-Tag: noindex",
   "  Cache-Control: public, max-age=300",
@@ -119,6 +122,20 @@ if (s.assistant?.enabled) {
   mkdirSync(join(dist, "_assistant"), { recursive: true });
   writeFileSync(join(dist, "_assistant", "index.json"), JSON.stringify({ site: bundle.site.name, org: o.name || bundle.site.name, name: s.assistant.name || "", booking: s.assistant.booking_url || "", chunks: chunks.slice(0, 3000) }));
   console.log(`postbuild: Site Assistant index — ${chunks.length} chunks.`);
+}
+
+// --- Sharing images (src/lib/ogcard.mjs) ---------------------------------------------------------------------------
+// Count this build's cards, and forget cached cards (not fonts) no build has used for 120 days.
+{
+  const og = join(dist, "_og");
+  const n = existsSync(og) ? readdirSync(og).length : 0;
+  const cache = join(process.env.ASTRO_CACHE_DIR || (existsSync("/data/sites") ? "/data/astro-cache" : join(root, "node_modules", ".astro")), "og");
+  let pruned = 0;
+  if (existsSync(cache)) for (const f of readdirSync(cache)) {
+    const p = join(cache, f);
+    try { const st = statSync(p); if (st.isFile() && Date.now() - st.mtimeMs > 120 * 864e5) { rmSync(p); pruned++; } } catch {}
+  }
+  if (n || pruned) console.log(`postbuild: ${n} sharing image${n === 1 ? "" : "s"}${pruned ? `, ${pruned} unused cached ones removed` : ""}.`);
 }
 
 // --- Manifest ----------------------------------------------------------------------------------------------------

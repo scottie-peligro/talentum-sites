@@ -6,6 +6,7 @@ import Base from "../layouts/Base.astro";
 import ContentCards from "../blocks/ContentCards.astro";
 import { setLang, setCardsPage, type ContentType } from "../lib/content";
 import { listingCards } from "../lib/listing";
+import { listingCard } from "../lib/og";
 
 const { ct, page = 1 } = Astro.props as { ct: ContentType; page?: number };
 setLang("");   // listing pages are in the site's main language
@@ -13,8 +14,9 @@ setCardsPage(page, "ct-list");
 const base = "/" + ct.route + "/";
 const title = (ct.archive_title || ct.plural) + (page > 1 ? ` (page ${page})` : "");
 const cards = listingCards(ct);
+const card = await listingCard(ct);
 ---
-<Base title={title} description={ct.archive_intro || `${ct.plural}.`} path={page > 1 ? `${base}page/${page}/` : base} kind="archive">
+<Base title={title} description={ct.archive_intro || `${ct.plural}.`} path={page > 1 ? `${base}page/${page}/` : base} kind="archive" card={card}>
   <section class="section">
     <div class="wrap">
       <h1>{ct.archive_title || ct.plural}</h1>

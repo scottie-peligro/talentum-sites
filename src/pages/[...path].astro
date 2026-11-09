@@ -14,6 +14,7 @@ import CustomFields from "../components/CustomFields.astro";
 import { imageFile } from "../lib/images";
 import { pageTitle, pageDescription, ogImageId, schemaFor, faqSchema, videoSchema, visibleBlocks } from "../lib/seo";
 import { overviewVideo } from "../lib/next";
+import { socialCard } from "../lib/og";
 import { libraryFaqs } from "../lib/faqlib";
 import VideoButton from "../components/next/VideoButton.astro";
 
@@ -58,7 +59,9 @@ if ((e.type === "service" || e.type === "case_study" || e.type === "post") && !h
 // Structured data: the page graph, plus FAQPage from every FAQ block on it.
 const imgMedia = media(ogImageId(e));
 const imgFile = imageFile(imgMedia?.file);
-const schemaImage = imgFile ? absolute((await getImage({ src: imgFile, width: 1200, format: "jpg" })).src) : undefined;
+// Auto social image (lib/og.ts) when the page has no image of its own: also the image in its structured data.
+const card = await socialCard(e);
+const schemaImage = imgFile && !card ? absolute((await getImage({ src: imgFile, width: 1200, format: "jpg" })).src) : card ? absolute(card.url) : undefined;
 const faqItems = [...blocks, ...auto].flatMap((b) => b.type === "faq" ? resolveFaqs(b.data || {}, e) : b.type === "faq_library" ? libraryFaqs(b.data || {}, e) : []);
 let videoThumb = video?.posterUrl || "";
 const vPoster = imageFile(media(video?.poster)?.file);
@@ -71,7 +74,7 @@ const ct = contentType(e.type);
 const csStats = e.type === "case_study" ? bundle.proof.filter((p) => p.case_study === e.id && p.kind === "stat").slice(0, 4) : [];
 ---
 <Base kind={e.type} title={page > 1 ? `${pageTitle(e)} (page ${page})` : pageTitle(e)} description={pageDescription(e)} path={pagePath} image={ogImageId(e)} type={e.type === "post" || e.type === "case_study" ? "article" : "website"}
-  noindex={!!e.seo?.noindex} schema={schemas} video={video} panel={e.fields?.panel} published={e.type === "post" ? e.published_at : undefined} modified={e.type === "post" ? e.updated : undefined}>
+  noindex={!!e.seo?.noindex} schema={schemas} card={card} video={video} panel={e.fields?.panel} published={e.type === "post" ? e.published_at : undefined} modified={e.type === "post" ? e.updated : undefined}>
 
   {e.type === "post" ? (
     <article>

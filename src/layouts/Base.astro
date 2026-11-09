@@ -38,8 +38,10 @@ interface Props {
   schema?: object | object[] | null; published?: string; modified?: string; dark?: boolean; kind?: string; video?: VideoInfo | null;
   /** Guided layout: this page's own right-hand panel choices (entry.fields.panel). */
   panel?: Record<string, any> | null;
+  /** Auto social image (lib/og.ts): used instead of `image` when given. */
+  card?: { url: string; width: number; height: number; alt: string } | null;
 }
-const { title, description = "", path, image, type = "website", noindex = false, schema, published, modified, kind = "", video = null, panel = null } = Astro.props;
+const { title, description = "", path, image, type = "website", noindex = false, schema, published, modified, kind = "", video = null, panel = null, card = null } = Astro.props;
 // New layout: its stylesheet is inlined only on sites that use it (comments and extra spaces stripped).
 const mini = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\s*\n\s*/g, "").replace(/\s{2,}/g, " ");
 const guidedCss = isGuided ? mini(guidedCssRaw) : "";
@@ -52,10 +54,11 @@ const themes = import.meta.glob("../styles/themes/*.css", { eager: true });
 void themes;   // all themes are bundled; the one in use is picked by the data-theme class below
 const theme = site.theme || "nlmc";
 
-let ogUrl = "";
-const ogMedia = media(image || settings.seo?.default_og_image);
+let ogUrl = "", ogAlt = "", ogType = "";
+const ogMedia = card ? undefined : media(image || settings.seo?.default_og_image);
 const ogImg = imageFile(ogMedia?.file);
-if (ogImg) { const o = await getImage({ src: ogImg, width: 1200, height: 630, fit: "cover", format: "jpg", quality: 82 }); ogUrl = absolute(o.src); }
+if (card) { ogUrl = absolute(card.url); ogAlt = card.alt; ogType = card.url.endsWith(".jpg") ? "image/jpeg" : "image/png"; }
+else if (ogImg) { const o = await getImage({ src: ogImg, width: 1200, height: 630, fit: "cover", format: "jpg", quality: 82 }); ogUrl = absolute(o.src); }
 else if (ogMedia) { const u = assetUrl(ogMedia.file); if (u && !u.endsWith(".svg")) ogUrl = absolute(u); }
 
 const icon = media(settings.brand?.icon);
@@ -108,10 +111,13 @@ const alts = here && !noindex ? versionsOf(here) : [];
   {ogUrl && <meta property="og:image" content={ogUrl} />}
   {ogUrl && <meta property="og:image:width" content="1200" />}
   {ogUrl && <meta property="og:image:height" content="630" />}
+  {ogType && <meta property="og:image:type" content={ogType} />}
+  {(ogAlt || ogMedia?.alt) && ogUrl && <meta property="og:image:alt" content={ogAlt || ogMedia?.alt} />}
   {published && <meta property="article:published_time" content={published} />}
   {modified && <meta property="article:modified_time" content={modified} />}
   <meta name="twitter:card" content={ogUrl ? "summary_large_image" : "summary"} />
   {settings.org?.twitter && <meta name="twitter:site" content={settings.org.twitter} />}
+  {ogUrl && (ogAlt || ogMedia?.alt) && <meta name="twitter:image:alt" content={ogAlt || ogMedia?.alt} />}
   {icon32 && <link rel="icon" href={icon32} sizes="32x32" />}
   {icon180 && <link rel="apple-touch-icon" href={icon180} />}
   {c.dark && <meta name="theme-color" content={c.dark} />}
