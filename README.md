@@ -61,3 +61,24 @@ npm run test:blocks      # ~5–30 s
 ```
 
 It checks the copy matches `../talentum-pb` (when it's there), that every schema block has a registered component, lists data keys a component reads that have no field (and fields no component reads) as warnings, then builds a throwaway site in `.work/test-blocks` with one page per block from its sample (on its own and inside a 2-column container, plus a copy with `<script>`/`onerror`/`javascript:` strings in every text field) and fails on a build error, a block that renders nothing, or hostile markup that got through. `--only hero,cta`, `--no-build`, `--keep`, `--strict-keys`.
+
+## AI assistants (the site's agent endpoint)
+
+Each site can answer AI assistants (ChatGPT, Claude, Copilot…) through a small public API and an MCP server. Talentum decides what may be shared (Website → Settings → AI assistants; `pb_hooks/lib/siteagent.js`) and puts it in `bundle.agent`; `null` means switched off and every endpoint answers 404.
+
+- **Read-only facts** — `scripts/postbuild.mjs` writes `bundle.agent` to `/_agent/data.json` (noindex). Services (summary, page, prices only when the site shares them), FAQs, the public team, case-study summaries, contact options and booking links.
+- **Open times** — Talentum writes the next 14 days of open slots per booking link into the D1 table `agent_slots` every 15 minutes. The edge serves them with their age; older than 2 hours = `stale`, with the booking page to check.
+- **Booking requests** — off unless the site allows them. Validated (consent required, honeypot fields, a fresh snapshot must have the time open), rate-limited (3/hour and 8/day per visitor, 2/day per email, 40/day per site), then queued in the D1 inbox as `agent_booking`. Talentum turns each into a *requested* booking the team member accepts or declines (never a confirmed meeting), or a Request when no time fits.
+
+| Endpoint | |
+| --- | --- |
+| `GET /api/agent` | index of what's offered |
+| `GET /api/agent/services?q=&category=` · `GET /api/agent/services/{id}` | services; one in full (FAQs, case studies, booking links) |
+| `GET /api/agent/faqs?q=&service=&limit=` · `/team` · `/contact` | questions and answers; public team; contact options |
+| `GET /api/agent/availability?service=\|booking_link=&from=YYYY-MM-DD&days=1-14` | open times (UTC), `status` current / stale / unknown |
+| `POST /api/agent/booking-request` | `{ name, email, service \| booking_link, preferred_start, alternative_starts?, time_zone?, message?, phone?, company?, consent: true }` → 202 |
+| `GET /api/agent/openapi.json` | OpenAPI 3.1 (written at build) |
+| `POST /mcp` | MCP server, Streamable HTTP, stateless, JSON responses. Dual-era: `2026-07-28` (per-request `_meta`, `server/discover`, header checks) and `2025-11-25`/`2025-06-18`/`2025-03-26` (`initialize`, `ping`). Tools: `list_services`, `get_service`, `search_faqs`, `get_availability`, `request_booking` (only when allowed), `contact_options` |
+| `GET /mcp/server-card` · `/.well-known/ai-catalog.json` · `/.well-known/api-catalog` | MCP Server Card (SEP-2127) and the AI Catalog that points to it; RFC 9727 API catalog → the OpenAPI document. `llms.txt` lists both endpoints. |
+
+Code: `edge/agent.js` (data, tools, availability, booking requests), `edge/mcp.js`, `edge/openapi.js`, `functions/api/agent/*`, `functions/mcp/*`. Tests: `npm run test:agent` (handlers with a fake D1 and assets; no network).
