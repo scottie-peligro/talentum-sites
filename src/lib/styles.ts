@@ -2,12 +2,14 @@
 // Anything empty / 0 leaves the theme's value alone. Google Fonts are downloaded at build by fetch-content.mjs
 // (src/data/fonts.json) and served from this site, so no request ever goes to Google.
 import { settings, site } from "./content";
+import { fluidVars, fluidProseCss } from "./fluid";
 
 const fontFiles = import.meta.glob("../data/fonts.json", { eager: true, import: "default" }) as Record<string, { css: string; preload: string[] }>;
 const fonts = Object.values(fontFiles)[0] || { css: "", preload: [] };
 
 const st = settings.styles || {};
 const f = st.fonts || {}, t = st.type || {}, c = st.colors || {}, b = st.buttons || {}, l = st.layout || {}, h = st.header || {};
+const fl = st.fluid || {}, mo = st.motion || {};
 const hex = (v: any) => typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v);
 const q = (name: string) => `"${String(name).replace(/["\\]/g, "")}"`;
 
@@ -48,6 +50,10 @@ if (SPACE[l.space]) set(always, "--space-section", SPACE[l.space]);
 const RADIUS: Record<string, [string, string]> = { square: ["0", "0"], soft: ["8px", "4px"], round: ["16px", "8px"] };
 if (RADIUS[l.radius]) { set(always, "--radius", RADIUS[l.radius][0]); set(always, "--radius-sm", RADIUS[l.radius][1]); }
 
+// Fluid sizing: body, lede and heading sizes, section spacing and side margins slide between a phone and a wide
+// screen (src/lib/fluid.ts). It replaces the fixed body size, heading sizes and section spacing above. Off = untouched.
+if (fl.on === true) for (const [k, v] of Object.entries(fluidVars(fl))) set(always, k, v);
+
 // Header: the logo's height (desktop / phone) and the bar's height; the bar always fits the logo.
 if (h.logo_h) set(always, "--logo-h", `${h.logo_h}px`);
 // Phones: their own size, else the desktop size capped so the bar stays slim.
@@ -62,6 +68,7 @@ const tc = `theme-${site.theme || "nlmc"}`;
 const root = `html.${tc}.${tc}`;
 const rules: string[] = [];
 if (Object.keys(always).length) rules.push(`${root}{${vars(always)}}`);
+if (fl.on === true) rules.push(fluidProseCss(root, fl));
 if (Object.keys(surface).length) rules.push(`${root}:not([data-bg="dark"]):not([data-bg="image"]){${vars(surface)}}`);
 if (f.heading_weight) rules.push(`${root} :is(h1,h2,h3,.h1,.h2){font-weight:${f.heading_weight}}`);
 const TRACK: Record<string, string> = { tight: "-0.035em", normal: "-0.01em", wide: "0.01em" };
@@ -70,6 +77,14 @@ if (t.heading_case === "upper") rules.push(`${root} :is(h1,h2){text-transform:up
 if (t.line_height) rules.push(`${root} body{line-height:${t.line_height}}`);
 if (b.style === "outline") rules.push(`${root} .btn-primary{background:transparent;color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent)}${root} .btn-primary:hover{background:var(--accent);color:var(--on-accent)}`);
 if (b.case === "upper") rules.push(`${root} .btn{text-transform:uppercase;letter-spacing:.06em}`);
+
+// Page transitions (Motion → Page transitions): cross-document view transitions, no JavaScript. Both pages of a
+// navigation have to opt in, which they do because every page carries this. Not for reduced motion, nor in the
+// editor's Live view (it reloads on every change). The animations themselves are in src/styles/motion.css.
+export const pageTransition: "" | "fade" | "slide" = !(site as any).live && (mo.transition === "fade" || mo.transition === "slide") ? mo.transition : "";
+if (pageTransition) rules.push("@media (prefers-reduced-motion:no-preference){@view-transition{navigation:auto}}");
+/** Motion → Scroll effects site default: blocks without their own "Animate on scroll" ease in (motion.css). */
+export const scrollDefault: "" | "subtle" = !(site as any).live && mo.scroll === "subtle" ? "subtle" : "";
 
 /** Inline <style> for the head (fonts first, then the overrides). */
 export const stylesCss = (fonts.css || "") + rules.join("");

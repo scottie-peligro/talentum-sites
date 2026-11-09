@@ -1,1 +1,57 @@
-/* motion.css: see the comment at the top of each section. Imported by src/layouts/Base.astro after global.css. */
+/* motion.css: page transitions and scroll effects (Talentum → Website → Styles → Motion, and a block's Style tab →
+   Animate on scroll). All CSS, no JavaScript. Imported by src/layouts/Base.astro after global.css.
+   Rules: only transform-type properties and opacity move (no layout shift); nothing runs for reduced motion, in print,
+   or in browsers without scroll-driven animations, so content there simply shows; the editor's Live view never gets the
+   attributes (src/lib/styles.ts, src/lib/blockStyle.ts). */
+
+/* ---- Page transitions: html[data-pt] is set from settings.styles.motion.transition. The @view-transition opt-in
+   itself is written inline by styles.ts (only when chosen, only for no-preference). Named parts of the page that
+   already have their own view-transition-name (e.g. the Guided header, gd-header) keep animating on their own. ---- */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-pt="fade"]::view-transition-old(root) { animation: .22s ease-in both mo-out; }
+  html[data-pt="fade"]::view-transition-new(root) { animation: .3s ease-out both mo-in; }
+  html[data-pt="slide"]::view-transition-old(root) { animation: .26s cubic-bezier(.4, 0, 1, 1) both mo-slide-out; }
+  html[data-pt="slide"]::view-transition-new(root) { animation: .34s cubic-bezier(0, 0, .2, 1) both mo-slide-in; }
+}
+html.c-rm[data-pt]::view-transition-old(root), html.c-rm[data-pt]::view-transition-new(root) { animation: none; }
+@keyframes mo-out { to { opacity: 0; } }
+@keyframes mo-in { from { opacity: 0; } }
+@keyframes mo-slide-out { to { opacity: 0; translate: -2.5rem 0; } }
+@keyframes mo-slide-in { from { opacity: 0; translate: 2.5rem 0; } }
+
+/* ---- Animate on scroll: scroll-driven animations tied to each block's own entry into view.
+   .bs is display: contents (no box), so its child (the block's section) is what moves. data-anim comes from
+   block.data.style.anim; html[data-sfx="subtle"] is the site default for blocks without their own choice (never the
+   first block on the page, so the top of the page is always there at once). Before a block reaches the screen it waits
+   at its starting point, and it is fully shown by the time it is part-way in; anything already on screen at load is
+   past the end of its range, so it shows straight away. ---- */
+@supports (animation-timeline: view()) {
+  @media screen and (prefers-reduced-motion: no-preference) {
+    /* :where() keeps this at zero specificity, so the effect and speed rules below win. */
+    :where(.bs[data-anim]:not([data-anim="none"]) > *,
+      html[data-sfx="subtle"] #main > section:not(:first-child),
+      html[data-sfx="subtle"] .post-body > section,
+      html[data-sfx="subtle"] #main > .bs:not([data-anim]):not(:first-child) > *) {
+      animation: mo-subtle cubic-bezier(.2, .6, .3, 1) both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 70%;
+    }
+    .bs[data-anim="fade"] > * { animation-name: mo-fade; }
+    .bs[data-anim="up"] > * { animation-name: mo-up; }
+    .bs[data-anim="left"] > * { animation-name: mo-left; }
+    .bs[data-anim="right"] > * { animation-name: mo-right; }
+    .bs[data-anim="zoom"] > * { animation-name: mo-zoom; }
+    .bs[data-anim][data-anim-speed="gentle"] > * { animation-range: entry 0% entry 100%; }
+    .bs[data-anim][data-anim-speed="quick"] > * { animation-range: entry 0% entry 40%; }
+    /* Sliding in from the side must never add a sideways scroll. clip (not hidden) makes no scroll box, so sticky
+       parts keep working; on the Guided layout's scrolling #main it acts as hidden, which is what we want there too. */
+    html:has(.bs:is([data-anim="left"], [data-anim="right"])) #main { overflow-x: clip; }
+    html.c-rm .bs[data-anim] > *, html.c-rm[data-sfx] #main > *, html.c-rm[data-sfx] .post-body > *, html.c-rm[data-sfx] #main > .bs > * { animation: none; }
+  }
+}
+@keyframes mo-subtle { from { opacity: 0; translate: 0 1.25rem; } }
+@keyframes mo-fade { from { opacity: 0; } }
+@keyframes mo-up { from { opacity: 0; translate: 0 2.5rem; } }
+@keyframes mo-left { from { opacity: 0; translate: -3rem 0; } }
+@keyframes mo-right { from { opacity: 0; translate: 3rem 0; } }
+@keyframes mo-zoom { from { opacity: 0; scale: .92; } }

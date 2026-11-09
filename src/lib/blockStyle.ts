@@ -1,6 +1,13 @@
 // A block's own styling (Talentum → block → Style tab), stored in block.data.style. Turned into CSS variables and
 // data attributes on a wrapper around that one block (display: contents, so layout is untouched); global.css reads
 // them. Every value is validated here because it ends up in an inline style.
+import { settings, site } from "./content";
+import { fluidHeading } from "./fluid";
+const fluid = (settings as any).styles?.fluid?.on === true ? (settings as any).styles.fluid : null;
+// Animate on scroll (motion.css): never in the editor's Live view, so nothing there is ever waiting to appear.
+const ANIM = ["fade", "up", "left", "right", "zoom"];
+const animOk = !(site as any).live;
+const siteFx = animOk && (settings as any).styles?.motion?.scroll === "subtle";
 const hex = (v: any) => (typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v) ? v : "");
 const num = (v: any, lo: number, hi: number) => { const n = Number(v); return Number.isFinite(n) && n >= lo && n <= hi ? n : 0; };
 const font = (v: any) => String(v || "").replace(/[^A-Za-z0-9 ]+/g, "").trim().slice(0, 60);
@@ -30,7 +37,8 @@ export function blockWrap(style: any): BlockWrap {
   if (hf) put("--font-heading", `"${hf}", system-ui, sans-serif`);
   if (bf) put("--font-body", `"${bf}", system-ui, sans-serif`);
   const hs = num(style.heading_size, 14, 120);
-  if (hs) { const s = `clamp(${Math.max(14, Math.round(hs * 0.68))}px, ${(hs / 14).toFixed(2)}vw, ${hs}px)`; put("--fs-h1", s); put("--fs-h2", s); put("--fs-h3", `clamp(${Math.max(14, Math.round(hs * 0.45))}px, ${(hs / 26).toFixed(2)}vw, ${Math.round(hs * 0.6)}px)`); }
+  if (hs && fluid) { const fh = fluidHeading(hs, fluid); put("--fs-h1", fh.big); put("--fs-h2", fh.big); put("--fs-h3", fh.small); }
+  else if (hs) { const s = `clamp(${Math.max(14, Math.round(hs * 0.68))}px, ${(hs / 14).toFixed(2)}vw, ${hs}px)`; put("--fs-h1", s); put("--fs-h2", s); put("--fs-h3", `clamp(${Math.max(14, Math.round(hs * 0.45))}px, ${(hs / 26).toFixed(2)}vw, ${Math.round(hs * 0.6)}px)`); }
   const hw = [400, 500, 600, 700, 800, 900].includes(Number(style.heading_weight)) ? Number(style.heading_weight) : 0;
   if (hw) { put("--b-hw", String(hw)); attrs["data-bhw"] = ""; }
   put("--heading", hex(style.heading_color));
@@ -46,6 +54,10 @@ export function blockWrap(style: any): BlockWrap {
   if (hex(style.accent)) { put("--accent", style.accent); put("--accent-hover", style.accent); put("--brand-band", style.accent); }
   put("--link", hex(style.link_color));
   if (style.hide === "mobile" || style.hide === "desktop") attrs["data-hide"] = style.hide;
+  if (animOk && ANIM.includes(style.anim)) {
+    attrs["data-anim"] = style.anim;
+    if (style.anim_speed === "gentle" || style.anim_speed === "quick") attrs["data-anim-speed"] = style.anim_speed;
+  } else if (style.anim === "none" && siteFx) attrs["data-anim"] = "none";   // opts out of the site's default scroll effect
 
   if (!v.length && !Object.keys(attrs).length) return null;
   return { style: v.join(";"), attrs };

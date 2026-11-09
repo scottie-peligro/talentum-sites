@@ -30,7 +30,7 @@ import hankenUrl from "@fontsource-variable/hanken-grotesk/files/hanken-grotesk-
 import { isNext, isGuided, guided, panelFor, comfortOn, type VideoInfo } from "../lib/next";
 import { site, settings, isStaging, absolute, media } from "../lib/content";
 import { imageFile, assetUrl } from "../lib/images";
-import { stylesCss, fontPreloads, customFonts } from "../lib/styles";
+import { stylesCss, fontPreloads, customFonts, pageTransition, scrollDefault } from "../lib/styles";
 
 interface Props {
   title: string; description?: string; path: string; image?: string; type?: string; noindex?: boolean;
@@ -86,7 +86,7 @@ const schemas = (Array.isArray(schema) ? schema : schema ? [schema] : []).filter
 const lang = settings.locale || "en-US";
 ---
 <!doctype html>
-<html lang={lang} class={`theme-${theme}${isNext ? " layout-next" : ""}${isGuided ? " layout-guided" : ""}`}>
+<html lang={lang} class={`theme-${theme}${isNext ? " layout-next" : ""}${isGuided ? " layout-guided" : ""}`} data-pt={pageTransition || undefined} data-sfx={scrollDefault || undefined}>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
