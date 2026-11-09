@@ -13,9 +13,12 @@ const tone = d.background || "dark";
 const one = d.columns === "one";
 const wanted = d.image ? (d.image_layout || "side") : "none";
 const layout = one && wanted === "side" ? "below" : wanted;
+// One column: how wide the text may run, as a share of the section (Full = no limit).
+const tw = !one ? 0 : d.text_width === "custom" ? Math.min(100, Math.max(20, Number(d.text_width_custom) || 0)) : (Number(d.text_width) || 0);
+const textWidth = tw && tw < 100 ? `--hero-w:${tw}%` : undefined;
 const center = (d.align || (layout === "side" ? "left" : "center")) === "center";
 ---
-<section class={`hero bg-${tone === "image" ? "dark" : tone} layout-${layout}${one ? " one" : ""}${center ? " center" : ""}`} id={d.anchor || undefined}>
+<section class={`hero bg-${tone === "image" ? "dark" : tone} layout-${layout}${one ? " one" : ""}${center ? " center" : ""}`} id={d.anchor || undefined} style={textWidth}>
   {layout === "background" && <div class="bgimg"><Img id={d.image} alt="" cover priority={first} sizes="100vw" /></div>}
   <div class="wrap inner">
     <div class="copy">
@@ -42,7 +45,11 @@ const center = (d.align || (layout === "side" ? "left" : "center")) === "center"
   h1, .h1 { font-size: var(--fs-h1); margin-bottom: .45em; }
   .lede { font-size: var(--fs-lede); color: var(--muted); max-width: 40rem; }
   .center .lede { margin-inline: auto; }
-  .one .copy, .one .lede { max-width: none; }
+  .one .copy { max-width: var(--hero-w, none); }
+  .one .lede { max-width: none; }
+  /* Headings fill the chosen width instead of balancing into shorter lines. */
+  .one h1, .one .h1 { text-wrap: pretty; }
+  @container (max-width: 699px) { .one .copy { max-width: none; } }
   .media :global(img) { border-radius: var(--radius); width: 100%; }
   .below { margin-top: clamp(2.5rem, 6vw, 4rem); }
   .below :global(img) { width: 100%; border-radius: var(--radius); }
