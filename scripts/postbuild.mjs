@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync, readdirSync, statSync, copyFileSync, exist
 import { join, dirname, relative } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { htmlToMarkdown, decode as decodeHtml } from "./lib/markdown.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const dist = join(root, "dist");
@@ -81,6 +82,16 @@ const headers = [
     "/.well-known/ai-catalog.json", "  Content-Type: application/ai-catalog+json", "  Access-Control-Allow-Origin: *", "  Cache-Control: public, max-age=3600", "",
     "/.well-known/api-catalog", "  Content-Type: application/linkset+json; profile=\"https://www.rfc-editor.org/info/rfc9727\"", "  Access-Control-Allow-Origin: *", "  Cache-Control: public, max-age=3600", "",
   ] : []),
+  // Markdown copies of the pages for AI assistants (below). The HTML page stays the one search engines list.
+  "/*.md",
+  "  Content-Type: text/markdown; charset=utf-8",
+  "  X-Robots-Tag: noindex",
+  "  Cache-Control: public, max-age=0, must-revalidate",
+  "",
+  "/llms-full.txt",
+  "  Content-Type: text/plain; charset=utf-8",
+  "  Cache-Control: public, max-age=0, must-revalidate",
+  "",
 ].join("\n");
 writeFileSync(join(dist, "_headers"), headers);
 
@@ -164,6 +175,47 @@ if (bundle.agent) {
     "service-doc": [{ href: origin + "/llms.txt", type: "text/plain" }] }] }, null, 1));
   const a = bundle.agent;
   console.log(`postbuild: agent endpoint — ${a.services.length} services, ${a.faqs.length} FAQs, ${a.booking.links.length} booking links${a.booking.requests ? " (requests on)" : ""}${a.prices_shared ? ", prices shared" : ""}.`);
+}
+
+// --- Markdown copies + llms-full.txt (AI assistants) ---------------------------------------------------------------
+// Every page whose <head> links a Markdown alternate (layouts/Base.astro: not noindex, not the 404 page) gets
+// /<path>/index.md: title, description, source URL, then the page's main content (scripts/lib/markdown.mjs).
+// llms-full.txt: the Markdown of the key pages in one file (main language; capped at about 1.5 MB).
+{
+  const t0 = Date.now();
+  const byPath = new Map((bundle.entries || []).map((e) => [e.path, e]));
+  const docs = [];
+  const visit = (d) => { for (const f of readdirSync(d)) { const p = join(d, f); if (statSync(p).isDirectory()) { if (f !== "_astro" && f !== "_assistant") visit(p); } else if (f === "index.html") {
+    const html = readFileSync(p, "utf8");
+    const alt = html.match(/<link rel="alternate" type="text\/markdown" href="([^"]+)"/);
+    if (!alt) continue;
+    const url = "/" + relative(dist, d).replace(/\\/g, "/") + (relative(dist, d) ? "/" : "");
+    const e = byPath.get(url);
+    const meta = (re) => decodeHtml((html.match(re) || [, ""])[1]);
+    const canonical = meta(/<link rel="canonical" href="([^"]*)"/) || alt[1].replace(/index\.md$/, "");
+    const title = e?.title || meta(/<meta property="og:title" content="([^"]*)"/) || meta(/<title>([^<]*)<\/title>/);
+    const description = meta(/<meta name="description" content="([^"]*)"/);
+    const md = htmlToMarkdown(html, { base: canonical, title, description, url: canonical });
+    writeFileSync(join(d, "index.md"), md);
+    docs.push({ url, e, md });
+  } } };
+  visit(dist);
+  // llms-full.txt: home, pages, services, case studies, then the newest insights; translations left out.
+  const rank = (x) => (x.url === "/" ? 0 : !x.e ? 6 : x.e.translation_of ? 9 : ({ page: 1, landing: 1, service: 2, case_study: 3, post: 4, job: 5, legal: 8 })[x.e.type] ?? 6);
+  const ordered = docs.filter((x) => rank(x) < 9 && !/\/page\/\d+\/$/.test(x.url))
+    .sort((a, b) => rank(a) - rank(b) || (rank(a) === 4 ? String(b.e?.published_at || "").localeCompare(String(a.e?.published_at || "")) : a.url.localeCompare(b.url)));
+  const o = s.org || {};
+  let full = `# ${o.name || bundle.site.name}\n\n${o.description || s.seo?.default_description ? "> " + String(o.description || s.seo.default_description).replace(/\s+/g, " ").trim() + "\n\n" : ""}The full text of the main pages of ${bundle.site.url || "this website"}. Each page is also available on its own at <page address>index.md.\n`;
+  const CAP = 1.5 * 1048576;
+  let included = 0, size = Buffer.byteLength(full);
+  for (const x of ordered) {
+    const part = "\n---\n\n" + x.md;
+    const n = Buffer.byteLength(part);
+    if (size + n > CAP) continue;
+    full += part; size += n; included++;
+  }
+  if (docs.length) writeFileSync(join(dist, "llms-full.txt"), full);
+  console.log(`postbuild: ${docs.length} Markdown pages, llms-full.txt ${included} pages (${Math.round(Buffer.byteLength(full) / 1024)} KB) in ${Date.now() - t0} ms.`);
 }
 
 // --- Manifest ----------------------------------------------------------------------------------------------------
