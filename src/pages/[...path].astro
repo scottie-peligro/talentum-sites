@@ -8,7 +8,7 @@ import Img from "../components/Img.astro";
 import { getImage } from "astro:assets";
 import {
   entries, bundle, settings, media, person, lineName, accountName, category, formatDate, rich, resolveFaqs, readingMinutes,
-  proofFor, caseStudies, testimonialsFor, faqsFor, absolute, contentType, allEntries, setLang, section, t, type Entry, type Block,
+  proofFor, caseStudies, testimonialsFor, faqsFor, absolute, contentType, allEntries, setLang, section, t, pagedCards, cardPages, setCardsPage, type Entry, type Block,
 } from "../lib/content";
 import CustomFields from "../components/CustomFields.astro";
 import { imageFile } from "../lib/images";
@@ -18,12 +18,23 @@ import { libraryFaqs } from "../lib/faqlib";
 import VideoButton from "../components/next/VideoButton.astro";
 
 export function getStaticPaths() {
-  return allEntries.map((e) => ({ params: { path: e.path === "/" ? undefined : e.path.replace(/^\/|\/$/g, "") }, props: { entry: e } }));
+  const taken = new Set(allEntries.map((e) => e.path));
+  // A Content cards block set to "Show all" with a number per page: pages 2, 3… at <page>/page/<n>/.
+  const paged = allEntries.flatMap((e) => {
+    const b = pagedCards(e.blocks);
+    if (!b) return [];
+    const n = cardPages(b.data || {}, e.id);
+    return Array.from({ length: Math.max(0, n - 1) }, (_, i) => `${e.path}page/${i + 2}/`).filter((p) => !taken.has(p))
+      .map((p, i) => ({ params: { path: p.replace(/^\/|\/$/g, "") }, props: { entry: e, page: i + 2, pagedId: b.id } }));
+  });
+  return [...allEntries.map((e) => ({ params: { path: e.path === "/" ? undefined : e.path.replace(/^\/|\/$/g, "") }, props: { entry: e } })), ...paged];
 }
 
-const { entry } = Astro.props as { entry: Entry };
+const { entry, page = 1, pagedId = "" } = Astro.props as { entry: Entry; page?: number; pagedId?: string };
 const e = entry;
 setLang(e.lang);   // a translation renders in its language (links, menus, sections and built-in wording follow)
+setCardsPage(page, pagedId);   // which page of a paged Content cards block this is (1 = the page itself)
+const pagePath = page > 1 ? `${e.path}page/${page}/` : e.path;
 const blocks = visibleBlocks(e.blocks);
 const has = (t: string) => blocks.some((b) => b.type === t || (b.type === "section_ref" && (section(b.data?.key) || []).some((x) => x.type === t)));
 // These blocks carry the page's main heading themselves when they come first.
@@ -57,7 +68,7 @@ const client = e.fields?.client_name || accountName(e.account);
 const ct = contentType(e.type);
 const csStats = e.type === "case_study" ? bundle.proof.filter((p) => p.case_study === e.id && p.kind === "stat").slice(0, 4) : [];
 ---
-<Base kind={e.type} title={pageTitle(e)} description={pageDescription(e)} path={e.path} image={ogImageId(e)} type={e.type === "post" || e.type === "case_study" ? "article" : "website"}
+<Base kind={e.type} title={page > 1 ? `${pageTitle(e)} (page ${page})` : pageTitle(e)} description={pageDescription(e)} path={pagePath} image={ogImageId(e)} type={e.type === "post" || e.type === "case_study" ? "article" : "website"}
   noindex={!!e.seo?.noindex} schema={schemas} video={video} panel={e.fields?.panel} published={e.type === "post" ? e.published_at : undefined} modified={e.type === "post" ? e.updated : undefined}>
 
   {e.type === "post" ? (
