@@ -75,6 +75,12 @@ const headers = [
   "/*.html",
   "  Cache-Control: public, max-age=0, must-revalidate",
   "",
+  ...(bundle.agent ? [
+    "/_agent/*", "  X-Robots-Tag: noindex", "  Cache-Control: public, max-age=300", "",
+    "/api/agent/openapi.json", "  Access-Control-Allow-Origin: *", "  X-Robots-Tag: noindex", "  Cache-Control: public, max-age=3600", "",
+    "/.well-known/ai-catalog.json", "  Content-Type: application/ai-catalog+json", "  Access-Control-Allow-Origin: *", "  Cache-Control: public, max-age=3600", "",
+    "/.well-known/api-catalog", "  Content-Type: application/linkset+json; profile=\"https://www.rfc-editor.org/info/rfc9727\"", "  Access-Control-Allow-Origin: *", "  Cache-Control: public, max-age=3600", "",
+  ] : []),
 ].join("\n");
 writeFileSync(join(dist, "_headers"), headers);
 
@@ -136,6 +142,28 @@ if (s.assistant?.enabled) {
     try { const st = statSync(p); if (st.isFile() && Date.now() - st.mtimeMs > 120 * 864e5) { rmSync(p); pruned++; } } catch {}
   }
   if (n || pruned) console.log(`postbuild: ${n} sharing image${n === 1 ? "" : "s"}${pruned ? `, ${pruned} unused cached ones removed` : ""}.`);
+}
+
+// --- The site endpoint for AI agents (functions/api/agent/*, functions/mcp/, edge/agent.js) ------------------------
+// Talentum (lib/siteagent.js) puts what may be shared in bundle.agent; null = switched off (the Functions answer 404).
+// Discovery: /.well-known/ai-catalog.json (MCP Server Card, SEP-2127) → /mcp/server-card, /.well-known/api-catalog
+// (RFC 9727) → the OpenAPI document, and a "For AI assistants" section in llms.txt.
+if (bundle.agent) {
+  const { openapi } = await import("../edge/openapi.js");
+  const origin = String(bundle.site.url || "").replace(/\/+$/, "");
+  mkdirSync(join(dist, "_agent"), { recursive: true });
+  writeFileSync(join(dist, "_agent", "data.json"), JSON.stringify(bundle.agent));
+  mkdirSync(join(dist, "api", "agent"), { recursive: true });
+  writeFileSync(join(dist, "api", "agent", "openapi.json"), JSON.stringify(openapi(origin, bundle.agent), null, 1));
+  mkdirSync(join(dist, ".well-known"), { recursive: true });
+  const host = origin ? new URL(origin).hostname : "site";
+  writeFileSync(join(dist, ".well-known", "ai-catalog.json"), JSON.stringify({ specVersion: "1.0", entries: [
+    { identifier: `urn:air:${host}:mcp:website`, type: "application/mcp-server-card+json", url: origin + "/mcp/server-card" }] }, null, 1));
+  writeFileSync(join(dist, ".well-known", "api-catalog"), JSON.stringify({ linkset: [{ anchor: origin + "/api/agent",
+    "service-desc": [{ href: origin + "/api/agent/openapi.json", type: "application/vnd.oai.openapi+json;version=3.1" }],
+    "service-doc": [{ href: origin + "/llms.txt", type: "text/plain" }] }] }, null, 1));
+  const a = bundle.agent;
+  console.log(`postbuild: agent endpoint — ${a.services.length} services, ${a.faqs.length} FAQs, ${a.booking.links.length} booking links${a.booking.requests ? " (requests on)" : ""}${a.prices_shared ? ", prices shared" : ""}.`);
 }
 
 // --- Manifest ----------------------------------------------------------------------------------------------------

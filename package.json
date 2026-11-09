@@ -11,6 +11,7 @@
     "build:only": "astro build && node scripts/postbuild.mjs",
     "check": "astro check",
     "test:blocks": "node scripts/test-blocks.mjs",
+    "test:agent": "node --test scripts/test-agent.mjs",
     "builder": "node builder/server.mjs"
   },
   "dependencies": {
