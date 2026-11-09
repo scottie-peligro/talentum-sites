@@ -1,5 +1,6 @@
 ---
 // Hero: big heading, intro, buttons; dark (default), light or brand band; optional image beside it or behind it.
+// Layout "one" (data.columns): one column with the text at the full width of the section; a side image moves below.
 import Img from "../components/Img.astro";
 import Buttons from "../components/Buttons.astro";
 import VideoButton from "../components/next/VideoButton.astro";
@@ -9,10 +10,12 @@ const { block, first = false, entry } = Astro.props as { block: Block; first?: b
 const video = first ? overviewVideo(entry) : null;
 const d = block.data || {};
 const tone = d.background || "dark";
-const layout = d.image ? (d.image_layout || "side") : "none";
+const one = d.columns === "one";
+const wanted = d.image ? (d.image_layout || "side") : "none";
+const layout = one && wanted === "side" ? "below" : wanted;
 const center = (d.align || (layout === "side" ? "left" : "center")) === "center";
 ---
-<section class={`hero bg-${tone === "image" ? "dark" : tone} layout-${layout}${center ? " center" : ""}`} id={d.anchor || undefined}>
+<section class={`hero bg-${tone === "image" ? "dark" : tone} layout-${layout}${one ? " one" : ""}${center ? " center" : ""}`} id={d.anchor || undefined}>
   {layout === "background" && <div class="bgimg"><Img id={d.image} alt="" cover priority={first} sizes="100vw" /></div>}
   <div class="wrap inner">
     <div class="copy">
@@ -39,6 +42,7 @@ const center = (d.align || (layout === "side" ? "left" : "center")) === "center"
   h1, .h1 { font-size: var(--fs-h1); margin-bottom: .45em; }
   .lede { font-size: var(--fs-lede); color: var(--muted); max-width: 40rem; }
   .center .lede { margin-inline: auto; }
+  .one .copy, .one .lede { max-width: none; }
   .media :global(img) { border-radius: var(--radius); width: 100%; }
   .below { margin-top: clamp(2.5rem, 6vw, 4rem); }
   .below :global(img) { width: 100%; border-radius: var(--radius); }
