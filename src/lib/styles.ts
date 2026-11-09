@@ -75,7 +75,7 @@ const TRACK: Record<string, string> = { tight: "-0.035em", normal: "-0.01em", wi
 if (TRACK[t.heading_tracking]) rules.push(`${root} :is(h1,h2,h3){letter-spacing:${TRACK[t.heading_tracking]}}`);
 if (t.heading_case === "upper") rules.push(`${root} :is(h1,h2){text-transform:uppercase}`);
 if (t.line_height) rules.push(`${root} body{line-height:${t.line_height}}`);
-if (b.style === "outline") rules.push(`${root} .btn-primary{background:transparent;color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent)}${root} .btn-primary:hover{background:var(--accent);color:var(--on-accent)}`);
+if (b.style === "outline") rules.push(`${root} .btn-primary{background:transparent;color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent)}${root} .btn-primary:hover{background:var(--accent);color:var(--on-accent)}${root} .nav a.cta.btn-primary{color:var(--accent)}${root} .nav a.cta.btn-primary:hover{color:var(--on-accent)}`);
 if (b.case === "upper") rules.push(`${root} .btn{text-transform:uppercase;letter-spacing:.06em}`);
 
 // Page transitions (Motion → Page transitions): cross-document view transitions, no JavaScript. Both pages of a

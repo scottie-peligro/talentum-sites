@@ -42,7 +42,7 @@ p { margin: 0 0 1em; }
 .grid { display: grid; gap: var(--gap); }
 /* Columns follow the width the block has (its band, or the container column it sits in): see layout.css. */
 @container (min-width: 720px) { .cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@container (min-width: 1024px) { .cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@container (min-width: 860px) { .cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .head { margin-bottom: clamp(2rem, 4vw, 3rem); max-width: 46rem; }
 .center .head, .head.center { margin-inline: auto; }
 
@@ -116,7 +116,7 @@ details.deep > summary:hover .deep-btn { border-color: var(--heading); }
 .bs[data-bhw] :is(h1, h2, h3) { font-weight: var(--b-hw); }
 .bs[data-bfs] :is(p, li, blockquote, .lede):not(.eyebrow) { font-size: var(--b-fs) !important; }
 /* A chosen column split wins over the layouts' own stacking, once the block has tablet width or more. */
-@container (min-width: 900px) {
+@container (min-width: 700px) {
   html .bs[data-bcols] .mt.has-img.has-img, html .bs[data-bcols] .mt:not(.has-img) .copy.copy { grid-template-columns: var(--b-cols); }
   html .bs[data-bcols] .mt.img-right .media.media { order: 2; }
 }

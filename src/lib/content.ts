@@ -70,9 +70,18 @@ export const routes = { service: "service", case_study: "case-studies", post: "i
 export function href(h?: string): string {
   if (!h) return "#";
   if (h.startsWith("entry:")) return entryById(h.slice(6))?.path || "#";
-  return h;
+  return safeHref(h);
 }
-export const menuHref = (m: MenuItem) => (m.entry ? entryById(m.entry)?.path || "#" : m.url || "#");
+/** Only web, mail, phone, page and in-page links reach the HTML: "javascript:", "data:" and the like become "#". */
+export function safeHref(h: string): string {
+  const v = String(h || "").trim();
+  if (!v) return "#";
+  if (/^(https?:|mailto:|tel:|#|\/(?!\/)|\.{0,2}\/|\?)/i.test(v)) return v;
+  if (/^\/\//.test(v)) return "https:" + v;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(v)) return "#";
+  return v;   // a relative address such as "contact/"
+}
+export const menuHref = (m: MenuItem) => (m.entry ? entryById(m.entry)?.path || "#" : safeHref(m.url || "#"));
 export const isExternal = (h: string) => /^https?:\/\//i.test(h) && !(site.live_url && h.startsWith(site.live_url));
 
 export function absolute(path: string) {

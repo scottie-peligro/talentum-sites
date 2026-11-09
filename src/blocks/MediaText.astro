@@ -22,13 +22,13 @@ const hasImg = !!media(d.image);
 </Section>
 <style>
   .mt { display: grid; gap: clamp(2rem, 5vw, 4rem); align-items: center; }
-  @container (min-width: 900px) {
+  @container (min-width: 700px) {
     .mt.has-img { grid-template-columns: var(--b-cols, minmax(0, 5fr) minmax(0, 7fr)); }
     .mt.has-img.img-right { grid-template-columns: var(--b-cols, minmax(0, 7fr) minmax(0, 5fr)); }
     .img-right .media { order: 2; }
   }
   .mt:not(.has-img) .copy { display: grid; gap: 0 clamp(2rem, 5vw, 4rem); }
-  @container (min-width: 900px) { .mt:not(.has-img) .copy { grid-template-columns: var(--b-cols, 5fr 7fr); } .mt:not(.has-img) .copy > h2, .mt:not(.has-img) .copy > .eyebrow { grid-column: 1; } .mt:not(.has-img) .copy > .prose, .mt:not(.has-img) .copy > .btns { grid-column: 2; } .mt:not(.has-img) .copy > .prose { grid-row: 1 / span 3; } }
+  @container (min-width: 700px) { .mt:not(.has-img) .copy { grid-template-columns: var(--b-cols, 5fr 7fr); } .mt:not(.has-img) .copy > h2, .mt:not(.has-img) .copy > .eyebrow { grid-column: 1; } .mt:not(.has-img) .copy > .prose, .mt:not(.has-img) .copy > .btns { grid-column: 2; } .mt:not(.has-img) .copy > .prose { grid-row: 1 / span 3; } }
   .media :global(img) { width: 100%; border-radius: var(--radius); }
   .prose { color: var(--muted); font-size: 1.05rem; }
   .prose :global(strong) { color: var(--heading); }

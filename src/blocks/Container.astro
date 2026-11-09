@@ -101,7 +101,7 @@ const colStyle = (c: (typeof cols)[number], ci: number) => [spans ? `--sp:${c.sp
   .ct-rev > .ct-in > .ct-grid > .ct-col { order: var(--o, 0); }
   /* Side by side once the container is wide enough: 900px for a band (as before), a little less for an inset card
      (the same window width), and 36rem for a container inside another container's column. Same rules each time. */
-  @container (min-width: 900px) {
+  @container (min-width: 700px) {
     .ct > .ct-in > .ct-grid { grid-template-columns: var(--ct-cols); }
     .ct-12 > .ct-in > .ct-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); }
     .ct-12 > .ct-in > .ct-grid > .ct-col { grid-column: span var(--sp, 12); }
