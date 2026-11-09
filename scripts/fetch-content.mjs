@@ -6,7 +6,7 @@
 //   BUILDER_SECRET  or  SITE_TOKEN                     (one of them, to read the bundle)
 //
 // Writes src/data/bundle.json and src/media/<id>.<ext>. Media that hasn't changed (same file name) isn't re-downloaded.
-import { mkdirSync, writeFileSync, existsSync, readdirSync, rmSync, readFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, existsSync, readdirSync, rmSync, readFileSync, renameSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -140,5 +140,8 @@ if (want.length && !reuse) {
 }
 writeFileSync(fontsJson, JSON.stringify(fontOut));
 
-writeFileSync(join(root, "src", "data", "bundle.json"), JSON.stringify(bundle));
+// Written to a temporary file and renamed, so the Live view (astro dev, watching this file) never reads half of it.
+const bundleOut = join(root, "src", "data", "bundle.json");
+writeFileSync(bundleOut + ".tmp", JSON.stringify(bundle));
+renameSync(bundleOut + ".tmp", bundleOut);
 console.log(`Fetched ${bundle.site.name} (${ENV}): ${bundle.entries.length} entries, ${Object.keys(bundle.media || {}).length} media (${fetched} downloaded).`);
