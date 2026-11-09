@@ -258,7 +258,7 @@ const hasPhone = (steps ? contactFields : fields).some((f) => f.type === "tel" |
 <style>
   .form-wrap { max-width: 52rem; }
   .form { display: grid; gap: 1rem 1.25rem; }
-  @media (min-width: 720px) { .form { grid-template-columns: 1fr 1fr; } .full { grid-column: 1 / -1; } }
+  @container (min-width: 720px) { .form { grid-template-columns: 1fr 1fr; } .full { grid-column: 1 / -1; } }
   label span { display: block; font-weight: 600; font-size: .9rem; color: var(--heading); margin-bottom: .35rem; }
   label em { color: var(--accent-text); font-style: normal; }
   input, textarea, select { width: 100%; font: inherit; font-size: 1rem; padding: .7rem .8rem; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); }
@@ -280,7 +280,7 @@ const hasPhone = (steps ? contactFields : fields).some((f) => f.type === "tel" |
   .fs:not(.fs-js) .fs-step + .fs-step { margin-top: 1.5rem; }
   .fs-hint { margin: -.4rem 0 1rem; color: var(--muted); font-size: .95rem; }
   .fs-opts { display: grid; gap: .6rem; }
-  @media (min-width: 640px) { .fs-opts { grid-template-columns: 1fr 1fr; } }
+  @container (min-width: 640px) { .fs-opts { grid-template-columns: 1fr 1fr; } }
   .fs-opt { position: relative; display: block; cursor: pointer; }
   .fs-opt input { position: absolute; opacity: 0; width: 1px; height: 1px; }
   .fs-opt span { display: flex; align-items: center; min-height: 52px; padding: .75rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--heading); font-weight: 600; margin: 0; transition: border-color .15s, background .15s; }
@@ -288,7 +288,7 @@ const hasPhone = (steps ? contactFields : fields).some((f) => f.type === "tel" |
   .fs-opt input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; }
   .fs-opt input:checked + span { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); box-shadow: inset 0 0 0 1px var(--accent); }
   .fs-grid { display: grid; gap: 1rem 1.25rem; }
-  @media (min-width: 720px) { .fs-grid { grid-template-columns: 1fr 1fr; } }
+  @container (min-width: 720px) { .fs-grid { grid-template-columns: 1fr 1fr; } }
   .fs-top { display: flex; align-items: center; gap: 1rem; font-size: .85rem; color: var(--muted); }
   .fs-bar { flex: 1; height: 4px; border-radius: 4px; background: var(--line); overflow: hidden; }
   .fs-bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }

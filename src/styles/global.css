@@ -40,8 +40,9 @@ p { margin: 0 0 1em; }
 .eyebrow { font-family: var(--font-body); font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--accent-text); margin: 0 0 .9rem; }
 .stack > * + * { margin-top: 1rem; }
 .grid { display: grid; gap: var(--gap); }
-@media (min-width: 720px) { .cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (min-width: 1024px) { .cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* Columns follow the width the block has (its band, or the container column it sits in): see layout.css. */
+@container (min-width: 720px) { .cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (min-width: 1024px) { .cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .head { margin-bottom: clamp(2rem, 4vw, 3rem); max-width: 46rem; }
 .center .head, .head.center { margin-inline: auto; }
 
@@ -114,8 +115,8 @@ details.deep > summary:hover .deep-btn { border-color: var(--heading); }
 .bs[data-al="right"] :is(.copy, .lede, .heading, .sec-head) { margin-inline: auto 0 !important; }
 .bs[data-bhw] :is(h1, h2, h3) { font-weight: var(--b-hw); }
 .bs[data-bfs] :is(p, li, blockquote, .lede):not(.eyebrow) { font-size: var(--b-fs) !important; }
-/* A chosen column split wins over the layouts' own stacking, from tablet width up. */
-@media (min-width: 900px) {
+/* A chosen column split wins over the layouts' own stacking, once the block has tablet width or more. */
+@container (min-width: 900px) {
   html .bs[data-bcols] .mt.has-img.has-img, html .bs[data-bcols] .mt:not(.has-img) .copy.copy { grid-template-columns: var(--b-cols); }
   html .bs[data-bcols] .mt.img-right .media.media { order: 2; }
 }

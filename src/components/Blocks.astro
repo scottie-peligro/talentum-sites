@@ -35,7 +35,10 @@ import Container from "../blocks/Container.astro";
 import { INTERACTIVE } from "../blocks/interactive/index";
 import { bundle, settings, site, type Block, type Entry } from "../lib/content";
 
-const { blocks = [], entry, depth = 0, grouped = false, offset = 0 } = Astro.props as { blocks?: Block[]; entry?: Entry; depth?: number; grouped?: boolean; offset?: number };
+// depth = how many global sections deep (section_ref), so a section can't pull itself in forever. lead = this list
+// starts the page (the first block gets `first`: its heading is the H1); a container passes it to its first column.
+const { blocks = [], entry, depth = 0, grouped = false, offset = 0, lead } = Astro.props as { blocks?: Block[]; entry?: Entry; depth?: number; grouped?: boolean; offset?: number; lead?: boolean };
+const leads = lead ?? depth === 0;
 const C: Record<string, any> = {
   hero: Hero, steps: Steps, rich_text: RichText, image: ImageBlock, gallery: Gallery, video: Video, media_text: MediaText,
   service_groups: ServiceGroups, service_cards: ServiceCards, logo_strip: LogoStrip, stat_band: StatBand, results: Results,
@@ -62,7 +65,7 @@ const liveView = !!(site as any).live;
 {segs.map((s) => s.deep ? (
   <details class="deep">
     <summary class="deep-sum"><span class="wrap"><span class="deep-btn">{deepLabel(s)}</span></span></summary>
-    <Astro.self blocks={s.items.map((x) => x.b)} entry={entry} depth={depth} grouped offset={offset + s.items[0].i} />
+    <Astro.self blocks={s.items.map((x) => x.b)} entry={entry} depth={depth} grouped offset={offset + s.items[0].i} lead={leads} />
   </details>
 ) : s.items.map(({ b, i }) => {
   if (b.type === "section_ref") {
@@ -72,8 +75,10 @@ const liveView = !!(site as any).live;
   const Comp = C[b.type];
   if (!Comp) return null;
   const w = blockWrap(b.data?.style);
-  const el = w ? <div class="bs" style={w.style || undefined} {...w.attrs}><Comp block={b} entry={entry} first={offset + i === 0 && depth === 0} /></div>
-    : <Comp block={b} entry={entry} first={offset + i === 0 && depth === 0} />;
-  // Live view in the editor: tag each of the page's own blocks so a click can open it in the editor.
+  const first = leads && offset + i === 0;
+  const el = w ? <div class="bs" style={w.style || undefined} {...w.attrs}><Comp block={b} entry={entry} first={first} depth={depth} /></div>
+    : <Comp block={b} entry={entry} first={first} depth={depth} />;
+  // Live view in the editor: tag each of the page's own blocks (those inside its containers too, so a click picks the
+  // innermost) so a click can open it in the editor. Blocks from a global section aren't the page's own.
   return liveView && depth === 0 && !grouped ? <div data-live-block={b.id} data-live-type={b.type} style="display:contents">{el}</div> : el;
 }))}
