@@ -1,0 +1,57 @@
+---
+// Counters: big numbers that count up the first time they scroll into view. The real numbers are in the HTML (search
+// engines, no-JavaScript visitors and screen readers get them); the count-up only changes the text, inside a box
+// already sized to the final number, so nothing moves. No animation for visitors who prefer reduced motion.
+import Section from "../../components/Section.astro";
+import Heading from "../../components/Heading.astro";
+import { type Block } from "../../lib/content";
+import { once } from "./util";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const items = (Array.isArray(d.items) ? d.items : [])
+  .filter((x: any) => x && String(x.value ?? "").trim())
+  .map((x: any) => ({ full: `${x.prefix || ""}${String(x.value).trim()}${x.suffix || ""}`, label: x.label || "" }));
+const left = d.align === "left";
+const first = items.length > 0 && once(Astro.locals, "counters");
+const JS = `if(!matchMedia("(prefers-reduced-motion: reduce)").matches&&!document.documentElement.classList.contains("c-rm")&&"IntersectionObserver" in window){
+var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){io.unobserve(e.target);run(e.target);}});},{threshold:.5});
+document.querySelectorAll("[data-ix-count]").forEach(function(el){io.observe(el);});}
+function run(el){var txt=el.textContent,m=txt.match(/\\d[\\d,]*(\\.\\d+)?/);if(!m)return;var raw=m[0],to=parseFloat(raw.replace(/,/g,"")),dec=(m[1]||"").length?m[1].length-1:0,cm=raw.indexOf(",")>-1,pre=txt.slice(0,m.index),post=txt.slice(m.index+raw.length),t0=0,dur=1600;
+if(!(to>0))return;
+function fmt(v){var s=v.toFixed(dec);if(cm){var p=s.split(".");p[0]=p[0].replace(/\\B(?=(\\d{3})+(?!\\d))/g,",");s=p.join(".");}return pre+s+post;}
+function step(ts){if(!t0)t0=ts;var k=Math.min(1,(ts-t0)/dur),e=1-Math.pow(1-k,3);el.textContent=k<1?fmt(to*e):txt;if(k<1)requestAnimationFrame(step);}
+el.textContent=fmt(0);requestAnimationFrame(step);}`;
+---
+{items.length > 0 && (
+  <Section bg={d.background} id={d.anchor}>
+    <div class={`wrap ix-cq${left ? "" : " center"}`}>
+      <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} center={!left} />
+      <dl class={`ix-cnt${left ? " left" : ""}`} style={`--n:${Math.min(items.length, 4)}`}>
+        {items.map((it: any) => (
+          <div class="ix-cnt-item">
+            <dt>{it.label}</dt>
+            <dd><span class="ix-num" data-v={it.full}><span data-ix-count>{it.full}</span></span></dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+    {first && <script is:inline type="module" set:html={JS} />}
+  </Section>
+)}
+<style>
+  .ix-cnt { margin: 2rem 0 0; display: grid; gap: 2rem 1.5rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr)); }
+  .ix-cnt-item { display: flex; flex-direction: column-reverse; gap: .5rem; }
+  .ix-cnt.left .ix-cnt-item { border-top: 1px solid var(--line); padding-top: 1.25rem; }
+  dd { margin: 0; }
+  dt { font-size: .95rem; color: var(--muted); }
+  .ix-num { display: inline-grid; justify-items: stretch; font: 600 clamp(2.4rem, 6cqi, 3.6rem)/1 var(--font-heading); color: var(--stat, var(--heading)); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  /* The final number, invisible, holds the box at its full width while the visible one counts up inside it
+     (the span fills the cell and only its text changes, so nothing counts as a layout shift). */
+  .ix-num::before { content: attr(data-v); visibility: hidden; grid-area: 1 / 1; }
+  .ix-num > span { grid-area: 1 / 1; text-align: center; }
+  .left .ix-num > span { text-align: start; }
+  :global(.bg-dark) .ix-num, :global(.bg-brand) .ix-num { color: var(--heading); }
+  @container (min-width: 760px) {
+    .ix-cnt { grid-template-columns: repeat(var(--n), minmax(0, 1fr)); }
+  }
+</style>

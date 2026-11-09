@@ -1,0 +1,72 @@
+---
+// Logo marquee: logos gliding continuously across the band. CSS only (no JavaScript): two copies of the row, each at
+// least as wide as the band, slide left by one copy's width and loop. Pauses on hover, on keyboard focus and with the
+// Pause toggle; for visitors who prefer reduced motion (or the site's "less motion" comfort setting) it's a still,
+// wrapping grid of the logos instead.
+import Section from "../../components/Section.astro";
+import Heading from "../../components/Heading.astro";
+import Img from "../../components/Img.astro";
+import { media, type Block } from "../../lib/content";
+import { uid } from "./util";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const logos = (Array.isArray(d.logos) ? d.logos : []).filter((id: string) => media(id));
+const id = uid(Astro.locals, "ixm");
+const perLogo = { slow: 5, fast: 2 }[d.speed as string] || 3.2;
+const h = { s: 32, l: 60 }[d.size as string] || 44;
+const grey = d.greyscale !== false;
+const label = d.heading ? `${d.heading}: logos` : "Logos";
+---
+{logos.length > 0 && (
+  <Section bg={d.background} id={d.anchor} tight={!d.heading}>
+    <div class="wrap ix-cq center">
+      <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} center />
+      <div class={`ix-mq${grey ? " grey" : ""}`} style={`--dur:${Math.max(12, Math.round(logos.length * perLogo))}s;--h:${h}px`}>
+        <input type="checkbox" class="ix-mq-pause sr-only" id={`${id}-pause`} aria-label="Pause moving logos" />
+        <div class="ix-mq-view" tabindex="0" role="region" aria-label={label}>
+          <ul class="ix-mq-row">{logos.map((m: string) => <li><Img id={m} sizes={`${h * 4}px`} widths={[160, 320]} /></li>)}</ul>
+          <ul class="ix-mq-row" aria-hidden="true">{logos.map((m: string) => <li><Img id={m} alt="" sizes={`${h * 4}px`} widths={[160, 320]} /></li>)}</ul>
+        </div>
+        <label class="ix-mq-ctl" for={`${id}-pause`} aria-hidden="true"><span class="i-pause"></span><span class="t-pause">Pause</span><span class="t-play">Play</span></label>
+      </div>
+    </div>
+  </Section>
+)}
+<style>
+  .ix-mq { --g: clamp(2rem, 5cqi, 4rem); position: relative; margin-top: 2rem; }
+  .ix-mq-view {
+    display: flex; gap: var(--g); overflow: hidden; padding-block: .5rem;
+    mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  }
+  .ix-mq-view:focus-visible { outline-offset: 4px; }
+  .ix-mq-row {
+    list-style: none; margin: 0; padding: 0; flex: 0 0 auto; min-width: 100%; display: flex; align-items: center; justify-content: space-around; gap: var(--g);
+    animation: ix-mq var(--dur) linear infinite;
+  }
+  .ix-mq-row li { flex: 0 0 auto; }
+  .ix-mq-row :global(img) { height: var(--h); width: auto; max-width: calc(var(--h) * 4); object-fit: contain; }
+  .grey .ix-mq-row :global(img) { filter: grayscale(1); opacity: .8; }
+  :global(.bg-dark) .grey .ix-mq-row :global(img) { filter: grayscale(1) brightness(2.2); }
+  @keyframes ix-mq { to { transform: translateX(calc(-100% - var(--g))); } }
+  .ix-mq:hover .ix-mq-row, .ix-mq-view:focus-within .ix-mq-row, .ix-mq:has(.ix-mq-pause:checked) .ix-mq-row { animation-play-state: paused; }
+  .ix-mq-ctl {
+    display: inline-flex; align-items: center; gap: .4rem; min-height: 32px; margin-top: .75rem; padding: .2rem .7rem; border-radius: 999px; cursor: pointer;
+    font: 600 .78rem var(--font-body); color: var(--muted); border: 1px solid transparent;
+  }
+  .ix-mq-ctl:hover { color: var(--heading); border-color: var(--line); }
+  .ix-mq-pause:focus-visible + .ix-mq-view + .ix-mq-ctl { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .i-pause { width: 9px; height: 10px; border-inline: 3px solid currentColor; }
+  .t-play { display: none; }
+  .ix-mq-pause:checked ~ .ix-mq-ctl .t-play { display: inline; }
+  .ix-mq-pause:checked ~ .ix-mq-ctl .t-pause { display: none; }
+  .ix-mq-pause:checked ~ .ix-mq-ctl .i-pause { border: 0; width: 0; height: 0; border-left: 9px solid currentColor; border-block: 5px solid transparent; }
+  /* Still: a wrapping grid, one copy, no toggle. */
+  @media (prefers-reduced-motion: reduce) {
+    .ix-mq-view { flex-wrap: wrap; justify-content: center; mask-image: none; }
+    .ix-mq-row { animation: none; flex-wrap: wrap; justify-content: center; flex: 1 1 100%; row-gap: 1.5rem; }
+    .ix-mq-row[aria-hidden], .ix-mq-ctl, .ix-mq-pause { display: none; }
+  }
+  :global(html.c-rm) .ix-mq-view { flex-wrap: wrap; justify-content: center; mask-image: none; }
+  :global(html.c-rm) .ix-mq-row { animation: none; flex-wrap: wrap; justify-content: center; flex: 1 1 100%; row-gap: 1.5rem; }
+  :global(html.c-rm) .ix-mq-row[aria-hidden], :global(html.c-rm) .ix-mq-ctl, :global(html.c-rm) .ix-mq-pause { display: none; }
+</style>
