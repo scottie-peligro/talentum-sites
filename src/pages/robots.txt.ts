@@ -1,8 +1,9 @@
 import type { APIRoute } from "astro";
-import { settings, isStaging, absolute } from "../lib/content";
+import { settings, setLang, isStaging, absolute } from "../lib/content";
 // Staging: nobody may crawl. Live: everyone, plus per-bot AI crawler choices (Website → Settings → SEO) and the sitemap.
 const AI_BOTS = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-SearchBot", "Claude-User", "PerplexityBot", "Google-Extended", "Applebot-Extended", "CCBot", "Bytespider", "meta-externalagent"];
 export const GET: APIRoute = () => {
+  setLang("");   // endpoints are in the site's main language (language is module state; a page may have left another one set)
   if (isStaging) return new Response("User-agent: *\nDisallow: /\n", { headers: { "Content-Type": "text/plain" } });
   const ai = settings.robots?.ai_crawlers || {};
   const lines = ["User-agent: *", "Allow: /", ""];

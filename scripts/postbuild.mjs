@@ -115,7 +115,7 @@ if (s.assistant?.enabled) {
   const plain = (h) => decode(String(h || "").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
   for (const f of bundle.faqs || []) chunks.push({ title: "FAQ: " + f.question, url: "/", kind: "faq", text: f.question + "\n" + plain(f.answer) });
   const o = s.org || {};
-  chunks.push({ title: "Contact details", url: (bundle.entries.find((e) => /contact/.test(e.path)) || {}).path || "/", text: [o.name, o.phone && "Phone: " + o.phone, o.email && "Email: " + o.email, [o.street || o.address, o.city, o.region, o.postal].filter(Boolean).join(", "), o.hours && "Hours: " + o.hours].filter(Boolean).join("\n") });
+  chunks.push({ title: "Contact details", url: (bundle.entries.find((e) => !e.translation_of && /contact/.test(e.path)) || {}).path || "/", text: [o.name, o.phone && "Phone: " + o.phone, o.email && "Email: " + o.email, [o.street || o.address, o.city, o.region, o.postal].filter(Boolean).join(", "), o.hours && "Hours: " + o.hours].filter(Boolean).join("\n") });
   mkdirSync(join(dist, "_assistant"), { recursive: true });
   writeFileSync(join(dist, "_assistant", "index.json"), JSON.stringify({ site: bundle.site.name, org: o.name || bundle.site.name, name: s.assistant.name || "", booking: s.assistant.booking_url || "", chunks: chunks.slice(0, 3000) }));
   console.log(`postbuild: Site Assistant index — ${chunks.length} chunks.`);

@@ -1,8 +1,9 @@
 import type { APIRoute } from "astro";
-import { entries, ofType, posts, settings, site, absolute, plain, truncate } from "../lib/content";
+import { entries, ofType, posts, setLang, settings, site, absolute, plain, truncate } from "../lib/content";
 import { pageDescription } from "../lib/seo";
 // llms.txt — a plain map of the site for AI assistants (https://llmstxt.org).
 export const GET: APIRoute = () => {
+  setLang("");   // endpoints are in the site's main language (language is module state; a page may have left another one set)
   const name = settings.org?.name || site.name;
   const line = (e: any) => `- [${e.title}](${absolute(e.path)})${pageDescription(e) ? ": " + truncate(plain(pageDescription(e)), 180) : ""}`;
   const pages = entries.filter((e) => (e.type === "page" || e.type === "landing") && !e.seo?.noindex);

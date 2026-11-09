@@ -1,8 +1,9 @@
 import type { APIRoute } from "astro";
-import { entries, allEntries, translated, versionsOf, absolute, isStaging, contentTypes } from "../lib/content";
+import { entries, allEntries, setLang, translated, versionsOf, absolute, isStaging, contentTypes } from "../lib/content";
 // Every published, indexable entry with its last change. (Staging still gets one, but robots.txt keeps crawlers out.)
 // Translated sites: every language version is listed, each with xhtml:link alternates to all of them (+ x-default).
 export const GET: APIRoute = () => {
+  setLang("");   // endpoints are in the site's main language (language is module state; a page may have left another one set)
   const alt = (e: (typeof entries)[number]) => {
     if (!translated) return "";
     const v = versionsOf(e);
