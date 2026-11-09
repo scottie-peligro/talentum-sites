@@ -38,6 +38,7 @@ const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-");
 async function fetchTtf(cssUrl, cacheName) {
   const p = join(CACHE, "fonts", cacheName);
   if (existsSync(p)) return readFileSync(p);
+  if (netDown) return null;                      // the network already failed once this build: don't wait on it again
   if (process.env.OG_OFFLINE === "1") { netDown = true; return null; }
   try {
     const r = await fetch(cssUrl, { signal: AbortSignal.timeout(8000) });   // no browser user agent → TrueType
@@ -60,6 +61,7 @@ function googleFont(family, weight) {
     for (const w of [weight, 700, 400].filter((x, i, a) => a.indexOf(x) === i)) {
       const b = await fetchTtf(`https://fonts.googleapis.com/css2?family=${fam(family)}:wght@${w}`, `${slug(family)}-${w}.ttf`);
       if (b) return { data: b, weight: w };
+      if (netDown) return null;                  // stop at the first network failure
     }
     const b = await fetchTtf(`https://fonts.googleapis.com/css2?family=${fam(family)}`, `${slug(family)}.ttf`);
     return b ? { data: b, weight: 400 } : null;

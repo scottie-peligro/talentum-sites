@@ -3,16 +3,18 @@
 // /_assistant/index.json at build time), offers the booking link, and asks for contact details when someone wants
 // to talk to a person. Leads go through /api/forms/assistant like any other form. Model and key come from the
 // workspace's AI settings in Talentum (set on the Pages project by the builder); token use is reported back.
-// Live site only, and unless "Learn from Site Assistant questions" is off (ASSISTANT_LEARN=0) or the browser sends
-// Global Privacy Control: the visitor's latest question (redacted, ≤300 chars), the page, the language, how well the
+// Live site only, unless "Learn from Site Assistant questions" is off (ASSISTANT_LEARN=0) or the browser sends
+// Global Privacy Control, and only when the visitor's consent allows it under the site's consent mode (consentAllows,
+// below; the browser sends its stored choice, the mode comes from the build): the visitor's latest question (redacted, ≤300 chars), the page, the language, how well the
 // site's content matched it and whether it could be answered go to D1 `questions` for Talentum's "Questions people
 // ask". No IP, no visitor id, no conversation.
-import { json, sameOrigin, visitor, limited, redactQuestion, worthLogging, GOOD_MATCH } from "../../edge/shared.js";
+import { json, sameOrigin, visitor, limited, redactQuestion, worthLogging, GOOD_MATCH, consentAllows } from "../../edge/shared.js";
 
 const STOP = new Set("a an and are as at be but by can do does for from how i if in is it me my of on or our so that the this to us we what when where which who why will with you your yours have has about any get".split(" "));
 const words = (s) => String(s || "").toLowerCase().normalize("NFKD").replace(/[^a-z0-9\s-]/g, " ").split(/\s+/).filter((w) => w.length > 1 && !STOP.has(w));
 
 let cache = null;
+export function _resetIndex() { cache = null; }
 async function index(env, request) {
   if (cache && cache.at > Date.now() - 300000) return cache.data;
   const r = await env.ASSETS.fetch(new URL("/_assistant/index.json", request.url));
@@ -49,9 +51,10 @@ function search(ix, query, page) {
 }
 
 /** Keep the question for "Questions people ask" (see the note at the top). Never throws. */
-export async function logQuestion(env, request, b, text, top, answered) {
+export async function logQuestion(env, request, b, text, top, answered, mode) {
   try {
     if (!env.DB || env.SITE_ENV !== "live" || env.ASSISTANT_LEARN === "0" || request.headers.get("Sec-GPC") === "1") return false;
+    if (!consentAllows(mode, b.consent, request.cf?.country)) return false;
     const q = redactQuestion(text);
     if (!worthLogging(q)) return false;
     const path = String(b.page || "").split("?")[0].split("#")[0].slice(0, 300);
@@ -113,7 +116,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
   let res = {};
   const raw = out?.choices?.[0]?.message?.content || "";
   try { res = JSON.parse(raw.replace(/^```(json)?|```$/g, "").trim()); } catch { res = { reply: raw }; }
-  const logged = logQuestion(env, request, b, last.text, found.top, res.answered === false ? false : !!String(res.reply || "").trim());
+  const logged = logQuestion(env, request, b, last.text, found.top, res.answered === false ? false : !!String(res.reply || "").trim(), ix.consent);
   if (typeof waitUntil === "function") waitUntil(logged); else await logged;
   const sources = [...new Set((Array.isArray(res.sources) ? res.sources : []).map(Number))].map((n) => found[n - 1]).filter(Boolean)
     .filter((c, i, a) => a.findIndex((x) => x.url === c.url) === i).slice(0, 3).map((c) => ({ title: c.title, url: c.url }));

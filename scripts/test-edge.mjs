@@ -5,8 +5,8 @@
 // is stored (staging, the setting off, Global Privacy Control, small talk).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { redactQuestion, worthLogging } from "../edge/shared.js";
-import { onRequestPost } from "../functions/api/assistant.js";
+import { redactQuestion, worthLogging, consentAllows } from "../edge/shared.js";
+import { onRequestPost, _resetIndex } from "../functions/api/assistant.js";
 
 const INDEX = {
   site: "Test site", org: "Test Co", name: "", booking: "",
@@ -31,6 +31,7 @@ function mockEnv(over = {}) {
       };
     },
   };
+  _resetIndex();
   const ASSETS = { fetch: async () => new Response(JSON.stringify(INDEX), { headers: { "Content-Type": "application/json" } }) };
   return { env: { DB, ASSETS, SITE_KEY: "test-site", SITE_ENV: "live", ASSISTANT_KEY: "k", ASSISTANT_BASE: "https://model.test/v1", ...over }, rows };
 }
@@ -38,11 +39,13 @@ function mockEnv(over = {}) {
 let modelReply = { reply: "We do recruitment SEO.", sources: [1], show_booking: false, ask_contact: false, answered: true };
 globalThis.fetch = async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(modelReply) } }], usage: { total_tokens: 42 } }), { status: 200 });
 
-async function ask(env, text, headers = {}, extra = {}) {
+// Consent: the visitor accepted analytics, unless a test says otherwise.
+async function ask(env, text, headers = {}, extra = {}, cf) {
   const request = new Request("https://site.test/api/assistant", {
     method: "POST", headers: { "Content-Type": "application/json", "CF-Connecting-IP": "203.0.113.9", ...headers },
-    body: JSON.stringify({ messages: [{ role: "user", text }], page: "/services/seo/?utm=x", lang: "en-GB", ...extra }),
+    body: JSON.stringify({ messages: [{ role: "user", text }], page: "/services/seo/?utm=x", lang: "en-GB", consent: { analytics: true, europe: false }, ...extra }),
   });
+  if (cf) Object.defineProperty(request, "cf", { value: cf });
   const pending = [];
   const res = await onRequestPost({ request, env, waitUntil: (p) => pending.push(p) });
   await Promise.all(pending);
@@ -58,6 +61,13 @@ test("redaction: emails, links, phone numbers, long numbers and names are swappe
   assert.equal(redactQuestion("Hi, my name is Jane Doe and I need SEO"), "Hi, my name is [name] and I need SEO");
   assert.equal(redactQuestion("I am Looking for help"), "I am Looking for help", "common words after 'I am' stay");
   assert.equal(redactQuestion("Do you work in 2025 with 40 clients?"), "Do you work in 2025 with 40 clients?", "years and small numbers stay");
+  assert.equal(redactQuestion("Hi, Jane Doe here, do you do SEO?"), "Hi, [name] here, do you do SEO?");
+  assert.equal(redactQuestion("Hello it's Sam here. Prices?"), "Hello it's [name] here. Prices?");
+  assert.equal(redactQuestion("Jane Smith here. Need help"), "[name] here. Need help");
+  assert.equal(redactQuestion("Hi, Anyone here do SEO? SEO here? Prices here?"), "Hi, Anyone here do SEO? SEO here? Prices here?", "not names");
+  assert.equal(redactQuestion("Our office is at 221B Baker Street, London NW1 6XE"), "Our office is at [address], London [postcode]");
+  assert.equal(redactQuestion("Send it to 12 North Oak Ave. please"), "Send it to [address] please");
+  assert.equal(redactQuestion("Do you have 2 offices?"), "Do you have 2 offices?");
   const long = redactQuestion("word ".repeat(200));
   assert.ok(long.length <= 300 && long.endsWith("…"));
   assert.equal(worthLogging("thanks"), false);
@@ -107,4 +117,35 @@ test("a broken questions table never breaks the answer", async () => {
   env.DB = { prepare: (sql) => ({ bind: () => ({ run: async () => { if (/questions/.test(sql)) throw new Error("no such table: questions"); return {}; }, first: async () => ({ n: 1 }) }) }) };
   const out = await ask(env, "How much does recruitment SEO cost?");
   assert.equal(out.reply, "We do recruitment SEO.");
+});
+
+test("consent: questions are only kept when the visitor's choice allows it under the site's consent mode", async () => {
+  // The rules on their own: mode × stored choice × where they are.
+  const US = "US", DE = "DE";
+  for (const [mode, consent, country, want] of [
+    ["off", null, DE, true], ["off", { analytics: false }, DE, true],
+    ["notice", null, DE, true], ["notice", { analytics: false }, US, false],
+    ["opt_in", null, US, false], ["opt_in", { analytics: false }, US, false], ["opt_in", { analytics: true }, DE, true],
+    ["eu_only", null, US, true], ["eu_only", null, DE, false], ["eu_only", null, "", false], ["eu_only", { analytics: null, europe: true }, US, false],
+    ["eu_only", { analytics: true }, DE, true], ["eu_only", { analytics: false }, US, false],
+    [undefined, null, DE, false], [undefined, null, US, true],
+  ]) assert.equal(consentAllows(mode, consent, country), want, JSON.stringify({ mode, consent, country }));
+
+  // End to end: the mode comes from the build (index.json), the choice from the browser.
+  const run = async (mode, consent, cf) => {
+    INDEX.consent = mode;
+    const { env, rows } = mockEnv();
+    const out = await ask(env, "How much does recruitment SEO cost?", {}, { consent }, cf);
+    assert.ok(out.reply, "the visitor still gets an answer");
+    return questionRows(rows).length;
+  };
+  try {
+    assert.equal(await run("opt_in", null, { country: "US" }), 0, "opt-in, no choice yet");
+    assert.equal(await run("opt_in", { analytics: false }, { country: "US" }), 0, "opt-in, declined");
+    assert.equal(await run("opt_in", { analytics: true }, { country: "US" }), 1, "opt-in, accepted");
+    assert.equal(await run("eu_only", { analytics: null, europe: false }, { country: "FR" }), 0, "EU visitor, no choice");
+    assert.equal(await run("eu_only", { analytics: null, europe: false }, { country: "US" }), 1, "outside the EU, no choice");
+    assert.equal(await run("notice", { analytics: false }, { country: "US" }), 0, "opted out");
+    assert.equal(await run("notice", undefined, { country: "FR" }), 1, "notice, no choice");
+  } finally { delete INDEX.consent; }
 });

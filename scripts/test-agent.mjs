@@ -33,7 +33,7 @@ function makeEnv(d, extra = {}) {
 beforeEach(() => { _resetCache(); data = sample(); env = makeEnv(data); });
 const req = (path, init = {}) => new Request(ORIGIN + path, { ...init, headers: { "CF-Connecting-IP": init.ip || "203.0.113.9", ...(init.headers || {}) } });
 const get = async (mod, path, params = {}) => { const r = await mod.onRequestGet({ request: req(path), env, params }); return { status: r.status, headers: r.headers, json: await r.json() }; };
-const post = async (mod, path, body, ip) => { const r = await mod.onRequestPost({ request: req(path, { method: "POST", ip, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }), env }); return { status: r.status, json: r.status === 202 && r.headers.get("content-length") === "0" ? null : await r.json() }; };
+const post = async (mod, path, body, ip) => { const r = await mod.onRequestPost({ request: req(path, { method: "POST", ip, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }), env }); return { status: r.status, headers: r.headers, json: r.status === 202 && r.headers.get("content-length") === "0" ? null : await r.json() }; };
 function slots(list, updated = Date.now() - 5 * 60000, available = true) {
   env.DB.slots.set("acme|darren-15", { data: JSON.stringify({ id: "darren-15", title: "15-minute intro", duration_minutes: 15, available, slots: list }), updated });
 }
@@ -144,7 +144,13 @@ test("booking requests: validation, honeypot, open-time check, inbox, limits, of
   r = await post(booking, "/api/agent/booking-request", { ...good, preferred_start: inDays(2) });
   assert.equal(r.status, 202, JSON.stringify(r.json));
   assert.equal(r.json.status, "received");
-  assert.match(r.json.message, /Nothing is booked yet/);
+  assert.match(r.json.message, /Nothing is booked or held/);
+  assert.match(r.json.message, /confirm a time with the person by email/);
+  assert.equal(r.json.booked, false);
+  assert.equal(r.headers.get("access-control-allow-origin"), null, "no open CORS on the POST endpoint");
+  const pre = booking.onRequestOptions({ request: req("/api/agent/booking-request", { method: "OPTIONS" }), env });
+  assert.equal(pre.status, 204);
+  assert.equal(pre.headers.get("access-control-allow-origin"), null, "cross-site browsers stop at the preflight");
   assert.equal(env.DB.inbox.length, 1);
   const row = env.DB.inbox[0];
   assert.equal(row.kind, "agent_booking");
@@ -271,6 +277,8 @@ test("MCP modern era (2026-07-28): discover, headers checked, resultType, cache 
   assert.equal(r.json.result.isError, false, JSON.stringify(r.json));
   assert.equal(env.DB.inbox[0].payload.agent, "TestClient");
   assert.equal(env.DB.inbox[0].payload.page, "/mcp");
+  assert.match(r.json.result.structuredContent.message, /confirm a time with the person by email/);
+  assert.equal(r.json.result.structuredContent.booked, false);
   r = await modern(11, "tools/call", { name: "request_booking", arguments: { name: "Kim", email: "kim@example.org", preferred_start: inDays(1, 16) } });
   assert.equal(r.json.result.isError, true);
   assert.match(r.json.result.content[0].text, /consent is required/);
@@ -300,4 +308,16 @@ test("discovery documents: server card, OpenAPI", async () => {
   // Every $ref resolves.
   const refs = JSON.stringify(doc).match(/#\/components\/schemas\/\w+/g);
   for (const x of refs) assert.ok(doc.components.schemas[x.split("/").pop()], x);
+});
+
+test("MCP and booking request bodies are capped while reading, not only by Content-Length", async () => {
+  const big = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping", params: { pad: "x".repeat(70000) } });
+  const stream = (text) => new ReadableStream({ start(c) { const b = new TextEncoder().encode(text); for (let i = 0; i < b.length; i += 8192) c.enqueue(b.slice(i, i + 8192)); c.close(); } });
+  const mk = (path, text) => new Request(ORIGIN + path, { method: "POST", body: stream(text), duplex: "half", headers: { "Content-Type": "application/json", "CF-Connecting-IP": "203.0.113.50" } });
+  let r = await mcp.onRequestPost({ request: mk("/mcp", big), env });
+  assert.equal(r.status, 413);
+  r = await booking.onRequestPost({ request: mk("/api/agent/booking-request", JSON.stringify({ name: "x".repeat(25000) })), env });
+  assert.equal(r.status, 413);
+  r = await mcp.onRequestPost({ request: mk("/mcp", JSON.stringify({ jsonrpc: "2.0", id: 2, method: "ping" })), env });
+  assert.equal(r.status, 200);
 });

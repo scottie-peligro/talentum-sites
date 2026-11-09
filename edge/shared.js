@@ -13,6 +13,26 @@ export function sameOrigin(request) {
   try { return new URL(o).host === new URL(request.url).host; } catch { return false; }
 }
 
+/** Read a request body as text, stopping once it passes `max` bytes (a missing or false Content-Length can't get
+ *  round the limit). → { text } or { tooLarge: true }. */
+export async function readCapped(request, max) {
+  const len = Number(request.headers.get("content-length") || 0);
+  if (len > max) return { tooLarge: true };
+  if (!request.body) return { text: "" };
+  const reader = request.body.getReader();
+  const parts = []; let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) { try { await reader.cancel(); } catch {} return { tooLarge: true }; }
+    parts.push(value);
+  }
+  const all = new Uint8Array(size); let o = 0;
+  for (const p of parts) { all.set(p, o); o += p.byteLength; }
+  return { text: new TextDecoder().decode(all) };
+}
+
 export async function sha(s) {
   const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 24);
@@ -66,16 +86,40 @@ export function redactQuestion(s, max = 300) {
   let t = String(s || "").replace(/[\u0000-\u001f\u007f]+/g, " ");
   t = t.replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, "[email]");
   t = t.replace(/\b(?:https?:\/\/|www\.)\S+/gi, "[link]");
+  // Street addresses ("221B Baker Street", "12 North Oak Ave.") and UK postcodes.
+  t = t.replace(/\b\d{1,5}[A-Za-z]?,?\s+(?:[A-Z][\p{L}'-]*\s+){1,4}(?:Street|St|Road|Rd|Avenue|Ave|Lane|Ln|Drive|Dr|Boulevard|Blvd|Court|Ct|Way|Place|Pl|Close|Crescent|Terrace|Parkway|Pkwy|Highway|Hwy|Square|Sq|Gardens|Grove|Mews)\b\.?/gu, "[address]");
+  t = t.replace(/\b[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}\b/g, "[postcode]");
   t = t.replace(/(?:\+|\b)\d[\d\s().-]{5,}\d\b/g, (m) => (m.replace(/\D/g, "").length >= 7 ? "[phone]" : m));
   t = t.replace(/\d{6,}/g, "[number]");
   t = t.replace(/\b((?:[Mm]y name is|[Mm]y name's|[Ii] am called|[Tt]his is|[Ii]'m|[Ii] am)\s+)[A-Z][\p{L}'-]+(?:\s+[A-Z][\p{L}'-]+)?/gu, (m, lead, off, all) => {
     const word = m.slice(lead.length).split(/\s+/)[0];
     return /^(I|The|A|An|Looking|Interested|Trying|Wondering|Not|In|From|With|At|On)$/.test(word) ? m : lead + "[name]";
   });
+  // "Hi, Jane Doe here" / "Jane here, …" / "It's Jane here"
+  const intro = (m, lead, its, word) => (/^(I|The|A|An|We|Our|Is|Are|Who|What|Anyone|Somebody|Someone|Everyone|[A-Z]{2,})$/.test(word) ? m : lead + its + "[name]");
+  t = t.replace(/(\b(?:[Hh]i|[Hh]ello|[Hh]ey|[Hh]iya|[Gg]ood (?:morning|afternoon|evening))[,!]?\s+)((?:[Ii]t'?s\s+)?)([A-Z][\p{L}'-]+)(?:\s+[A-Z][\p{L}'-]+)?(?=\s+here\b)/gu, intro);
+  t = t.replace(/(^\s*)((?:[Ii]t'?s\s+)?)([A-Z][\p{L}'-]+)(?:\s+[A-Z][\p{L}'-]+)?(?=\s+here\s*[,.!:;\u2013\u2014-])/u, intro);
   t = t.replace(/\s+/g, " ").trim();
   if (t.length > max) t = t.slice(0, max - 1).replace(/\s+\S*$/, "") + "…";
   return t;
 }
+// Consent (Website → Settings → Tracking & consent; components/Analytics.astro has the same modes). Logging a question
+// counts as analytics. The browser sends the visitor's stored choice: { analytics: true | false | null (no choice yet),
+// europe: true when its time zone is in Europe }. Without a choice: off/notice → allowed; opt_in → not; eu_only → not for
+// EU/EEA/UK/CH visitors (by Cloudflare's country or the time zone; an unknown country counts as EU), allowed elsewhere.
+const EEA = new Set("AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE IS LI NO GB CH".split(" "));
+export function consentAllows(mode, consent, country) {
+  const c = consent && typeof consent === "object" ? consent : {};
+  const choice = c.analytics === true ? true : c.analytics === false ? false : null;
+  const m = ["off", "notice", "eu_only", "opt_in"].includes(mode) ? mode : "eu_only";
+  if (m === "off") return true;
+  if (choice !== null) return choice;
+  if (m === "notice") return true;
+  if (m === "opt_in") return false;
+  const cc = String(country || "").toUpperCase();
+  return !(c.europe === true || !cc || cc === "XX" || cc === "T1" || EEA.has(cc));
+}
+
 /** Small talk ("thanks", "ok") and one-word replies aren't questions worth learning from. */
 export function worthLogging(q) {
   const t = String(q || "").trim();

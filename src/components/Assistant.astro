@@ -39,6 +39,8 @@ const { path = "/" } = Astro.props as { path?: string };
         var open = document.getElementById("sa-open"), box = document.getElementById("sa"); if (!open || !box) return;
         var log = box.querySelector(".sa-log"), ask = box.querySelector(".sa-ask"), lead = box.querySelector(".sa-lead"), book = box.querySelector(".sa-book"), talk = box.querySelector(".sa-talk");
         var msgs = [], started = Date.now(), busy = false;
+        // The visitor's cookie choice (Analytics.astro), so questions are only kept when their consent allows it.
+        function consent(){ var C = window.__consent; if (!C) return null; return { analytics: C.state ? !!C.state.analytics : null, europe: !!C.europe }; }
         function add(role, text, sources){
           var li = document.createElement("li"); li.className = "sa-" + role; li.textContent = text;
           if (sources && sources.length) { var s = document.createElement("span"); s.className = "sa-src"; sources.forEach(function(x){ var a = document.createElement("a"); a.href = x.url; a.textContent = x.title; s.appendChild(a); }); li.appendChild(s); }
@@ -53,7 +55,7 @@ const { path = "/" } = Astro.props as { path?: string };
           busy = true; ask.q.value = ""; add("user", q); msgs.push({ role: "user", text: q });
           var wait = add("assistant", "…"); wait.classList.add("sa-wait");
           try {
-            var r = await fetch("/api/assistant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: msgs, page: path, lang: document.documentElement.lang || "" }) });
+            var r = await fetch("/api/assistant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: msgs, page: path, lang: document.documentElement.lang || "", consent: consent() }) });
             var j = await r.json(); wait.remove();
             var text = j.reply || j.error || "Sorry — something went wrong.";
             add("assistant", text, j.sources); msgs.push({ role: "assistant", text: text });

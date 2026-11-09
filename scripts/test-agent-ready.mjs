@@ -135,3 +135,11 @@ test("markdown copies, llms.txt, llms-full.txt and _headers", { skip: !built && 
   if (staging) assert.match(readFileSync(join(dist, "robots.txt"), "utf8"), /Disallow: \//);
   console.log(`# markdown: ${mdCount} copies, llms.txt links ${mdLinks.length}, llms-full.txt ${Math.round(full.length / 1024)} KB, ${staging ? "staging (noindex)" : "live"}`);
 });
+
+test("agent endpoint: nothing for AI agents unless the site switched it on", { skip: !built && "no build in " + dist }, () => {
+  let on = null;
+  try { on = !!JSON.parse(readFileSync(join(root, "src/data/bundle.json"), "utf8")).agent; } catch { return; }
+  const llms = readFileSync(join(dist, "llms.txt"), "utf8");
+  for (const f of ["_agent/data.json", "api/agent/openapi.json", ".well-known/ai-catalog.json", ".well-known/api-catalog"]) assert.equal(existsSync(join(dist, f)), on, `${f} ${on ? "missing" : "built while the endpoint is off"}`);
+  assert.equal(/## For AI assistants/.test(llms), on, "llms.txt's AI assistants section follows the setting");
+});

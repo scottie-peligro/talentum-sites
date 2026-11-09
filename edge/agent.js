@@ -2,7 +2,7 @@
 // share. Everything read-only comes from /_agent/data.json, written at build time by scripts/postbuild.mjs from
 // the bundle's `agent` part (Talentum pb_hooks/lib/siteagent.js decides what may be shared). Open times come from
 // the D1 table agent_slots, which Talentum refreshes every 15 minutes; booking requests go to the D1 inbox like
-// form entries and become a booking request the team member accepts (never a confirmed meeting) or a Request.
+// form entries and become a Request the team confirms (unverified: nothing is booked or held, nobody is emailed).
 import { json, sha, visitor, limited, toInbox } from "./shared.js";
 
 export const STALE_MS = 2 * 3600000;               // availability older than this is called out of date
@@ -19,6 +19,12 @@ export function out(body, status = 200, cache = false) {
   return json(body, status, { ...CORS, ...(cache ? { "Cache-Control": "public, max-age=300" } : {}), "X-Robots-Tag": "noindex" });
 }
 export function preflight() { return new Response(null, { status: 204, headers: CORS }); }
+/** JSON for the POST booking endpoint: no open CORS, so a web page elsewhere can't send requests from its visitors' browsers. */
+export function outPost(body, status = 200) {
+  return json(body, status, { "X-Robots-Tag": "noindex" });
+}
+/** Preflight for the POST booking endpoint: no CORS headers, so browsers on other sites stop here. */
+export function preflightPost() { return new Response(null, { status: 204, headers: { Allow: "POST, OPTIONS" } }); }
 
 // ---------------------------------------------------------------------------------------------------------------
 // Data
@@ -119,7 +125,7 @@ export function contactView(d, origin) {
     contact_page: abs(origin, d.contact.contact_page), booking_page: abs(origin, d.contact.booking_page),
     booking_links: d.booking.links.map((l) => linkView(origin, l)),
     booking_requests: d.booking.requests
-      ? "You can send a booking request (request_booking / POST /api/agent/booking-request). The team confirms it by email; nothing is booked until they do."
+      ? "You can send a booking request (request_booking / POST /api/agent/booking-request). Nothing is booked or held: the team checks it and confirms a time with the person by email."
       : "This website doesn't take booking requests from AI assistants. Share a booking page or the contact details instead.",
     people: d.team,
   };
@@ -237,7 +243,8 @@ export async function bookingRequest(env, request, d, origin, b, via, agent) {
 function accepted(id, env, link) {
   return {
     status: "received", reference: String(id).slice(0, 8),
-    message: "Thanks — the request is with the team. Nothing is booked yet: " + (link?.with ? link.with : "the team") + " will confirm by email (usually within a working day), and the email has a link to change or cancel it.",
+    booked: false,
+    message: "Thanks — the request is with the team. Nothing is booked or held yet: " + (link?.with ? link.with + " or someone from the team" : "the team") + " will check it and confirm a time with the person by email. Tell the person exactly that; don't say the meeting is booked.",
     ...(env.SITE_ENV && env.SITE_ENV !== "live" ? { test: "This is the test copy of the website, so the request is kept for testing only." } : {}),
   };
 }
@@ -259,9 +266,9 @@ export const TOOLS = [
   { name: "get_availability", title: "Get open times", description: `Open meeting times (UTC) for a booking link or a service over the next ${MAX_DAYS} days, from a snapshot the company refreshes every 15 minutes. Says when the snapshot is out of date; the booking page always has live times.`,
     inputSchema: { type: "object", properties: { service: S("A service id; uses its booking link.", { maxLength: 200 }), booking_link: S("A booking link id (from contact_options or get_service).", { maxLength: 200 }), from: S("First day, YYYY-MM-DD (default today).", { pattern: "^\\d{4}-\\d{2}-\\d{2}$" }), days: { type: "integer", minimum: 1, maximum: MAX_DAYS, description: "How many days (default 7)." } }, additionalProperties: false },
     annotations: { readOnlyHint: true, openWorldHint: false } },
-  { name: "request_booking", title: "Request a meeting", description: "Send a meeting request for the person you're helping. Only when they asked for it and agreed to share their name and email. Nothing is booked automatically: the team confirms by email, and the email lets the person change or cancel it. Use a time from get_availability.",
+  { name: "request_booking", title: "Request a meeting", description: "Send a meeting request for the person you're helping. Only when they asked for it and agreed to share their name and email. Nothing is booked or held: the team checks the request and confirms a time with the person by email, so tell them the business will confirm by email. Use a time from get_availability.",
     inputSchema: { type: "object", properties: {
-      name: S("The person's full name.", { minLength: 1, maxLength: 200 }), email: S("The person's email address; the confirmation goes there.", { format: "email", maxLength: 200 }),
+      name: S("The person's full name.", { minLength: 1, maxLength: 200 }), email: S("The person's email address; the team replies there to confirm.", { format: "email", maxLength: 200 }),
       booking_link: S("Booking link id.", { maxLength: 200 }), service: S("Or a service id (its booking link is used).", { maxLength: 200 }),
       preferred_start: S("Preferred start, ISO 8601 with a time zone, e.g. 2026-11-20T15:00:00Z.", { minLength: 16, maxLength: 40 }),
       alternative_starts: { type: "array", items: { type: "string", maxLength: 40 }, maxItems: 3, description: "Up to three other start times that also work." },
@@ -309,5 +316,5 @@ export function instructions(d) {
   const o = d.organization;
   return `Facts about ${o.name} from its website: services${d.prices_shared ? " and published prices" : ""}, questions and answers, contact options and open meeting times. `
     + "Answer only from what the tools return; don't guess prices, guarantees or timelines. "
-    + (d.booking.requests ? "request_booking sends a meeting request only when the person asked for it; the team confirms by email, so never tell them the meeting is booked." : "This company doesn't take booking requests through this server; share a booking page or contact details instead.");
+    + (d.booking.requests ? "request_booking sends a meeting request only when the person asked for it. Nothing is booked or held: tell them the business will confirm by email, never that the meeting is booked." : "This company doesn't take booking requests through this server; share a booking page or contact details instead.");
 }

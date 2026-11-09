@@ -14,7 +14,7 @@ export function openapi(origin, d) {
     info: {
       title: `${d.organization.name} — website API for AI assistants`, version: "1.0.0",
       description: `Public, read-only facts from ${d.organization.name}'s website (services${d.prices_shared ? ", published prices" : ""}, FAQs, team, contact options), open meeting times, `
-        + (d.booking.requests ? "and meeting requests (the team confirms each one by email; nothing is booked automatically). " : "and booking pages. ")
+        + (d.booking.requests ? "and meeting requests (nothing is booked or held: the team checks each one and confirms with the person by email). " : "and booking pages. ")
         + `The same tools are available over MCP at ${origin}/mcp. Answer only from what this API returns.`,
     },
     servers: [{ url: origin }],
@@ -48,7 +48,7 @@ export function openapi(origin, d) {
     doc.components.schemas.BookingRequest = { ...booking, description: "Only send this when the person asked for the meeting and agreed to share their details (consent: true)." };
     doc.paths["/api/agent/booking-request"] = { post: { operationId: "requestBooking", summary: "Request a meeting (the team confirms by email)",
       requestBody: { required: true, content: { "application/json": { schema: ref("BookingRequest") } } },
-      responses: { 202: ok({ type: "object", properties: { status: { const: "received" }, reference: str, message: str } }, "Received; nothing is booked until the team confirms"),
+      responses: { 202: ok({ type: "object", properties: { status: { const: "received" }, booked: { type: "boolean", const: false }, reference: str, message: str } }, "Received; nothing is booked or held until the team confirms by email"),
         400: errorRes("Missing or invalid details"), 403: errorRes("This website doesn't take booking requests from AI assistants"), 409: errorRes("None of the times is open (open_times lists some that are)"), 429: errorRes("Too many requests") } } };
   }
   return doc;

@@ -8,7 +8,7 @@
 //                        No sessions are minted (they're optional there); GET/DELETE → 405.
 // Tools: edge/agent.js TOOLS. No secrets, no auth: everything is public facts, and request_booking is rate-limited.
 import { CORS, loadData, toolsFor, check, runTool, instructions, TOOLS } from "./agent.js";
-import { visitor, limited } from "./shared.js";
+import { visitor, limited, readCapped } from "./shared.js";
 
 export const MODERN = ["2026-07-28"];
 export const LEGACY = ["2025-11-25", "2025-06-18", "2025-03-26"];
@@ -40,10 +40,10 @@ export async function handleMcp(request, env) {
   // Origin check (DNS-rebinding guard): this server is public, so any web origin may call it, but a malformed one is refused.
   const og = request.headers.get("Origin");
   if (og && og !== "null" && !/^https?:\/\/[^\s/]+$/i.test(og)) return reply(err(null, -32600, "Origin not allowed."), 403);
-  const len = Number(request.headers.get("content-length") || 0);
-  if (len > 65536) return reply(err(null, -32600, "Request too large."), 413);
+  const body = await readCapped(request, 65536);
+  if (body.tooLarge) return reply(err(null, -32600, "Request too large."), 413);
   let msg;
-  try { msg = await request.json(); } catch { return reply(err(null, -32700, "Parse error: send one JSON-RPC 2.0 message."), 400); }
+  try { msg = JSON.parse(body.text); } catch { return reply(err(null, -32700, "Parse error: send one JSON-RPC 2.0 message."), 400); }
   if (Array.isArray(msg)) return reply(err(null, -32600, "Batches aren't supported. Send one message per request."), 400);
   if (!msg || typeof msg !== "object" || msg.jsonrpc !== "2.0" || typeof msg.method !== "string") return reply(err(msg?.id, -32600, "Invalid request: expected a JSON-RPC 2.0 message."), 400);
   const isNote = msg.id === undefined || msg.id === null;
