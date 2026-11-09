@@ -18,7 +18,7 @@ export const UI = {
   insights: "Insights", min_read: "min read", by: "By", about_author: "About the author", more_insights: "More insights",
   case_study: "Case study", client: "Client:", more_case_studies: "More case studies", related_case_studies: "Related case studies",
   results_heading: "The results we deliver", common_questions: "common questions", services: "Services", careers: "Careers",
-  apply_now: "Apply now", apply_email: "Apply by email", nothing_here: "Nothing here yet.",
+  apply_now: "Apply now", apply_email: "Apply by email", nothing_here: "Nothing here yet.", view_all: "View all",
   nf_title: "Page not found", nf_heading: "We couldn't find that page.", nf_text: "It may have moved. Try the home page, or one of these:",
   cookie_text: "We use cookies to understand how our site is used and to improve it.", privacy_policy: "Privacy policy", cookie_prefs: "Preferences",
   cookie_necessary: "Necessary only", cookie_accept: "Accept all", cookies: "Cookies", cookie_label: "Cookie preferences",

@@ -125,7 +125,10 @@ export function entriesOf(type: string) {
     : (a.sort_order - b.sort_order) || a.title.localeCompare(b.title)));
 }
 // Content cards (blocks/ContentCards.astro, Talentum's "Content cards" block): the entries one block lists.
+// Unpaged "Show all" stops at CARD_CAP cards (one long page); a paged one (a number per page, or a type's listing page)
+// can list up to PAGED_CAP, spread over its pages.
 export const CARD_CAP = 200;
+export const PAGED_CAP = 2400;
 /** The entries a Content cards block shows (all of them, before paging), in the current language. */
 export function cardEntries(d: Record<string, any>, exclude?: string): Entry[] {
   const type = String(d.content_type || "post");
@@ -149,7 +152,7 @@ export function cardEntries(d: Record<string, any>, exclude?: string): Entry[] {
     date_desc: (a, b) => String(b.fields?.[dateKey] || "").localeCompare(String(a.fields?.[dateKey] || "")),
   };
   list = list.slice().sort(by[isDate ? d.sort : d.sort === "date_asc" || d.sort === "date_desc" ? "newest" : d.sort] || by.newest);
-  list = list.slice(0, d.all ? CARD_CAP : Math.max(1, Math.min(48, Number(d.limit) || 6)));
+  list = list.slice(0, d.all ? (Number(d.per_page) > 0 ? PAGED_CAP : CARD_CAP) : Math.max(1, Math.min(48, Number(d.limit) || 6)));
   return loc(list);
 }
 /** How many pages a paged Content cards block needs (1 = no paging). */
@@ -157,7 +160,8 @@ export function cardPages(d: Record<string, any>, exclude?: string): number {
   const per = d.all ? Number(d.per_page) || 0 : 0;
   return per > 0 ? Math.max(1, Math.ceil(cardEntries(d, exclude).length / per)) : 1;
 }
-/** The first Content cards block on a page that pages (containers too): it gets the /page/2/… addresses. */
+/** The first Content cards block on a page that pages (containers too): it gets the /page/2/… addresses. Any other
+ *  paged Content cards block on that page (a second one, or one in a global section) shows its first page only. */
 export function pagedCards(blocks: Block[] = []): Block | undefined {
   for (const b of blocks) {
     if (!b || b.hidden) continue;

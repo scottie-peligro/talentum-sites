@@ -24,8 +24,10 @@ export function getStaticPaths() {
     const b = pagedCards(e.blocks);
     if (!b) return [];
     const n = cardPages(b.data || {}, e.id);
-    return Array.from({ length: Math.max(0, n - 1) }, (_, i) => `${e.path}page/${i + 2}/`).filter((p) => !taken.has(p))
-      .map((p, i) => ({ params: { path: p.replace(/^\/|\/$/g, "") }, props: { entry: e, page: i + 2, pagedId: b.id } }));
+    // Each address keeps its own number: one that's already a page of the site is skipped (that page wins), the rest
+    // don't shift down.
+    return Array.from({ length: Math.max(0, n - 1) }, (_, i) => ({ p: `${e.path}page/${i + 2}/`, page: i + 2 })).filter((x) => !taken.has(x.p))
+      .map((x) => ({ params: { path: x.p.replace(/^\/|\/$/g, "") }, props: { entry: e, page: x.page, pagedId: b.id } }));
   });
   return [...allEntries.map((e) => ({ params: { path: e.path === "/" ? undefined : e.path.replace(/^\/|\/$/g, "") }, props: { entry: e } })), ...paged];
 }

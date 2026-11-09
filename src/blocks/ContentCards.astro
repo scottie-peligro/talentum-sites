@@ -9,16 +9,26 @@ import Section from "../components/Section.astro";
 import Heading from "../components/Heading.astro";
 import Buttons from "../components/Buttons.astro";
 import Img from "../components/Img.astro";
-import { cardEntries, cardsPage, category, contentType, formatDate, lineName, plain, truncate, absolute, t, type Block, type Entry } from "../lib/content";
+import { allEntries, cardEntries, cardsPage, pagedCards, category, contentType, formatDate, lineName, plain, truncate, absolute, t, type Block, type Entry } from "../lib/content";
 
-const { block, entry, first = false, bare = false } = Astro.props as { block: Block; entry?: Entry; first?: boolean; bare?: boolean };
+const { block, entry, first = false, bare = false, base = "" } = Astro.props as { block: Block; entry?: Entry; first?: boolean; bare?: boolean; base?: string };
 const d = block.data || {};
 const ct = contentType(d.content_type);
 const all = cardEntries(d, entry?.id);
 const per = d.all ? Number(d.per_page) || 0 : 0;
-const pages = per && entry ? Math.max(1, Math.ceil(all.length / per)) : 1;
+// Only the page's own paged block (pagedCards) has /page/2/… addresses; `base` = a listing page that pages itself ([ct].astro).
+// Any other paged block shows its first page, with "View all" to the type's listing page when there is one.
+const pageBase = base || (entry && pagedCards(entry.blocks)?.id === block.id ? entry.path : "");
+const pages = per && pageBase ? Math.max(1, Math.ceil(all.length / per)) : 1;
 const page = pages > 1 ? Math.min(cardsPage(block.id), pages) : 1;
-const list = pages > 1 ? all.slice((page - 1) * per, page * per) : all;
+const list = pages > 1 ? all.slice((page - 1) * per, page * per) : per ? all.slice(0, per) : all;
+const listing = ct && ct.archive && ct.route ? "/" + ct.route + "/" : "";
+const viewAll = !pageBase && per && all.length > per && listing && entry?.path !== listing ? listing : "";
+// A number whose address is already another page of the site isn't built for this list: no link to it.
+const takenNo = (n: number) => n > 1 && allEntries.some((x) => x.path === `${pageBase}page/${n}/`);
+// Back / Next go to the nearest page of this list that was built.
+let prevNo = page - 1; while (prevNo > 1 && takenNo(prevNo)) prevNo--;
+let nextNo = page + 1; while (nextNo <= pages && takenNo(nextNo)) nextNo++;
 const layout = ["list", "compact"].includes(d.layout) ? d.layout : "grid";
 const cols = ["2", "3", "4"].includes(String(d.columns)) ? Number(d.columns) : 3;
 const showImage = d.show_image !== false && layout !== "compact";
@@ -36,7 +46,7 @@ const metaOf = (e: Entry) => [
 const anyImage = showImage && list.some((e) => e.featured_image);
 const sizes = layout === "list" ? "(min-width: 760px) 280px, 100vw" : `(min-width: 1200px) ${Math.round(1180 / cols)}px, (min-width: 720px) 50vw, 100vw`;
 const T = d.heading && !first ? "h3" : "h2";
-const pageHref = (n: number) => (entry ? (n <= 1 ? entry.path : `${entry.path}page/${n}/`) : "#");
+const pageHref = (n: number) => (pageBase ? (n <= 1 ? pageBase : `${pageBase}page/${n}/`) : "#");
 // Structured data: the list of pages shown (ItemList), so search engines see the collection.
 const schema = list.length ? JSON.stringify({ "@context": "https://schema.org", "@type": "ItemList", ...(d.heading ? { name: plain(d.heading) } : {}),
   itemListElement: list.map((e, i) => ({ "@type": "ListItem", position: (page - 1) * (per || 0) + i + 1, url: absolute(e.path), name: e.title })) }).replace(/</g, "\\u003c") : "";
@@ -74,15 +84,16 @@ const Wrap: any = bare ? "div" : Section;
     ) : <p class="cc-empty">{d.empty || t("nothing_here")}</p>}
     {pages > 1 && (
       <nav class="cc-pages" aria-label={`${d.heading ? plain(d.heading) + ": " : ""}pages`}>
-        {page > 1 ? <a href={pageHref(page - 1)} rel="prev">← {t("form_back")}</a> : <span aria-hidden="true" />}
+        {page > 1 ? <a href={pageHref(prevNo)} rel="prev">← {t("form_back")}</a> : <span aria-hidden="true" />}
         <ol role="list">
           {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
-            <li>{n === page ? <span aria-current="page">{n}</span> : <a href={pageHref(n)} aria-label={`Page ${n}`}>{n}</a>}</li>
+            <li>{n === page ? <span aria-current="page">{n}</span> : takenNo(n) ? <span class="cc-off">{n}</span> : <a href={pageHref(n)} aria-label={`Page ${n}`}>{n}</a>}</li>
           ))}
         </ol>
-        {page < pages ? <a href={pageHref(page + 1)} rel="next">{t("form_next")} →</a> : <span aria-hidden="true" />}
+        {nextNo <= pages ? <a href={pageHref(nextNo)} rel="next">{t("form_next")} →</a> : <span aria-hidden="true" />}
       </nav>
     )}
+    {viewAll && <p class="cc-all"><a href={viewAll}>{t("view_all")} →</a></p>}
     {!bare && <Buttons buttons={d.buttons} />}
   </div>
   {schema && <script type="application/ld+json" set:html={schema} />}
@@ -108,6 +119,8 @@ const Wrap: any = bare ? "div" : Section;
   .cc-ph { aspect-ratio: 16/10; }
   :global(.bg-dark) .cc-ph, :global(.bg-brand) .cc-ph { background: var(--line); }
   .cc-empty { color: var(--muted); }
+  .cc-all { margin: 1.25rem 0 0; font-weight: 600; }
+  .cc-all a { color: var(--accent-text); }
 
   /* Cards: 1 column, then 2, then the chosen number as the block gets wider. */
   .cc-grid .cc-item { display: flex; flex-direction: column; }
@@ -142,8 +155,9 @@ const Wrap: any = bare ? "div" : Section;
 
   .cc-pages { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 2.5rem; flex-wrap: wrap; }
   .cc-pages ol { list-style: none; display: flex; flex-wrap: wrap; gap: .35rem; margin: 0; padding: 0; }
-  .cc-pages a, .cc-pages span[aria-current] { display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; padding: 0 .75rem;
+  .cc-pages a, .cc-pages span[aria-current], .cc-pages .cc-off { display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; padding: 0 .75rem;
     border: 1px solid var(--line); border-radius: var(--radius); font-weight: 600; text-decoration: none; color: var(--heading); }
+  .cc-pages .cc-off { border-color: transparent; color: var(--muted); }
   .cc-pages a:hover { border-color: var(--accent); color: var(--accent-text); }
   .cc-pages span[aria-current] { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff); }
 </style>

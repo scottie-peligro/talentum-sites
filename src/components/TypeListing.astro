@@ -1,0 +1,28 @@
+---
+// A custom content type's own listing page (pages/[ct].astro at /<route>/, and pages/[ct]/page/[n].astro for its
+// pages 2, 3… at /<route>/page/<n>/). The cards are the Content cards block (blocks/ContentCards.astro): image, title,
+// short description and the type's fields — the same cards a page gets from that block. LISTING_PER cards a page.
+import Base from "../layouts/Base.astro";
+import ContentCards from "../blocks/ContentCards.astro";
+import { setLang, setCardsPage, type ContentType } from "../lib/content";
+import { listingCards } from "../lib/listing";
+
+const { ct, page = 1 } = Astro.props as { ct: ContentType; page?: number };
+setLang("");   // listing pages are in the site's main language
+setCardsPage(page, "ct-list");
+const base = "/" + ct.route + "/";
+const title = (ct.archive_title || ct.plural) + (page > 1 ? ` (page ${page})` : "");
+const cards = listingCards(ct);
+---
+<Base title={title} description={ct.archive_intro || `${ct.plural}.`} path={page > 1 ? `${base}page/${page}/` : base} kind="archive">
+  <section class="section">
+    <div class="wrap">
+      <h1>{ct.archive_title || ct.plural}</h1>
+      {ct.archive_intro && page === 1 && <p class="lede">{ct.archive_intro}</p>}
+      <div class="ct-list"><ContentCards block={cards} bare base={base} /></div>
+    </div>
+  </section>
+</Base>
+<style>
+  .ct-list { margin-top: 2rem; }
+</style>

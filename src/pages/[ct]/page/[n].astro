@@ -1,0 +1,12 @@
+---
+// Pages 2, 3… of a custom content type's listing page (/<route>/page/<n>/). See components/TypeListing.astro.
+import TypeListing from "../../../components/TypeListing.astro";
+import { listingPages } from "../../../lib/listing";
+import type { ContentType } from "../../../lib/content";
+
+export function getStaticPaths() {
+  return listingPages().map((x) => ({ params: { ct: x.ct.route, n: String(x.page) }, props: { ct: x.ct, page: x.page } }));
+}
+const { ct, page } = Astro.props as { ct: ContentType; page: number };
+---
+<TypeListing ct={ct} page={page} />

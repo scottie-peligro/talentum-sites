@@ -1,32 +1,13 @@
 ---
 // A custom content type's own listing page at its address (e.g. /events/), when "Listing page" is on and no page
-// of the site already lives there. The cards are the Content cards block (blocks/ContentCards.astro): image, title,
-// short description and the type's fields — the same cards a page gets from that block.
-import Base from "../layouts/Base.astro";
-import ContentCards from "../blocks/ContentCards.astro";
-import { contentTypes, entries, setLang, type ContentType, type Block } from "../lib/content";
+// of the site already lives there. Pages 2, 3… are pages/[ct]/page/[n].astro. Rendering: components/TypeListing.astro.
+import TypeListing from "../components/TypeListing.astro";
+import { listedTypes } from "../lib/listing";
+import type { ContentType } from "../lib/content";
 
 export function getStaticPaths() {
-  return contentTypes.filter((t) => t.archive && t.route && !entries.some((e) => e.path === "/" + t.route + "/")).map((t) => ({ params: { ct: t.route }, props: { ct: t } }));
+  return listedTypes().map((t) => ({ params: { ct: t.route }, props: { ct: t } }));
 }
 const { ct } = Astro.props as { ct: ContentType };
-setLang("");   // listing pages are in the site's main language
-const title = ct.archive_title || ct.plural;
-const dateKey = ct.fields.find((f) => f.type === "date")?.key || "";
-// Same order as before: soonest date first when the type has a date field, otherwise the order set on each page.
-const cards: Block = { id: "ct-list", type: "content_cards", data: {
-  content_type: "x_" + ct.key, all: true, per_page: 0, sort: dateKey ? "date_asc" : "manual", date_field: dateKey, layout: "grid", columns: "3",
-  show_image: true, show_excerpt: true, show_date: false, fields: ct.show_fields === false ? [] : ct.fields.map((f) => f.key) } };
 ---
-<Base title={title} description={ct.archive_intro || `${ct.plural}.`} path={"/" + ct.route + "/"} kind="archive">
-  <section class="section">
-    <div class="wrap">
-      <h1>{title}</h1>
-      {ct.archive_intro && <p class="lede">{ct.archive_intro}</p>}
-      <div class="ct-list"><ContentCards block={cards} bare /></div>
-    </div>
-  </section>
-</Base>
-<style>
-  .ct-list { margin-top: 2rem; }
-</style>
+<TypeListing ct={ct} />
