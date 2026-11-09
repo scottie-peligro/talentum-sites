@@ -3,10 +3,11 @@
 // Laptops and up: the header menu with dropdowns (same <details> pattern as Classic, works with no JavaScript).
 import Img from "../Img.astro";
 import Icon from "./Icon.astro";
-import { bundle, settings, site, menuHref, href, media } from "../../lib/content";
+import LangSwitch from "../LangSwitch.astro";
+import { menu, settings, site, menuHref, href, media, localPath, t } from "../../lib/content";
 import { comfortOn, searchOn } from "../../lib/next";
 const { path } = Astro.props as { path: string };
-const items = bundle.menus?.header || [];
+const items = menu("header");
 const cta = settings.header_cta || {};
 const logo = settings.brand?.logo_inverse || settings.brand?.logo;
 const name = settings.org?.name || site.name;
@@ -14,7 +15,7 @@ const active = (h: string) => h !== "/" && h !== "#" && path.startsWith(h);
 ---
 <header class="nx-header">
   <div class="nx-bar">
-    <a href="/" class="nx-brand" aria-label={`${name} — home`}>
+    <a href={localPath("/")} class="nx-brand" aria-label={`${name} — home`}>
       {logo && media(logo) ? <Img id={logo} alt={name} class="logo" sizes="160px" widths={[160, 320]} priority /> : <span class="wordmark">{name}</span>}
     </a>
     <nav class="nx-nav" aria-label="Main">
@@ -25,7 +26,7 @@ const active = (h: string) => h !== "/" && h !== "#" && path.startsWith(h);
               <details class="drop">
                 <summary class={active(menuHref(it)) ? "on" : ""}>{it.label}</summary>
                 <ul>
-                  {it.url || it.entry ? <li><a href={menuHref(it)}>{it.label} overview</a></li> : null}
+                  {it.url || it.entry ? <li><a href={menuHref(it)}>{it.label} {t("overview")}</a></li> : null}
                   {it.children.map((ch) => <li><a href={menuHref(ch)}><span>{ch.label}</span>{ch.description && <small>{ch.description}</small>}</a></li>)}
                 </ul>
               </details>
@@ -36,8 +37,8 @@ const active = (h: string) => h !== "/" && h !== "#" && path.startsWith(h);
         ))}
       </ul>
     </nav>
-    <div class="nx-tools">
-      {searchOn && <button type="button" class="nx-tool nx-search" data-open="nx-find" aria-label="Search this site" aria-keyshortcuts="/ Control+K"><Icon name="search" /><span class="nx-hint">Search</span><kbd>/</kbd></button>}
+    <div class="nx-tools"><LangSwitch path={path} class="nx-lang" />
+      {searchOn && <button type="button" class="nx-tool nx-search" data-open="nx-find" aria-label="Search this site" aria-keyshortcuts="/ Control+K"><Icon name="search" /><span class="nx-hint">{t("search")}</span><kbd>/</kbd></button>}
       {comfortOn && <button type="button" class="nx-tool" data-open="nx-comfort" aria-label="Reading comfort: text size, contrast, motion"><Icon name="type" /></button>}
       {cta.label && <a class="btn btn-primary nx-cta" href={href(cta.url)} data-cta="header">{cta.label}</a>}
     </div>

@@ -3,9 +3,11 @@ import Email from "./Email.astro";
 // Footer: logo + blurb + button, link columns (the "footer" menu: each top-level item is a column heading),
 // contact details from Website → Settings → Organisation, legal links, socials.
 import Img from "./Img.astro";
-import { bundle, settings, site, menuHref, href, media } from "../lib/content";
-const cols = bundle.menus?.footer || [];
-const legal = bundle.menus?.legal || [];
+import LangSwitch from "./LangSwitch.astro";
+import { menu, settings, site, menuHref, href, media, t } from "../lib/content";
+const { path = "/" } = Astro.props as { path?: string };
+const cols = menu("footer");
+const legal = menu("legal");
 const o = settings.org || {};
 const f = settings.footer || {};
 const logo = settings.brand?.logo_inverse || settings.brand?.logo;
@@ -28,7 +30,7 @@ const address = [o.street || o.address, [o.city, o.region].filter(Boolean).join(
     ))}
     {(o.phone || o.email || address.length > 0) && (
       <div>
-        <h2 class="eyebrow">Contact</h2>
+        <h2 class="eyebrow">{t("contact")}</h2>
         <ul>
           {o.phone && <li><a href={`tel:${o.phone.replace(/[^\d+]/g, "")}`}>{o.phone}</a></li>}
           {o.email && <li><Email email={o.email} /></li>}
@@ -38,11 +40,11 @@ const address = [o.street || o.address, [o.city, o.region].filter(Boolean).join(
     )}
   </div>
   <div class="wrap bottom">
-    <p>© {year} {o.legal_name || name}. All rights reserved.</p>
+    <p>© {year} {o.legal_name || name}. {t("rights")}</p>
     <ul class="legal">
       {legal.map((it) => <li><a href={menuHref(it)}>{it.label}</a></li>)}
       {(o.socials || []).filter((s: any) => s.url).map((s: any) => <li><a href={s.url} rel="noopener me" target="_blank">{s.network || "Social"}</a></li>)}
-    </ul>
+    </ul><LangSwitch path={path} class="ft-lang" css={false} />
   </div>
 </footer>
 

@@ -11,7 +11,7 @@
 //   part="head"       consent defaults, the loader, head snippets
 //   part="body_start" body-start snippets
 //   part="body"       banner, body-end snippets, events + attribution
-import { settings, isStaging, bundle } from "../lib/content";
+import { settings, isStaging, bundle, localPath, t as tr } from "../lib/content";
 const a = settings.analytics || {};
 const t = settings.tracking || {};
 const mode: string = settings.consent?.mode || "eu_only";
@@ -107,20 +107,20 @@ const wrap = (s: Snip) => (s.consent === "necessary" ? s.code : `<template data-
 {part === "body_start" && at("body_start").map((s) => <Fragment set:html={wrap(s)} />)}
 {part === "body" && at("body_end").map((s) => <Fragment set:html={wrap(s)} />)}
 {part === "body" && needsBanner && (
-  <div id="consent" class="consent" role="dialog" aria-live="polite" aria-label="Cookie preferences" hidden>
-    <p>We use cookies to understand how our site is used and to improve it. <a href={cfg.policy}>Privacy policy</a></p>
+  <div id="consent" class="consent" role="dialog" aria-live="polite" aria-label={tr("cookie_label")} hidden>
+    <p>{tr("cookie_text") + " "}<a href={localPath(cfg.policy)}>{tr("privacy_policy")}</a></p>
     <div class="cats" hidden>
       <label><input type="checkbox" checked disabled /> Necessary</label>
       <label><input type="checkbox" name="analytics" /> Analytics</label>
       <label><input type="checkbox" name="marketing" /> Marketing</label>
     </div>
     <div class="actions">
-      <button type="button" class="linkish" data-c="prefs">Preferences</button>
-      <button type="button" class="btn btn-secondary" data-c="denied">Necessary only</button>
-      <button type="button" class="btn btn-primary" data-c="granted">Accept all</button>
+      <button type="button" class="linkish" data-c="prefs">{tr("cookie_prefs")}</button>
+      <button type="button" class="btn btn-secondary" data-c="denied">{tr("cookie_necessary")}</button>
+      <button type="button" class="btn btn-primary" data-c="granted">{tr("cookie_accept")}</button>
     </div>
   </div>
-  <button type="button" id="consent-open" class="consent-open" hidden aria-label="Cookie preferences">Cookies</button>
+  <button type="button" id="consent-open" class="consent-open" hidden aria-label={tr("cookie_label")}>{tr("cookies")}</button>
 )}
 {part === "body" && needsBanner && (
   <script is:inline>

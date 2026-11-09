@@ -1,10 +1,12 @@
 ---
 // Guided layout: a quiet footer at the end of the middle column (business details, legal links, socials).
 import Email from "../Email.astro";
-import { bundle, settings, site, menuHref } from "../../lib/content";
+import LangSwitch from "../LangSwitch.astro";
+import { menu, settings, site, menuHref } from "../../lib/content";
+const { path = "/" } = Astro.props as { path?: string };
 const o = settings.org || {};
-const legal = bundle.menus?.legal || [];
-const cols = bundle.menus?.footer || [];
+const legal = menu("legal");
+const cols = menu("footer");
 const name = o.legal_name || o.name || site.name;
 const address = [o.street || o.address, [o.city, o.region].filter(Boolean).join(", ") + (o.postal ? " " + o.postal : "")].filter((x) => x && x.trim()).join(", ");
 ---
@@ -23,5 +25,5 @@ const address = [o.street || o.address, [o.city, o.region].filter(Boolean).join(
     {o.email && <Email email={o.email} />}
     {legal.map((l) => <a href={menuHref(l)}>{l.label}</a>)}
     {(o.socials || []).filter((s: any) => s.url).map((s: any) => <a href={s.url} rel="noopener me" target="_blank">{s.network || "Social"}</a>)}
-  </div>
+  </div><LangSwitch path={path} class="gd-f-lang" css={false} />
 </footer>

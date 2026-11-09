@@ -4,10 +4,10 @@ import Section from "../components/Section.astro";
 import Heading from "../components/Heading.astro";
 import Buttons from "../components/Buttons.astro";
 import Img from "../components/Img.astro";
-import { ofType, entryById, plain, truncate, type Block, type Entry } from "../lib/content";
+import { ofType, pickEntry, plain, truncate, type Block, type Entry } from "../lib/content";
 const { block } = Astro.props as { block: Block };
 const d = block.data || {};
-const list: Entry[] = (d.items?.length ? d.items.map((id: string) => entryById(id)).filter((e: any) => e && e.type === "service") : ofType("service")) as Entry[];
+const list: Entry[] = (d.items?.length ? d.items.map((id: string) => pickEntry(id)).filter((e: any) => e && e.type === "service") : ofType("service")) as Entry[];
 const cols = Number(d.columns) || 3;
 ---
 {list.length > 0 && (

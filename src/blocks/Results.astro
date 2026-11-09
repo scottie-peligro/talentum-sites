@@ -4,7 +4,7 @@
 import Section from "../components/Section.astro";
 import Heading from "../components/Heading.astro";
 import Img from "../components/Img.astro";
-import { bundle, proofFor, entryById, formatDate, type Block, type Entry, type Proof } from "../lib/content";
+import { bundle, proofFor, pickEntry, formatDate, type Block, type Entry, type Proof } from "../lib/content";
 const { block, entry } = Astro.props as { block: Block; entry?: Entry };
 const d = block.data || {};
 const line = d.service_line || entry?.service_line || "";
@@ -24,7 +24,7 @@ void formatDate;
       {stats.length > 0 && (
         <ul class={`grid ${stats.length >= 4 ? "cols-4" : stats.length === 2 ? "cols-2" : "cols-3"} stats`}>
           {stats.map((p) => {
-            const cs = entryById(p.case_study);
+            const cs = pickEntry(p.case_study);
             return (
               <li class="card stat">
                 <p class="value">{p.change || p.value}{!p.change && p.unit}</p>
@@ -41,7 +41,7 @@ void formatDate;
       {visuals.length > 0 && (
         <ul class="grid cols-2 visuals">
           {visuals.map((p) => {
-            const cs = entryById(p.case_study);
+            const cs = pickEntry(p.case_study);
             return (
               <li class={`vis kind-${p.kind}`}>
                 {p.kind === "before_after" && p.images.length >= 2 ? (

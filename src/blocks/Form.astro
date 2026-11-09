@@ -5,7 +5,8 @@ import Email from "../components/Email.astro";
 // site, the block shows the site's email and phone instead, so nothing is ever lost.
 import Section from "../components/Section.astro";
 import Heading from "../components/Heading.astro";
-import { bundle, settings, entries, href, escape, type Block } from "../lib/content";
+import { bundle, settings, entries, href, escape, inLang, t, type Block } from "../lib/content";
+import { th } from "../lib/i18n";
 import { uploadRules } from "../lib/files";
 import Upload from "../components/Upload.astro";
 const { block } = Astro.props as { block: Block };
@@ -54,7 +55,7 @@ const total = questions.length + 1;
 const pv: Record<string, any> = saved?.privacy || {};
 const company = o.name || "us";
 const policyPage = entries.find((e: any) => e.type === "legal" && /privacy/i.test(e.path || e.slug || ""));
-const policyHref = pv.link ? href(pv.link) : policyPage?.path || "";
+const policyHref = pv.link ? href(pv.link) : (policyPage ? inLang(policyPage).path : "");
 const policyLabel = pv.link_label || "privacy policy";
 const fill = (t: string) => escape(t).replace(/\{company\}/g, escape(company))
   .replace(/\{privacy\}/g, policyHref ? `<a href="${escape(policyHref)}" target="_blank" rel="noopener">${escape(policyLabel)}</a>` : escape(policyLabel));
@@ -71,7 +72,7 @@ const hasPhone = (steps ? contactFields : fields).some((f) => f.type === "tel" |
       <form class={`card form${steps ? " fs" : ""}`} enctype={hasFiles ? "multipart/form-data" : undefined} method="post" action={`${endpoint.replace(/\/+$/, "")}/${key}`} data-form={key} data-name={d.heading || ""} data-steps={steps ? String(total) : undefined}
         data-book-url={book ? `${bookBase}/book/route/${saved.id}` : undefined} data-book-q={book ? book.question || "" : undefined}>
         {steps && (
-          <div class="full fs-top" aria-hidden="true"><span class="fs-count">Step <b>1</b> of {total}</span><span class="fs-bar"><i></i></span></div>
+          <div class="full fs-top" aria-hidden="true"><span class="fs-count">{t("form_step") + " "}<b>1</b>{" " + t("form_of") + " "}{total}</span><span class="fs-bar"><i></i></span></div>
         )}
         {steps && questions.map((q: any, i: number) => (
           <fieldset class="full fs-step" data-step={i}>
@@ -89,14 +90,14 @@ const hasPhone = (steps ? contactFields : fields).some((f) => f.type === "tel" |
         ))}
         {steps ? (
           <fieldset class="full fs-step fs-contact" data-step={questions.length}>
-            <legend tabindex="-1">{d.contact_heading || "Where should we send our reply?"}</legend>
+            <legend tabindex="-1">{d.contact_heading || t("form_reply")}</legend>
             {d.contact_text && <p class="fs-hint">{d.contact_text}</p>}
             <div class="fs-grid">
               {contactFields.map((f) => (
                 <label class={f.type === "textarea" || f.type === "file" ? "full" : ""}>
                   <span>{f.label}{f.required && <em aria-hidden="true"> *</em>}</span>
                   {f.type === "file" ? <Upload name={f.name} rules={uploadRules(f)} label={f.label} wrapped /> : f.type === "textarea" ? <textarea name={f.name} rows="4" required={f.required} /> :
-                    f.type === "select" ? <select name={f.name} required={f.required}><option value="">Choose…</option>{(f.options || []).map((o) => <option>{o}</option>)}</select> :
+                    f.type === "select" ? <select name={f.name} required={f.required}><option value="">{t("form_choose")}</option>{(f.options || []).map((o) => <option>{o}</option>)}</select> :
                     <input name={f.name} type={(f.type || "text") as any} required={f.required} autocomplete={(ac[f.name] || "on") as any} />}
                 </label>
               ))}
@@ -106,7 +107,7 @@ const hasPhone = (steps ? contactFields : fields).some((f) => f.type === "tel" |
           <label class={f.type === "textarea" || f.type === "file" ? "full" : ""}>
             <span>{f.label}{f.required && <em aria-hidden="true"> *</em>}</span>
             {f.type === "file" ? <Upload name={f.name} rules={uploadRules(f)} label={f.label} wrapped /> : f.type === "textarea" ? <textarea name={f.name} rows="5" required={f.required} /> :
-              f.type === "select" ? <select name={f.name} required={f.required}><option value="">Choose…</option>{(f.options || []).map((o) => <option>{o}</option>)}</select> :
+              f.type === "select" ? <select name={f.name} required={f.required}><option value="">{t("form_choose")}</option>{(f.options || []).map((o) => <option>{o}</option>)}</select> :
               <input name={f.name} type={(f.type || "text") as any} required={f.required} autocomplete={(ac[f.name] || "on") as any} />}
           </label>
         ))}
@@ -129,17 +130,17 @@ const hasPhone = (steps ? contactFields : fields).some((f) => f.type === "tel" |
         <input type="hidden" name="_t" value="" />
         {turnstile && <div class="full cf-turnstile" data-sitekey={turnstile} data-size="flexible"></div>}
         <div class="full fs-nav">
-          {steps && <button class="btn btn-secondary fs-back" type="button" hidden>Back</button>}
-          {steps && <button class="btn btn-primary fs-next" type="button" hidden>{d.next_label || "Next"}</button>}
-          <button class="btn btn-primary fs-send" type="submit">{d.submit_label || "Send"}</button>
-          {book && <button class="btn btn-secondary fs-book" type="button" hidden>{book.label || "Book a consult call"}</button>}
+          {steps && <button class="btn btn-secondary fs-back" type="button" hidden>{t("form_back")}</button>}
+          {steps && <button class="btn btn-primary fs-next" type="button" hidden>{d.next_label || t("form_next")}</button>}
+          <button class="btn btn-primary fs-send" type="submit">{d.submit_label || t("form_send")}</button>
+          {book && <button class="btn btn-secondary fs-book" type="button" hidden>{book.label || t("form_book")}</button>}
         </div>
-        <p class="full ok" hidden role="status">{d.success || "Thanks — we'll be in touch shortly."}</p>
-        <p class="full bad" hidden role="alert"><span class="msg">Sorry — that didn't send. Please try again</span>{o.email ? <> or email <Email email={o.email} /></> : null}.</p>
+        <p class="full ok" hidden role="status">{d.success || t("form_thanks")}</p>
+        <p class="full bad" hidden role="alert"><span class="msg"><Fragment set:html={th("form_error")} /></span>{o.email ? <>{" " + t("form_or_email") + " "}<Email email={o.email} /></> : null}.</p>
       </form>
     ) : (
       <div class="card alt">
-        <p>{d.fallback || "The fastest way to reach us:"}</p>
+        <p>{d.fallback || t("form_fallback")}</p>
         <ul>
           {o.email && <li><Email email={o.email} /></li>}
           {o.phone && <li><a href={`tel:${o.phone.replace(/[^\d+]/g, "")}`}>{o.phone}</a></li>}
@@ -149,8 +150,8 @@ const hasPhone = (steps ? contactFields : fields).some((f) => f.type === "tel" |
   </div>
 </Section>
 {endpoint && book && (
-  <dialog class="book-dlg" aria-label={book.label || "Book a consult call"}>
-    <div class="book-top"><span>{book.label || "Book a consult call"}</span><button type="button" class="book-x" aria-label="Close">×</button></div>
+  <dialog class="book-dlg" aria-label={book.label || t("form_book")}>
+    <div class="book-top"><span>{book.label || t("form_book")}</span><button type="button" class="book-x" aria-label="Close">×</button></div>
     <iframe title="Pick a time" loading="lazy"></iframe>
   </dialog>
 )}

@@ -28,7 +28,8 @@ import mulishUrl from "../styles/fonts/mulish-latin-wght-normal.woff2?url";
 import bricolageUrl from "@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wght-normal.woff2?url";
 import hankenUrl from "@fontsource-variable/hanken-grotesk/files/hanken-grotesk-latin-wght-normal.woff2?url";
 import { isNext, isGuided, guided, panelFor, comfortOn, type VideoInfo } from "../lib/next";
-import { site, settings, isStaging, absolute, media } from "../lib/content";
+import { site, settings, isStaging, absolute, media, translated, allEntries, versionsOf, currentLang, t } from "../lib/content";
+import { isRtl } from "../lib/i18n";
 import { imageFile, assetUrl } from "../lib/images";
 import { stylesCss, fontPreloads, customFonts, pageTransition, scrollDefault } from "../lib/styles";
 
@@ -83,16 +84,21 @@ const canonical = absolute(path);
 const robots = isStaging ? "noindex, nofollow" : noindex ? "noindex, follow" : "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
 const siteName = settings.org?.name || site.name;
 const schemas = (Array.isArray(schema) ? schema : schema ? [schema] : []).filter(Boolean);
-const lang = settings.locale || "en-US";
+const lang = currentLang() || settings.locale || "en-US";
+// Translated sites: every language version of this page (hreflang), plus x-default = the main language.
+const here = translated ? allEntries.find((e) => e.path === path) : undefined;
+const alts = here && !noindex ? versionsOf(here) : [];
 ---
 <!doctype html>
-<html lang={lang} class={`theme-${theme}${isNext ? " layout-next" : ""}${isGuided ? " layout-guided" : ""}`} data-pt={pageTransition || undefined} data-sfx={scrollDefault || undefined}>
+<html lang={lang} dir={currentLang() && isRtl(currentLang()) ? "rtl" : undefined} class={`theme-${theme}${isNext ? " layout-next" : ""}${isGuided ? " layout-guided" : ""}`} data-pt={pageTransition || undefined} data-sfx={scrollDefault || undefined}>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{title}</title>
   {description && <meta name="description" content={description} />}
   <link rel="canonical" href={canonical} />
+  {alts.length > 1 && alts.map((a) => <link rel="alternate" hreflang={a.hreflang} href={absolute(a.path)} />)}
+  {alts.length > 1 && <link rel="alternate" hreflang="x-default" href={absolute(alts[0].path)} />}
   <meta name="robots" content={robots} />
   <meta property="og:type" content={type} />
   <meta property="og:site_name" content={siteName} />
@@ -131,14 +137,14 @@ const lang = settings.locale || "en-US";
 </head>
 <body>
   <Analytics part="body_start" path={path} kind={kind} />
-  <a class="skip" href="#main">Skip to content</a>
+  <a class="skip" href="#main">{t("skip")}</a>
   {isStaging && <div class="staging-flag" aria-hidden="true">Staging</div>}
   {isGuided ? (
     <>
       <div class={`gd-shell${isGuided && !panelFor(panel).show ? " gd-nopanel" : ""}`}>
-        <GuidedHeader />
+        <GuidedHeader path={path} />
         <GuidedNav path={path} />
-        <main id="main"><slot /><GuidedFooter /></main>
+        <main id="main"><slot /><GuidedFooter path={path} /></main>
         <GuidedPanel video={video} own={panel} />
       </div>
       <Background />
@@ -155,7 +161,7 @@ const lang = settings.locale || "en-US";
         <main id="main"><slot /></main>
         <Rail side="right" path={path} video={video} />
       </div>
-      <Footer />
+      <Footer path={path} />
       <Dock path={path} />
       <Panels />
       {video && <VideoPlayer video={video} />}
@@ -164,7 +170,7 @@ const lang = settings.locale || "en-US";
     <>
       <Header path={path} />
       <main id="main"><slot /></main>
-      <Footer />
+      <Footer path={path} />
     </>
   )}
   <Assistant path={path} />

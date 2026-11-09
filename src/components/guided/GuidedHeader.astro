@@ -2,16 +2,18 @@
 // Guided layout header: logo, "Ask us anything" (opens site search), the background switcher, reading comfort, Book.
 import Img from "../Img.astro";
 import Icon from "../next/Icon.astro";
-import { settings, site, media } from "../../lib/content";
+import LangSwitch from "../LangSwitch.astro";
+import { settings, site, media, localPath } from "../../lib/content";
 import { comfortOn, searchOn, guided } from "../../lib/next";
 const g = guided();
+const { path = "/" } = Astro.props as { path?: string };
 const logo = settings.brand?.logo;
 const logoDark = settings.brand?.logo_inverse || settings.brand?.logo;
 const name = settings.org?.name || site.name;
 const modes = [["light", "sun", "Light background"], ["dark", "moon", "Dark background"], ...(g.bgImage ? [["image", "image", "Photo background"]] : [])];
 ---
 <header class="gd-header">
-  <a href="/" class="gd-brand" aria-label={`${name} — home`}>
+  <a href={localPath("/")} class="gd-brand" aria-label={`${name} — home`}>
     {logo && media(logo) ? (
       <>
         <Img id={logo} alt={name} class="gd-logo gd-logo-light" sizes="200px" widths={[200, 400]} priority />
@@ -24,7 +26,7 @@ const modes = [["light", "sun", "Light background"], ["dark", "moon", "Dark back
       <Icon name="search" size={18} /><span>{g.search_label}</span><kbd>/</kbd>
     </button>
   )}
-  <span class="gd-grow"></span>
+  <span class="gd-grow"></span><LangSwitch path={path} class="gd-lang" />
   {g.switcher && (
     <div class="gd-seg" role="group" aria-label="Background">
       {modes.map(([v, ic, l]) => <button type="button" data-bg-set={v} aria-label={l} aria-pressed="false"><Icon name={ic} size={18} /></button>)}

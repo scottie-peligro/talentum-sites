@@ -3,7 +3,7 @@
 // video host loads until it's pressed; the player opens over the page (VideoPlayer.astro). A tick shows once watched.
 import Icon from "./Icon.astro";
 import Img from "../Img.astro";
-import { rich } from "../../lib/content";
+import { rich, t } from "../../lib/content";
 import type { VideoInfo } from "../../lib/next";
 const { video, variant = "pill", transcript = false } = Astro.props as { video: VideoInfo; variant?: "pill" | "card"; transcript?: boolean };
 const label = video.title;
@@ -18,7 +18,7 @@ const label = video.title;
     </button>
     {transcript && video.transcript && (
       <details class="ov-tr">
-        <summary>Read instead</summary>
+        <summary>{t("read_instead")}</summary>
         <div class="prose" set:html={rich(video.transcript)} />
       </details>
     )}
@@ -29,6 +29,6 @@ const label = video.title;
       {video.poster ? <Img id={video.poster} alt="" cover sizes="300px" widths={[300, 600]} /> : video.posterUrl ? <img src={video.posterUrl} alt="" loading="lazy" width="480" height="270" /> : <span class="ov-blank" />}
       <span class="ov-play"><Icon name="play" size={18} /></span>
     </span>
-    <span class="ov-ct"><strong>{label}</strong>{video.durationLabel && <small>{video.durationLabel}</small>}<span class="ov-w ov-w2"><Icon name="check" size={12} /> Watched</span></span>
+    <span class="ov-ct"><strong>{label}</strong>{video.durationLabel && <small>{video.durationLabel}</small>}<span class="ov-w ov-w2"><Icon name="check" size={12} />{" " + t("watched")}</span></span>
   </button>
 )}

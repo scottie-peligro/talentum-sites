@@ -8,7 +8,7 @@ import Img from "../components/Img.astro";
 import { getImage } from "astro:assets";
 import {
   entries, bundle, settings, media, person, lineName, accountName, category, formatDate, rich, resolveFaqs, readingMinutes,
-  proofFor, caseStudies, testimonialsFor, faqsFor, absolute, contentType, type Entry, type Block,
+  proofFor, caseStudies, testimonialsFor, faqsFor, absolute, contentType, allEntries, setLang, section, t, type Entry, type Block,
 } from "../lib/content";
 import CustomFields from "../components/CustomFields.astro";
 import { imageFile } from "../lib/images";
@@ -18,26 +18,27 @@ import { libraryFaqs } from "../lib/faqlib";
 import VideoButton from "../components/next/VideoButton.astro";
 
 export function getStaticPaths() {
-  return entries.map((e) => ({ params: { path: e.path === "/" ? undefined : e.path.replace(/^\/|\/$/g, "") }, props: { entry: e } }));
+  return allEntries.map((e) => ({ params: { path: e.path === "/" ? undefined : e.path.replace(/^\/|\/$/g, "") }, props: { entry: e } }));
 }
 
 const { entry } = Astro.props as { entry: Entry };
 const e = entry;
+setLang(e.lang);   // a translation renders in its language (links, menus, sections and built-in wording follow)
 const blocks = visibleBlocks(e.blocks);
-const has = (t: string) => blocks.some((b) => b.type === t || (b.type === "section_ref" && (bundle.sections?.[b.data?.key] || []).some((x) => x.type === t)));
+const has = (t: string) => blocks.some((b) => b.type === t || (b.type === "section_ref" && (section(b.data?.key) || []).some((x) => x.type === t)));
 // These blocks carry the page's main heading themselves when they come first.
 const startsWithHero = ["hero", "intent_chooser", "starting_points", "faq_library", "booking"].includes(blocks[0]?.type);
 const video = overviewVideo(e);
-const globalCta = bundle.sections?.cta ? [{ id: "gcta", type: "section_ref", data: { key: "cta" } } as Block] : [];
+const globalCta = section("cta") ? [{ id: "gcta", type: "section_ref", data: { key: "cta" } } as Block] : [];
 const ctaLink = settings.header_cta?.label ? [{ label: settings.header_cta.label, href: settings.header_cta.url }] : [];
 
 // Service pages show their proof automatically, after the page's own blocks, unless the page already places it.
 const auto: Block[] = [];
 if (e.type === "service" && e.fields?.auto_proof !== false && e.service_line) {
-  if (!has("results") && proofFor(e.service_line).length) auto.push({ id: "a-res", type: "results", data: { heading: "The results we deliver", background: "white" } });
-  if (!has("case_study_cards") && caseStudies(e.service_line).length) auto.push({ id: "a-cs", type: "case_study_cards", data: { heading: "Related case studies", background: "paper" } });
+  if (!has("results") && proofFor(e.service_line).length) auto.push({ id: "a-res", type: "results", data: { heading: t("results_heading"), background: "white" } });
+  if (!has("case_study_cards") && caseStudies(e.service_line).length) auto.push({ id: "a-cs", type: "case_study_cards", data: { heading: t("related_case_studies"), background: "paper" } });
   if (!has("testimonials") && testimonialsFor(e.service_line).some((t) => t.service_lines.includes(e.service_line))) auto.push({ id: "a-t", type: "testimonials", data: {} });
-  if (!has("faq") && faqsFor(e.service_line).length) auto.push({ id: "a-f", type: "faq", data: { heading: `${e.title}: common questions` } });
+  if (!has("faq") && faqsFor(e.service_line).length) auto.push({ id: "a-f", type: "faq", data: { heading: `${e.title}: ${t("common_questions")}` } });
 }
 if ((e.type === "service" || e.type === "case_study" || e.type === "post") && !has("cta")) auto.push(...globalCta);
 
@@ -64,14 +65,14 @@ const csStats = e.type === "case_study" ? bundle.proof.filter((p) => p.case_stud
       <header class="post-head">
         <div class="wrap narrow">
           <Crumbs entry={e} />
-          <p class="eyebrow">{[category(e.categories[0])?.name || "Insights", formatDate(e.published_at), `${readingMinutes(e)} min read`].filter(Boolean).join(" · ")}</p>
+          <p class="eyebrow">{[category(e.categories[0])?.name || t("insights"), formatDate(e.published_at), `${readingMinutes(e)} ${t("min_read")}`].filter(Boolean).join(" · ")}</p>
           <h1>{e.title}</h1>
           {e.excerpt && <p class="lede">{e.excerpt}</p>}
           {video && <VideoButton video={video} transcript />}
           {authors.length > 0 && (
             <p class="byline">
               {authors[0]!.photo_file && <Img file={authors[0]!.photo_file} alt="" cover aspect="1/1" class="av" sizes="40px" widths={[40, 80]} />}
-              <span>By {authors.map((a) => a!.name).join(", ")}{authors[0]!.job_title && <small>{authors[0]!.job_title}</small>}</span>
+              <span>{t("by")} {authors.map((a) => a!.name).join(", ")}{authors[0]!.job_title && <small>{authors[0]!.job_title}</small>}</span>
             </p>
           )}
         </div>
@@ -84,19 +85,19 @@ const csStats = e.type === "case_study" ? bundle.proof.filter((p) => p.case_stud
           {authors.map((a) => (
             <div class="card ab">
               {a!.photo_file && <Img file={a!.photo_file} alt="" cover aspect="1/1" class="av lg" sizes="72px" widths={[72, 144]} />}
-              <div><p class="eyebrow">About the author</p><h2>{a!.name}</h2>{a!.job_title && <p class="muted">{a!.job_title}</p>}{a!.linkedin && <a href={a!.linkedin} rel="noopener author" target="_blank">LinkedIn</a>}</div>
+              <div><p class="eyebrow">{t("about_author")}</p><h2>{a!.name}</h2>{a!.job_title && <p class="muted">{a!.job_title}</p>}{a!.linkedin && <a href={a!.linkedin} rel="noopener author" target="_blank">LinkedIn</a>}</div>
             </div>
           ))}
         </aside>
       )}
-      <Blocks blocks={[{ id: "rel", type: "posts_list", data: { heading: "More insights", limit: 3, category: e.categories[0] || "", background: "paper" } }]} entry={e} />
+      <Blocks blocks={[{ id: "rel", type: "posts_list", data: { heading: t("more_insights"), limit: 3, category: e.categories[0] || "", background: "paper" } }]} entry={e} />
       <Blocks blocks={auto} entry={e} />
     </article>
   ) : e.type === "case_study" ? (
     <>
       {startsWithHero ? null : (
-        <PageHeader entry={e} eyebrow={["Case study", lineName(e.service_line)].filter(Boolean).join(" · ")} text={e.excerpt}>
-          {client && <p class="client">Client: <strong>{client}</strong></p>}
+        <PageHeader entry={e} eyebrow={[t("case_study"), lineName(e.service_line)].filter(Boolean).join(" · ")} text={e.excerpt}>
+          {client && <p class="client">{t("client") + " "}<strong>{client}</strong></p>}
         </PageHeader>
       )}
       {csStats.length > 0 && (
@@ -108,20 +109,20 @@ const csStats = e.type === "case_study" ? bundle.proof.filter((p) => p.case_stud
       )}
       {e.featured_image && !startsWithHero && <div class="wrap feat cs-feat"><Img id={e.featured_image} priority={csStats.length === 0} sizes="(min-width: 1200px) 1184px, 100vw" /></div>}
       <Blocks blocks={blocks} entry={e} />
-      <Blocks blocks={[{ id: "more", type: "case_study_cards", data: { heading: "More case studies", background: "paper", auto_line: false } }]} entry={e} />
+      <Blocks blocks={[{ id: "more", type: "case_study_cards", data: { heading: t("more_case_studies"), background: "paper", auto_line: false } }]} entry={e} />
       <Blocks blocks={auto} entry={e} />
     </>
   ) : e.type === "job" ? (
     <>
-      <PageHeader entry={e} eyebrow="Careers" text={[e.fields?.location, e.fields?.employment_type?.replace(/_/g, " ").toLowerCase()].filter(Boolean).join(" · ")}
-        buttons={e.fields?.apply_url ? [{ label: "Apply now", href: e.fields.apply_url }] : settings.org?.email ? [{ label: "Apply by email", href: `mailto:${settings.org.email}?subject=${encodeURIComponent("Application: " + e.title)}` }] : []} />
+      <PageHeader entry={e} eyebrow={t("careers")} text={[e.fields?.location, e.fields?.employment_type?.replace(/_/g, " ").toLowerCase()].filter(Boolean).join(" · ")}
+        buttons={e.fields?.apply_url ? [{ label: t("apply_now"), href: e.fields.apply_url }] : settings.org?.email ? [{ label: t("apply_email"), href: `mailto:${settings.org.email}?subject=${encodeURIComponent("Application: " + e.title)}` }] : []} />
       {e.fields?.description && <section class="section"><div class="wrap narrow prose" set:html={rich(e.fields.description)} /></section>}
       <Blocks blocks={blocks} entry={e} />
     </>
   ) : (
     <>
       {!startsWithHero && (
-        <PageHeader entry={e} eyebrow={e.type === "service" ? lineName(e.service_line) || "Services" : ct ? ct.label : undefined} text={e.excerpt}
+        <PageHeader entry={e} eyebrow={e.type === "service" ? lineName(e.service_line) || t("services") : ct ? ct.label : undefined} text={e.excerpt}
           tone={e.type === "legal" ? "paper" : "dark"} buttons={e.type === "service" ? ctaLink : undefined} />
       )}
       {ct && ct.show_fields && <div class="wrap ct-fields"><CustomFields entry={e} ct={ct} /></div>}

@@ -4,11 +4,11 @@ import Section from "../components/Section.astro";
 import Heading from "../components/Heading.astro";
 import Buttons from "../components/Buttons.astro";
 import Img from "../components/Img.astro";
-import { caseStudies, entryById, lineName, accountName, bundle, type Block, type Entry } from "../lib/content";
+import { caseStudies, pickEntry, lineName, accountName, bundle, type Block, type Entry } from "../lib/content";
 const { block, entry } = Astro.props as { block: Block; entry?: Entry };
 const d = block.data || {};
 const line = d.service_line || (d.auto_line !== false && entry?.type === "service" ? entry.service_line : "");
-let list: Entry[] = d.items?.length ? d.items.map((id: string) => entryById(id)).filter(Boolean) : caseStudies(line).sort((a, b) => (b.published_at || "").localeCompare(a.published_at || ""));
+let list: Entry[] = d.items?.length ? d.items.map((id: string) => pickEntry(id)).filter(Boolean) : caseStudies(line).sort((a, b) => (b.published_at || "").localeCompare(a.published_at || ""));
 list = list.filter((c) => c.id !== entry?.id).slice(0, Number(d.limit) || 3);
 const headline = (c: Entry) => bundle.proof.find((p) => p.case_study === c.id && p.kind === "stat");
 ---

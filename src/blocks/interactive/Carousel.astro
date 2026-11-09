@@ -7,7 +7,7 @@
 import Section from "../../components/Section.astro";
 import Heading from "../../components/Heading.astro";
 import Img from "../../components/Img.astro";
-import { href as hrefOf, media, type Block } from "../../lib/content";
+import { href as hrefOf, media, t, type Block } from "../../lib/content";
 import { once, uid } from "./util";
 const { block } = Astro.props as { block: Block };
 const d = block.data || {};
@@ -57,7 +57,7 @@ const NOJS = `.ix-car-ctl{display:none!important}`;
                   <div class="ix-slide-copy">
                     {it.title && <h3>{it.title}</h3>}
                     {it.text && <p>{it.text}</p>}
-                    {link && <a class="ix-slide-link" href={link}>{it.link_label || "Read more"}<span class="sr-only">: {it.title}</span></a>}
+                    {link && <a class="ix-slide-link" href={link}>{it.link_label || t("read_more")}<span class="sr-only">: {it.title}</span></a>}
                   </div>
                 )}
               </div>

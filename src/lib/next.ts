@@ -1,5 +1,5 @@
 // The "New" layout (Website → Settings → Layout & video): helpers for the shell, the overview video and the dock.
-import { settings, bundle, entryById, menuHref, href, media, plain, type Entry, type MenuItem } from "./content";
+import { settings, bundle, entryById, menuHref, href, media, plain, menu, localPath, t, type Entry, type MenuItem } from "./content";
 import { assetUrl } from "./images";
 
 const display = (settings.display || {}) as Record<string, any>;
@@ -54,7 +54,8 @@ export function parseVideo(url: string): { kind: VideoInfo["kind"]; embed: strin
 export function overviewVideo(e?: Entry | null): VideoInfo | null {
   if (!isNext) return null;
   const own = e?.fields?.overview_video;
-  const v = own && (own.url || own.file) ? own : e?.path === "/" ? display.welcome_video : null;
+  const isHome = e?.path === "/" || (!!e?.translation_of && entryById(e.translation_of)?.path === "/");
+  const v = own && (own.url || own.file) ? own : isHome ? display.welcome_video : null;
   if (!v || !(v.url || v.file)) return null;
   // A link wins over an upload (switching an uploaded video for a YouTube link shouldn't need the upload removed).
   const linked = v.url ? parseVideo(v.url) : null;
@@ -66,7 +67,7 @@ export function overviewVideo(e?: Entry | null): VideoInfo | null {
   const dur = seconds(v.duration);
   const chapters: Chapter[] = (Array.isArray(v.chapters) ? v.chapters : []).map((c: any) => ({ at: seconds(c?.time), label: String(c?.label || "").trim() })).filter((c: Chapter) => c.label).sort((a: Chapter, b: Chapter) => a.at - b.at);
   return {
-    key: (e?.id || "site") + ":" + (linked ? v.url : v.file), title: String(v.title || (e?.path === "/" ? "Watch the welcome video" : `${e?.title || ""} — overview`)).trim(),
+    key: (e?.id || "site") + ":" + (linked ? v.url : v.file), title: String(v.title || (isHome ? t("welcome_video") : `${e?.title || ""} — ${t("overview")}`)).trim(),
     kind: parsed.kind, embed: parsed.embed, file: parsed.file, poster: v.poster || "", posterUrl: parsed.thumb,
     captions: cap ? assetUrl(cap.file) || "" : "", transcript: String(v.transcript || "").trim(), chapters, duration: dur, durationLabel: dur ? clock(dur) : "",
     uploaded: v.uploaded || e?.published_at || bundle.generated_at, description: String(v.description || plain(e?.excerpt || "") || v.title || "").slice(0, 300),
@@ -75,8 +76,8 @@ export function overviewVideo(e?: Entry | null): VideoInfo | null {
 
 /** Bottom bar on phones: Home, the first two header items, the header button, Menu. */
 export function dockItems(): { label: string; href: string; icon: string }[] {
-  const items = (bundle.menus?.header || []) as MenuItem[];
-  const out = [{ label: "Home", href: "/", icon: "home" }];
+  const items = menu("header") as MenuItem[];
+  const out = [{ label: t("home"), href: localPath("/"), icon: "home" }];
   for (const it of items.slice(0, 2)) out.push({ label: it.label, href: menuHref(it) === "#" ? menuHref(it.children?.[0] || it) : menuHref(it), icon: iconFor(it.label) });
   const cta = settings.header_cta || {};
   if (cta.label) out.push({ label: shortLabel(cta.label), href: href(cta.url), icon: "chat" });

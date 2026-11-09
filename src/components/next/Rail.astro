@@ -4,10 +4,10 @@
 import Icon from "./Icon.astro";
 import VideoButton from "./VideoButton.astro";
 import Email from "../Email.astro";
-import { bundle, settings, menuHref, href } from "../../lib/content";
+import { menu, settings, menuHref, href } from "../../lib/content";
 import type { VideoInfo } from "../../lib/next";
 const { side, path, video } = Astro.props as { side: "left" | "right"; path: string; video?: VideoInfo | null };
-const items = bundle.menus?.header || [];
+const items = menu("header");
 const cta = settings.header_cta || {};
 const o = settings.org || {};
 const on = (h: string) => h !== "/" && h !== "#" && path.startsWith(h);

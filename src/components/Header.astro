@@ -2,9 +2,10 @@
 // Site header: logo, the "header" menu (one level of dropdowns), the header button. The mobile menu and the
 // dropdowns are <details> elements, so they work with no JavaScript; a few lines close them on outside click / Esc.
 import Img from "./Img.astro";
-import { bundle, settings, site, menuHref, href, media } from "../lib/content";
+import LangSwitch from "./LangSwitch.astro";
+import { menu, settings, site, menuHref, href, media, localPath, t } from "../lib/content";
 const { path } = Astro.props as { path: string };
-const items = bundle.menus?.header || [];
+const items = menu("header");
 const cta = settings.header_cta || {};
 const logo = settings.brand?.logo_inverse || settings.brand?.logo;
 const name = settings.org?.name || site.name;
@@ -12,10 +13,10 @@ const active = (h: string) => h !== "/" && h !== "#" && path.startsWith(h);
 ---
 <header class="site-header">
   <div class="wrap bar">
-    <a href="/" class="brand" aria-label={`${name} — home`}>
+    <a href={localPath("/")} class="brand" aria-label={`${name} — home`}>
       {logo && media(logo) ? <Img id={logo} alt={name} class="logo" sizes="180px" widths={[180, 360]} priority /> : <span class="wordmark">{name}</span>}
     </a>
-    <button class="toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="site-nav"><span class="burger" aria-hidden="true"></span></button>
+    <button class="toggle" type="button" aria-label={t("menu")} aria-expanded="false" aria-controls="site-nav"><span class="burger" aria-hidden="true"></span></button>
     <div class="mobile">
       <nav class="nav" id="site-nav" aria-label="Main">
         <ul>
@@ -25,7 +26,7 @@ const active = (h: string) => h !== "/" && h !== "#" && path.startsWith(h);
                 <details class="drop">
                   <summary class={active(menuHref(it)) ? "on" : ""}>{it.label}</summary>
                   <ul>
-                    {it.url || it.entry ? <li><a href={menuHref(it)}>{it.label} overview</a></li> : null}
+                    {it.url || it.entry ? <li><a href={menuHref(it)}>{it.label} {t("overview")}</a></li> : null}
                     {it.children.map((ch) => (
                       <li><a href={menuHref(ch)} target={ch.new_tab ? "_blank" : undefined} rel={ch.new_tab ? "noopener" : undefined}>
                         <span>{ch.label}</span>{ch.description && <small>{ch.description}</small>}</a></li>
@@ -38,7 +39,7 @@ const active = (h: string) => h !== "/" && h !== "#" && path.startsWith(h);
               )}
             </li>
           ))}
-        </ul>
+        </ul><LangSwitch path={path} />
         {cta.label && <a class="btn btn-primary cta" href={href(cta.url)}>{cta.label}</a>}
       </nav>
     </div>

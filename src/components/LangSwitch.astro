@@ -1,0 +1,32 @@
+---
+// Language switcher (Translate a site): one link per language, to this page in that language, or to that language's
+// home page when this page isn't translated. Renders nothing on a one-language site (or with the switcher turned off),
+// and its few styles are inline (sent once, by the header's copy) so other sites' pages don't change.
+import { allEntries, entries, extraLangs, defaultLang, defaultLangLabel, switcherOn, versionsOf, inLang, currentLang, t } from "../lib/content";
+const { path, class: cls = "", css: withCss = true } = Astro.props as { path: string; class?: string; css?: boolean };
+let links: { code: string; hreflang: string; label: string; href: string; current: boolean }[] = [];
+if (switcherOn) {
+  const here = allEntries.find((e) => e.path === path);
+  const home = entries.find((e) => e.path === "/");
+  const v = here ? versionsOf(here) : [];
+  const cur = currentLang();
+  links = [{ code: "", hreflang: defaultLang, label: defaultLangLabel }, ...extraLangs.map((l) => ({ code: l.code, hreflang: l.code, label: l.label }))].map((l) => {
+    const hit = v.find((x) => x.code === l.code);
+    const fallback = home ? inLang(home, l.code) : undefined;
+    const href = hit ? hit.path : fallback && (l.code === "" || fallback.lang === l.code) ? fallback.path : "";
+    return { ...l, href, current: l.code === cur };
+  }).filter((l) => l.href);
+  if (links.length < 2) links = [];
+}
+const css = `.lang-sw ul{display:flex;flex-wrap:wrap;gap:.25rem;list-style:none;margin:0;padding:0}.lang-sw a{display:inline-block;color:inherit;font:600 .82rem/1.2 var(--font-body);text-decoration:none;padding:.4rem .5rem;border-radius:4px;opacity:.78}.lang-sw a:hover{opacity:1;text-decoration:underline}.lang-sw a[aria-current]{opacity:1;text-decoration:underline;text-underline-offset:3px}.lang-sw a:focus-visible{outline:2px solid currentColor;outline-offset:1px}@media(max-width:760px){.lang-sw.gd-lang,.lang-sw.nx-lang{display:none}}.lang-sw.gd-f-lang{margin-top:1rem}`;
+---
+{links.length > 0 && (
+  <nav class={`lang-sw ${cls}`.trim()} aria-label={t("language")}>
+    {withCss && <style is:inline set:html={css} />}
+    <ul>
+      {links.map((l) => (
+        <li><a href={l.href} hreflang={l.hreflang} lang={l.hreflang} aria-current={l.current ? "true" : undefined}>{l.label}</a></li>
+      ))}
+    </ul>
+  </nav>
+)}

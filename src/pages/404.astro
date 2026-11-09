@@ -1,18 +1,20 @@
 ---
 import Base from "../layouts/Base.astro";
-import { bundle, ofType } from "../lib/content";
+import { menu, ofType, setLang, t } from "../lib/content";
+import { th } from "../lib/i18n";
+setLang("");   // one 404 page for the whole site, in its main language
 const svc = ofType("service").slice(0, 6);
-const top = (bundle.menus?.header || []).slice(0, 6);
+const top = menu("header").slice(0, 6);
 void top;
 ---
-<Base title="Page not found" path="/404/" noindex>
+<Base title={t("nf_title")} path="/404/" noindex>
   <section class="section">
     <div class="wrap narrow">
       <p class="eyebrow">404</p>
-      <h1>We couldn't find that page.</h1>
-      <p class="lede">It may have moved. Try the home page, or one of these:</p>
+      <h1><Fragment set:html={th("nf_heading")} /></h1>
+      <p class="lede">{t("nf_text")}</p>
       <ul class="links">
-        <li><a href="/">Home</a></li>
+        <li><a href="/">{t("home")}</a></li>
         {svc.map((s) => <li><a href={s.path}>{s.title}</a></li>)}
       </ul>
     </div>

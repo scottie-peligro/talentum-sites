@@ -1,6 +1,8 @@
 // The site's content (src/data/bundle.json, from Talentum) and the helpers every template uses.
 import raw from "../data/bundle.json";
 import sanitizeHtml from "sanitize-html";
+import { currentLang, setLang, t } from "./i18n";
+export { currentLang, setLang, t };
 
 export type Link = { label?: string; href?: string; style?: string; new_tab?: boolean };
 export type Block = { id: string; type: string; hidden?: boolean; data: Record<string, any> };
@@ -9,6 +11,8 @@ export type Entry = {
   blocks: Block[]; excerpt: string; featured_image: string; authors: string[]; categories: string[]; tags: string[];
   service_line: string; account: string; fields: Record<string, any>; seo: Record<string, any>; parent: string; sort_order: number;
   published_at: string; updated: string;
+  /** Translations only (Talentum → Translate a site): the language and the original entry's id. */
+  lang?: string; translation_of?: string;
 };
 export type Media = { id: string; url: string; file: string; raster: boolean; name: string; alt: string; caption: string; credit: string; focal: { x: number; y: number } | null; width: number; height: number; mime: string };
 export type Person = { id: string; name: string; job_title: string; photo: string; photo_file?: string; linkedin: string };
@@ -32,12 +36,71 @@ export const bundle = raw as unknown as Bundle;
 export const site = bundle.site;
 export const settings = site.settings || {};
 export const isStaging = site.environment !== "live";
-export const entries = bundle.entries;
+/** Every page in the bundle, translations included (what gets built). */
+export const allEntries = bundle.entries;
 
-const byId = new Map(entries.map((e) => [e.id, e]));
+// ---------------------------------------------------------------------------------------------------------------
+// Languages (Talentum → Website → Settings → Languages). A translation is its own entry (lang + translation_of) at
+// "/<prefix>/…". While a page in another language renders, setLang(code) makes links, lists, menus, global sections
+// and the built-in wording (lib/i18n.ts) use that language, falling back to the original where nothing is translated.
+// A site without translations renders exactly as before.
+// ---------------------------------------------------------------------------------------------------------------
+export type Lang = { code: string; label: string; prefix: string };
+const langCfg = (settings.languages || {}) as { default?: string; default_label?: string; extra?: Lang[]; switcher?: boolean };
+export const defaultLang: string = langCfg.default || "en";
+export const defaultLangLabel: string = langCfg.default_label || "English";
+export const extraLangs: Lang[] = Array.isArray(langCfg.extra) ? langCfg.extra.filter((l) => l && l.code && l.prefix) : [];
+/** True when the site has at least one published translation. */
+export const translated = extraLangs.length > 0 && allEntries.some((e) => e.translation_of && e.lang);
+export const switcherOn = translated && langCfg.switcher !== false;
+/** The site's pages in its main language (translations are reached through inLang). */
+export const entries = translated ? allEntries.filter((e) => !e.translation_of) : allEntries;
+const trans = new Map<string, Record<string, Entry>>();
+if (translated) for (const e of allEntries) if (e.translation_of && e.lang) trans.set(e.translation_of, { ...(trans.get(e.translation_of) || {}), [e.lang]: e });
+const byPath = new Map(entries.map((e) => [e.path, e]));
+// The header button and footer wording in the current language (settings.languages.ui[<code>].header_cta / footer_text /
+// footer_button), read wherever settings.header_cta / settings.footer are. Only on translated sites.
+if (translated) {
+  const base = { header_cta: settings.header_cta, footer: settings.footer };
+  const own = (k: string): string => { const c = currentLang(); const v = c ? (langCfg as any).ui?.[c]?.[k] : ""; return typeof v === "string" ? v.trim() : ""; };
+  Object.defineProperty(settings, "header_cta", { configurable: true, enumerable: true, get: () => (own("header_cta") ? { ...(base.header_cta || {}), label: own("header_cta") } : base.header_cta) });
+  Object.defineProperty(settings, "footer", { configurable: true, enumerable: true, get: () => ({ ...(base.footer || {}), ...(own("footer_text") ? { text: own("footer_text") } : {}), ...(own("footer_button") ? { button_label: own("footer_button") } : {}) }) });
+}
+
+const byId = new Map(allEntries.map((e) => [e.id, e]));
 export const entryById = (id?: string) => (id ? byId.get(id) : undefined);
-export const ofType = (t: Entry["type"]) => entries.filter((e) => e.type === t).sort((a, b) => (a.sort_order - b.sort_order) || a.title.localeCompare(b.title));
-export const posts = () => entries.filter((e) => e.type === "post").sort((a, b) => (b.published_at || "").localeCompare(a.published_at || ""));
+/** The version of an entry in `code` (default: the current page's language), else the original. */
+export function inLang(e: Entry, code = currentLang()): Entry {
+  if (!translated) return e;
+  const orig = e.translation_of ? byId.get(e.translation_of) || e : e;
+  return (code && trans.get(orig.id)?.[code]) || orig;
+}
+/** An entry picked by id (in a block), in the current page's language when it's translated. */
+export const pickEntry = (id?: string) => { const e = entryById(id); return e ? inLang(e) : undefined; };
+const loc = (list: Entry[]) => (currentLang() ? list.map((e) => inLang(e)) : list);
+/** Every language version of an entry: [{ code, hreflang, label, path, current }], main language first ([] on a one-language site). */
+export function versionsOf(e: Entry) {
+  if (!translated) return [];
+  const orig = e.translation_of ? byId.get(e.translation_of) : e;
+  if (!orig) return [];
+  const t = trans.get(orig.id) || {};
+  return [{ code: "", hreflang: defaultLang, label: defaultLangLabel, path: orig.path, current: !e.translation_of },
+    ...extraLangs.filter((l) => t[l.code]).map((l) => ({ code: l.code, hreflang: l.code, label: l.label, path: t[l.code].path, current: e.lang === l.code }))];
+}
+/** A site address in the current language: "/contact/" → "/es/contacto/" when that page is translated. */
+export function localPath(h: string): string {
+  if (!currentLang() || !h.startsWith("/")) return h;
+  const m = h.match(/^([^?#]*)(.*)$/)!;
+  const e = byPath.get(m[1]);
+  return e ? inLang(e).path + m[2] : h;
+}
+/** A menu in the current language ("header:es"), else the main one. */
+export const menu = (key: string): MenuItem[] => (currentLang() && bundle.menus?.[key + ":" + currentLang()]) || bundle.menus?.[key] || [];
+/** A global section in the current language ("cta:es"), else the main one. */
+export const section = (key?: string): Block[] | undefined => (key ? (currentLang() && bundle.sections?.[key + ":" + currentLang()]) || bundle.sections?.[key] : undefined);
+
+export const ofType = (t: Entry["type"]) => loc(entries.filter((e) => e.type === t).sort((a, b) => (a.sort_order - b.sort_order) || a.title.localeCompare(b.title)));
+export const posts = () => loc(entries.filter((e) => e.type === "post").sort((a, b) => (b.published_at || "").localeCompare(a.published_at || "")));
 export const media = (id?: string) => (id ? bundle.media[id] : undefined);
 export const person = (id?: string) => (id ? bundle.users?.[id] : undefined);
 export const bookingLink = (id?: string) => (id ? bundle.booking_links?.find((l) => l.id === id) : undefined);
@@ -58,8 +121,8 @@ export const contentType = (type?: string) => (type && type.startsWith("x_") ? c
 export function entriesOf(type: string) {
   const ct = contentType(type);
   const dateKey = ct?.fields.find((f) => f.type === "date")?.key;
-  return entries.filter((e) => e.type === type).sort((a, b) => dateKey ? String(a.fields?.[dateKey] || "9999").localeCompare(String(b.fields?.[dateKey] || "9999"))
-    : (a.sort_order - b.sort_order) || a.title.localeCompare(b.title));
+  return loc(entries.filter((e) => e.type === type).sort((a, b) => dateKey ? String(a.fields?.[dateKey] || "9999").localeCompare(String(b.fields?.[dateKey] || "9999"))
+    : (a.sort_order - b.sort_order) || a.title.localeCompare(b.title)));
 }
 export const lineName = (id?: string) => bundle.service_lines.find((l) => l.id === id)?.name || "";
 export const accountName = (id?: string) => (id ? bundle.accounts?.[id]?.name || "" : "");
@@ -69,8 +132,8 @@ export const routes = { service: "service", case_study: "case-studies", post: "i
 /** "entry:<id>" → that entry's path; "#x", "/x", "https://…", "mailto:" and "tel:" pass through. */
 export function href(h?: string): string {
   if (!h) return "#";
-  if (h.startsWith("entry:")) return entryById(h.slice(6))?.path || "#";
-  return safeHref(h);
+  if (h.startsWith("entry:")) { const e = entryById(h.slice(6)); return e ? inLang(e).path : "#"; }
+  return currentLang() ? localPath(safeHref(h)) : safeHref(h);
 }
 /** Only web, mail, phone, page and in-page links reach the HTML: "javascript:", "data:" and the like become "#". */
 export function safeHref(h: string): string {
@@ -81,7 +144,7 @@ export function safeHref(h: string): string {
   if (/^[a-z][a-z0-9+.-]*:/i.test(v)) return "#";
   return v;   // a relative address such as "contact/"
 }
-export const menuHref = (m: MenuItem) => (m.entry ? entryById(m.entry)?.path || "#" : safeHref(m.url || "#"));
+export const menuHref = (m: MenuItem) => (m.entry ? (entryById(m.entry) ? inLang(entryById(m.entry)!).path : "#") : currentLang() ? localPath(safeHref(m.url || "#")) : safeHref(m.url || "#"));
 export const isExternal = (h: string) => /^https?:\/\//i.test(h) && !(site.live_url && h.startsWith(site.live_url));
 
 export function absolute(path: string) {
@@ -124,27 +187,27 @@ export const caseStudies = (line?: string) => ofType("case_study").filter((c) =>
 export function formatDate(iso?: string) {
   if (!iso) return "";
   const d = new Date(iso);
-  return isNaN(+d) ? "" : d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
+  return isNaN(+d) ? "" : d.toLocaleDateString(currentLang() || "en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
 }
 
 /** Breadcrumb trail for an entry: Home › (parent pages | section index) › entry. */
 export function crumbs(e: Entry): { name: string; path: string }[] {
-  const out: { name: string; path: string }[] = [{ name: "Home", path: "/" }];
-  if (e.path === "/") return out;
+  const out: { name: string; path: string }[] = [{ name: currentLang() ? t("home") : "Home", path: currentLang() ? localPath("/") : "/" }];
+  if (e.path === "/" || e.path === out[0].path) return out;
   if (e.type === "page") {
     const chain: Entry[] = [];
     let p = entryById(e.parent);
-    while (p && chain.length < 5) { chain.unshift(p); p = entryById(p.parent); }
+    while (p && chain.length < 5) { chain.unshift(inLang(p)); p = entryById(p.parent); }
     chain.forEach((x) => out.push({ name: x.title, path: x.path }));
   } else if (e.type.startsWith("x_")) {
     const ct = contentType(e.type);
     const index = ct && entries.find((x) => x.path === "/" + ct.route + "/");
-    if (index) out.push({ name: index.title, path: index.path });
+    if (index) out.push({ name: inLang(index).title, path: inLang(index).path });
     else if (ct?.archive) out.push({ name: ct.archive_title || ct.plural, path: "/" + ct.route + "/" });
   } else if (e.type !== "legal") {
     const prefix = "/" + String((routes as any)[e.type] || "").replace(/^\/+|\/+$/g, "") + "/";
     const index = entries.find((x) => x.path === prefix);
-    if (index) out.push({ name: index.title, path: index.path });
+    if (index) out.push({ name: inLang(index).title, path: inLang(index).path });
   }
   out.push({ name: e.title, path: e.path });
   return out;

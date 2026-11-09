@@ -33,7 +33,7 @@ import Booking from "../blocks/Booking.astro";
 import BookCard from "../blocks/BookCard.astro";
 import Container from "../blocks/Container.astro";
 import { INTERACTIVE } from "../blocks/interactive/index";
-import { bundle, settings, site, type Block, type Entry } from "../lib/content";
+import { settings, site, section, currentLang, t, type Block, type Entry } from "../lib/content";
 
 // depth = how many global sections deep (section_ref), so a section can't pull itself in forever. lead = this list
 // starts the page (the first block gets `first`: its heading is the H1); a container passes it to its first column.
@@ -58,7 +58,7 @@ shown.forEach((b, i) => {
   if (last && last.deep === deep && deep) last.items.push({ b, i });
   else segs.push({ deep, items: [{ b, i }] });
 });
-const deepLabel = (s: Seg) => s.items[0].b.data?.in_depth_label || (settings.display as any)?.read_more_label || "Read the in-depth answer";
+const deepLabel = (s: Seg) => s.items[0].b.data?.in_depth_label || (currentLang() ? t("in_depth") : (settings.display as any)?.read_more_label || t("in_depth"));
 import { blockWrap } from "../lib/blockStyle";
 const liveView = !!(site as any).live;
 ---
@@ -69,7 +69,7 @@ const liveView = !!(site as any).live;
   </details>
 ) : s.items.map(({ b, i }) => {
   if (b.type === "section_ref") {
-    const inner = depth < 2 ? bundle.sections?.[b.data?.key] : null;
+    const inner = depth < 2 ? section(b.data?.key) : null;
     return inner ? <Astro.self blocks={inner} entry={entry} depth={depth + 1} /> : null;
   }
   const Comp = C[b.type];

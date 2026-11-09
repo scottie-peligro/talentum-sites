@@ -4,12 +4,13 @@
 import Base from "../layouts/Base.astro";
 import Img from "../components/Img.astro";
 import CustomFields from "../components/CustomFields.astro";
-import { contentTypes, entries, entriesOf, type ContentType } from "../lib/content";
+import { contentTypes, entries, entriesOf, setLang, type ContentType } from "../lib/content";
 
 export function getStaticPaths() {
   return contentTypes.filter((t) => t.archive && t.route && !entries.some((e) => e.path === "/" + t.route + "/")).map((t) => ({ params: { ct: t.route }, props: { ct: t } }));
 }
 const { ct } = Astro.props as { ct: ContentType };
+setLang("");   // listing pages are in the site's main language
 const list = entriesOf("x_" + ct.key);
 const title = ct.archive_title || ct.plural;
 ---
