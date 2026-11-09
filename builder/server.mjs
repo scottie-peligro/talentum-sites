@@ -21,7 +21,7 @@
 import http from "node:http";
 import net from "node:net";
 import { spawn } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync, readdirSync, statSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync, readdirSync, statSync, renameSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
@@ -194,12 +194,34 @@ function waitFor(url, ms) {
   });
 }
 
+/** Copy a source tree into the running Live view: only files whose content changed, each written to a temporary
+ * file and renamed into place, so astro dev never reloads untouched components or reads a half-written one (a reload
+ * of every component mid-request is what left "Blocks" undefined). Returns how many files changed. */
+function syncTree(from, to) {
+  let changed = 0;
+  for (const name of readdirSync(from)) {
+    const a = join(from, name), b = join(to, name);
+    if (statSync(a).isDirectory()) { mkdirSync(b, { recursive: true }); changed += syncTree(a, b); continue; }
+    const data = readFileSync(a);
+    if (existsSync(b) && readFileSync(b).equals(data)) continue;
+    const tmp = b + ".tmp-" + process.pid;
+    writeFileSync(tmp, data);
+    renameSync(tmp, b);
+    changed++;
+  }
+  return changed;
+}
+
 async function liveUpdate(key, bundle) {
   if (live && live.key !== key) { try { live.proc.kill(); } catch {} live = null; }
   const dir = live ? live.dir : liveWorkspace(key);
   // Already running: bring the renderer's code up to date too (astro dev hot-reloads it), so theme/block changes
   // show in the Live view without restarting the builder.
-  if (live) for (const d of readdirSync(join(REPO, "src"))) if (d !== "media" && d !== "data") cpSync(join(REPO, "src", d), join(dir, "src", d), { recursive: true, force: true });
+  if (live) for (const d of readdirSync(join(REPO, "src"))) if (d !== "media" && d !== "data") {
+    const a = join(REPO, "src", d);
+    if (statSync(a).isDirectory()) { mkdirSync(join(dir, "src", d), { recursive: true }); syncTree(a, join(dir, "src", d)); }
+    else syncTree(join(REPO, "src"), join(dir, "src"));
+  }
   const file = join(dir, ".live-bundle.json");
   writeFileSync(file, JSON.stringify(bundle));
   const env = { ...process.env, BUNDLE_FILE: file, SITE_ENV: "staging", ASTRO_TELEMETRY_DISABLED: "1" };
@@ -238,14 +260,18 @@ async function pump() {
 // The Host header is rewritten to localhost so Vite's allowed-hosts check passes.
 // ---------------------------------------------------------------------------------------------------------------
 const LIVE_HOST = `localhost:${LIVE_PORT}`;
-function proxyLive(req, res) {
+function proxyLive(req, res, retried) {
   if (!live) { res.writeHead(503, { "Content-Type": "text/plain; charset=utf-8", "X-Robots-Tag": "noindex, nofollow" }); return res.end("The Live view isn't running. Open a page in Talentum's editor and switch on Live."); }
+  // A page request that fails right after an update (astro dev still reloading) is tried once more before the error
+  // reaches the editor's Live view.
+  const page = req.method === "GET" && !retried && /text\/html/.test(req.headers.accept || "");
   const up = http.request({ host: "127.0.0.1", port: LIVE_PORT, method: req.method, path: req.url, headers: { ...req.headers, host: LIVE_HOST } }, (r) => {
+    if (page && (r.statusCode || 0) >= 500) { r.resume(); return setTimeout(() => proxyLive(req, res, true), 800); }
     res.writeHead(r.statusCode || 502, { ...r.headers, "x-robots-tag": "noindex, nofollow" });
     r.pipe(res);
   });
   up.on("error", () => { if (!res.headersSent) res.writeHead(502, { "Content-Type": "text/plain" }); res.end("The Live view is starting. Try again in a moment."); });
-  req.pipe(up);
+  if (retried) up.end(); else req.pipe(up);
 }
 
 const server = http.createServer((req, res) => {

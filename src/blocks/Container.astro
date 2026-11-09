@@ -7,10 +7,11 @@
 // (none|s|m|l), col_align (top|center|bottom|stretch), reverse_phone. Columns sit side by side once the container
 // itself is wide enough (container queries), so a container in a narrow column stacks like it would on a phone.
 import Img from "../components/Img.astro";
-import Blocks from "../components/Blocks.astro";
 import { media, type Block, type Entry } from "../lib/content";
 import { assetUrl } from "../lib/images";
-const { block, entry, first = false, depth = 0 } = Astro.props as { block: Block; entry?: Entry; first?: boolean; depth?: number };
+// The block list renderer comes in as a prop (Blocks.astro passes Astro.self) rather than an import: Blocks imports this
+// file, and an import cycle can leave one side undefined while the Live view (astro dev) hot-reloads.
+const { block, entry, first = false, depth = 0, renderer: Blocks } = Astro.props as { block: Block; entry?: Entry; first?: boolean; depth?: number; renderer: any };
 const d = block.data || {};
 const hex = (v: any, fb = "") => (typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v) ? v : fb);
 const num = (v: any, lo: number, hi: number, fb: number) => { const n = Number(v); return Number.isFinite(n) && n >= lo && n <= hi ? n : fb; };

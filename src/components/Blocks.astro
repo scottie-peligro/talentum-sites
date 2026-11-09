@@ -77,8 +77,8 @@ const liveView = !!(site as any).live;
   if (!Comp) return null;
   const w = blockWrap(b.data?.style);
   const first = leads && offset + i === 0;
-  const el = w ? <div class="bs" style={w.style || undefined} {...w.attrs}><Comp block={b} entry={entry} first={first} depth={depth} /></div>
-    : <Comp block={b} entry={entry} first={first} depth={depth} />;
+  const el = w ? <div class="bs" style={w.style || undefined} {...w.attrs}><Comp block={b} entry={entry} first={first} depth={depth} renderer={Astro.self} /></div>
+    : <Comp block={b} entry={entry} first={first} depth={depth} renderer={Astro.self} />;
   // Live view in the editor: tag each of the page's own blocks (those inside its containers too, so a click picks the
   // innermost) so a click can open it in the editor. Blocks from a global section aren't the page's own.
   return liveView && depth === 0 && !grouped ? <div data-live-block={b.id} data-live-type={b.type} style="display:contents">{el}</div> : el;
