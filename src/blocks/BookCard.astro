@@ -69,5 +69,5 @@ window.addEventListener("message", (e) => {
   .bc-cal { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
   .bc-cal :global(iframe) { width: 100%; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
   .bc-open { font-weight: 700; font-size: .95rem; }
-  @media (max-width: 560px) { .bc-person { align-items: flex-start; } .bc-av { width: 56px; height: 56px; } .bc-btn { width: 100%; justify-content: center; } }
+  @container (max-width: 560px) { .bc-person { align-items: flex-start; } .bc-av { width: 56px; height: 56px; } .bc-btn { width: 100%; justify-content: center; } }
 </style>

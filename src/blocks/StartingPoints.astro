@@ -75,7 +75,7 @@ document.querySelectorAll("[data-sp]").forEach((ul) => {
 </script>
 <style>
   .sp-tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem .75rem; }
-  @media (min-width: 720px) { .sp-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem 1.5rem; } }
+  @container (min-width: 720px) { .sp-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem 1.5rem; } }
   .sp-tile { display: block; text-decoration: none; color: var(--heading); font: 700 .95rem/1.35 var(--font-body); }
   .sp-img { display: block; border-radius: var(--radius); overflow: hidden; aspect-ratio: 4 / 3; background: var(--g-tile, var(--paper)); transition: transform .18s cubic-bezier(.22,.61,.36,1), box-shadow .18s cubic-bezier(.22,.61,.36,1); }
   .sp-img :global(img) { width: 100%; height: 100%; object-fit: cover; transition: transform .3s cubic-bezier(.22,.61,.36,1); }

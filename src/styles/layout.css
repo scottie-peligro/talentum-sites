@@ -1,1 +1,22 @@
 /* layout.css: see the comment at the top of each section. Imported by src/layouts/Base.astro after global.css. */
+
+/* ---- Blocks that adapt to their space ----
+   Every block band on a page, and every container column, is a size container. Block layouts use @container
+   queries (measured against the band or column they sit in) instead of the window width, so a block dropped into
+   a narrow column stacks as it would on a phone and one in a wide column lays out like desktop. A band at the top
+   level of a page is as wide as the window, so those look exactly as before. Things that depend on the window
+   itself (header, menus, page shells, "Hide on phones / desktop") keep @media.
+   inline-size containment means these boxes can't take their width from their content; they're all full-width
+   blocks or grid columns, which never do. It doesn't affect position: sticky / fixed. */
+main :is(.section, .hero, .ct, .ct-col) { container-type: inline-size; }
+
+/* ---- Sticky container columns ----
+   How far below the top a sticky column stops: under the header that stays on screen in each layout. */
+:root { --ct-stick: calc(var(--head-h, 72px) + 1rem); }
+html.layout-next { --ct-stick: calc(var(--nx-head, 64px) + 1rem); }
+html.layout-guided { --ct-stick: calc(var(--head-h-m, 64px) + 1rem); }
+/* Guided on large screens: the middle column scrolls on its own, below the header. */
+@media (min-width: 1000px) { html.layout-guided { --ct-stick: 1rem; } }
+
+/* ---- The page's own text colours, kept for a light container that sits inside a dark one ---- */
+:root { --l-text: var(--text); --l-heading: var(--heading); --l-muted: var(--muted); --l-line: var(--line); --l-link: var(--link); --l-link-hover: var(--link-hover); --l-surface: var(--surface); --l-paper: var(--paper); }
