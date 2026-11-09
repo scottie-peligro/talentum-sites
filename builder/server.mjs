@@ -5,6 +5,7 @@
 //                 header X-Builder-Secret. Answers 202 at once; progress and the result go back to
 //                 Talentum: POST {PB_URL}/api/site-builds/{build_id}/report.
 //   GET  /health
+//   anything else → the Live view (`astro dev`), so one public port is enough on a server (LIVE_PUBLIC_URL).
 //   POST /live    { site_key, bundle, path }   header X-Builder-Secret. The Live view in Talentum's page editor:
 //                 writes this content (the unsaved draft already merged in) into a long-running `astro dev` and
 //                 answers { url } — the page at LIVE_PUBLIC_URL, which reloads itself whenever the content changes.
@@ -18,6 +19,7 @@
 // Env: BUILDER_SECRET, PB_URL (http://pocketbase:8090), CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID,
 //      WORK_DIR (/data), PORT (8787), KEEP_BUILDS (5 per site and environment)
 import http from "node:http";
+import net from "node:net";
 import { spawn } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync, readdirSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -229,7 +231,24 @@ async function pump() {
   busy = false;
 }
 
-http.createServer((req, res) => {
+// ---------------------------------------------------------------------------------------------------------------
+// Live view through the builder's own port. On a server (Sevalla) only one port is public, so every request that
+// isn't a builder endpoint goes to the running `astro dev`, including its auto-reload websocket. Set
+// LIVE_PUBLIC_URL to the builder's public address there. Locally LIVE_PUBLIC_URL stays http://localhost:4321.
+// The Host header is rewritten to localhost so Vite's allowed-hosts check passes.
+// ---------------------------------------------------------------------------------------------------------------
+const LIVE_HOST = `localhost:${LIVE_PORT}`;
+function proxyLive(req, res) {
+  if (!live) { res.writeHead(503, { "Content-Type": "text/plain; charset=utf-8", "X-Robots-Tag": "noindex, nofollow" }); return res.end("The Live view isn't running. Open a page in Talentum's editor and switch on Live."); }
+  const up = http.request({ host: "127.0.0.1", port: LIVE_PORT, method: req.method, path: req.url, headers: { ...req.headers, host: LIVE_HOST } }, (r) => {
+    res.writeHead(r.statusCode || 502, { ...r.headers, "x-robots-tag": "noindex, nofollow" });
+    r.pipe(res);
+  });
+  up.on("error", () => { if (!res.headersSent) res.writeHead(502, { "Content-Type": "text/plain" }); res.end("The Live view is starting. Try again in a moment."); });
+  req.pipe(up);
+}
+
+const server = http.createServer((req, res) => {
   const send = (code, body) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(body)); };
   if (req.method === "GET" && req.url === "/health") return send(200, { ok: true, queued: queue.length, busy, cloudflare: !!(process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_ACCOUNT_ID) });
   if (req.method === "POST" && req.url === "/live") {
@@ -247,7 +266,7 @@ http.createServer((req, res) => {
     });
     return;
   }
-  if (req.method !== "POST" || req.url !== "/build") return send(404, { error: "Not found" });
+  if (req.method !== "POST" || req.url !== "/build") return req.method === "POST" ? send(404, { error: "Not found" }) : proxyLive(req, res);
   if (req.headers["x-builder-secret"] !== SECRET) return send(403, { error: "Wrong secret" });
   let raw = "";
   req.on("data", (d) => { raw += d; if (raw.length > 100000) req.destroy(); });
@@ -259,4 +278,18 @@ http.createServer((req, res) => {
     send(202, { queued: queue.length });
     pump();
   });
-}).listen(PORT, () => console.log(`Talentum site builder on :${PORT} → ${PB}`));
+});
+// The Live view's auto-reload connection (Vite's websocket), passed straight through.
+server.on("upgrade", (req, socket, head) => {
+  if (!live) return socket.destroy();
+  const up = net.connect(LIVE_PORT, "127.0.0.1", () => {
+    const lines = [`${req.method} ${req.url} HTTP/${req.httpVersion}`];
+    for (let i = 0; i < req.rawHeaders.length; i += 2) lines.push(`${req.rawHeaders[i]}: ${/^host$/i.test(req.rawHeaders[i]) ? LIVE_HOST : req.rawHeaders[i + 1]}`);
+    up.write(lines.join("\r\n") + "\r\n\r\n");
+    if (head && head.length) up.write(head);
+    up.pipe(socket); socket.pipe(up);
+  });
+  const end = () => { up.destroy(); socket.destroy(); };
+  up.on("error", end); socket.on("error", end);
+});
+server.listen(PORT, () => console.log(`Talentum site builder on :${PORT} → ${PB}`));
