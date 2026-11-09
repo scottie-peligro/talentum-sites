@@ -32,6 +32,7 @@ import FaqLibrary from "../blocks/FaqLibrary.astro";
 import Booking from "../blocks/Booking.astro";
 import BookCard from "../blocks/BookCard.astro";
 import Container from "../blocks/Container.astro";
+import ContentCards from "../blocks/ContentCards.astro";
 import { INTERACTIVE } from "../blocks/interactive/index";
 import { settings, site, section, currentLang, t, type Block, type Entry } from "../lib/content";
 
@@ -44,7 +45,7 @@ const C: Record<string, any> = {
   service_groups: ServiceGroups, service_cards: ServiceCards, logo_strip: LogoStrip, stat_band: StatBand, results: Results,
   case_study_cards: CaseStudyCards, case_study_story: CaseStudyStory, testimonials: Testimonials, team_grid: TeamGrid,
   posts_list: PostsList, faq: Faq, cta: Cta, form: Form, comparison: Comparison, jobs_list: JobsList,
-  map: Misc, html: Misc, spacer: Misc, contact_details: Misc, data: DataBlock, pricing: Pricing, intent_chooser: IntentChooser, starting_points: StartingPoints, icon_steps: IconSteps, faq_library: FaqLibrary, booking: Booking, book_card: BookCard, container: Container,
+  map: Misc, html: Misc, spacer: Misc, contact_details: Misc, data: DataBlock, pricing: Pricing, intent_chooser: IntentChooser, starting_points: StartingPoints, icon_steps: IconSteps, faq_library: FaqLibrary, booking: Booking, book_card: BookCard, container: Container, content_cards: ContentCards,
   ...INTERACTIVE,
 };
 const shown = blocks.filter((b) => b && !b.hidden);

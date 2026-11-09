@@ -1,0 +1,149 @@
+---
+// Content cards (Talentum's "Content cards" block): cards for any content type — Insights posts, Services, Case
+// studies, Jobs, Landing pages or the site's own types (Events, Locations…). Order, filters, layout (cards in 2/3/4
+// columns, a list with the image beside the text, or a compact list of titles), what each card shows, an empty
+// message, and paging: with "Show all" + a number per page, pages 2, 3… are their own addresses (<page>/page/2/),
+// built by [...path].astro. Columns follow the width the block has (container queries), so it works inside containers.
+// `bare` = no section band (the custom-type listing page, [ct].astro, uses it inside its own).
+import Section from "../components/Section.astro";
+import Heading from "../components/Heading.astro";
+import Buttons from "../components/Buttons.astro";
+import Img from "../components/Img.astro";
+import { cardEntries, cardsPage, category, contentType, formatDate, lineName, plain, truncate, absolute, t, type Block, type Entry } from "../lib/content";
+
+const { block, entry, first = false, bare = false } = Astro.props as { block: Block; entry?: Entry; first?: boolean; bare?: boolean };
+const d = block.data || {};
+const ct = contentType(d.content_type);
+const all = cardEntries(d, entry?.id);
+const per = d.all ? Number(d.per_page) || 0 : 0;
+const pages = per && entry ? Math.max(1, Math.ceil(all.length / per)) : 1;
+const page = pages > 1 ? Math.min(cardsPage(block.id), pages) : 1;
+const list = pages > 1 ? all.slice((page - 1) * per, page * per) : all;
+const layout = ["list", "compact"].includes(d.layout) ? d.layout : "grid";
+const cols = ["2", "3", "4"].includes(String(d.columns)) ? Number(d.columns) : 3;
+const showImage = d.show_image !== false && layout !== "compact";
+const showExcerpt = d.show_excerpt !== false && layout !== "compact";
+const showDate = d.show_date !== false;
+const dateKey = ct ? String(d.date_field || ct.fields.find((f) => f.type === "date")?.key || "") : "";
+const dateOf = (e: Entry) => String((ct && dateKey ? e.fields?.[dateKey] : e.published_at) || "");
+const shownFields = ct ? ct.fields.filter((f) => (d.fields || []).includes(f.key) && f.type !== "image" && f.key !== (showDate ? dateKey : "")) : [];
+const fieldText = (type: string, v: any) => (type === "date" ? formatDate(String(v)) : type === "bool" ? (v === true || v === "true" ? "Yes" : "") : type === "link" ? String(v).replace(/^entry:.*/, "").replace(/^https?:\/\//, "").replace(/\/$/, "") : String(v ?? ""));
+const metaOf = (e: Entry) => [
+  d.content_type === "post" ? category(e.categories?.[0])?.name : "",
+  d.content_type === "service" || d.content_type === "case_study" ? lineName(e.service_line) : "",
+  d.content_type === "job" ? e.fields?.location : "",
+].filter(Boolean).join(" · ");
+const anyImage = showImage && list.some((e) => e.featured_image);
+const sizes = layout === "list" ? "(min-width: 760px) 280px, 100vw" : `(min-width: 1200px) ${Math.round(1180 / cols)}px, (min-width: 720px) 50vw, 100vw`;
+const T = d.heading && !first ? "h3" : "h2";
+const pageHref = (n: number) => (entry ? (n <= 1 ? entry.path : `${entry.path}page/${n}/`) : "#");
+// Structured data: the list of pages shown (ItemList), so search engines see the collection.
+const schema = list.length ? JSON.stringify({ "@context": "https://schema.org", "@type": "ItemList", ...(d.heading ? { name: plain(d.heading) } : {}),
+  itemListElement: list.map((e, i) => ({ "@type": "ListItem", position: (page - 1) * (per || 0) + i + 1, url: absolute(e.path), name: e.title })) }).replace(/</g, "\\u003c") : "";
+const Wrap: any = bare ? "div" : Section;
+---
+<Wrap {...(bare ? {} : { bg: d.background, id: d.anchor })}>
+  <div class={bare ? "" : "wrap"}>
+    {!bare && <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} level={first ? 1 : 2} />}
+    {list.length > 0 ? (
+      <div class="cc-box">
+        <ul class={`cc cc-${layout} cc-c${cols}`} role="list">
+          {list.map((e) => {
+            const date = showDate ? dateOf(e) : "";
+            const meta = metaOf(e);
+            const rows = shownFields.map((f) => ({ f, v: fieldText(f.type, e.fields?.[f.key]) })).filter((x) => x.v);
+            return (
+              <li class={`cc-item${layout === "compact" ? "" : " card"}`}>
+                {anyImage && (e.featured_image
+                  ? <div class="cc-img"><Img id={e.featured_image} cover aspect="16/10" sizes={sizes} widths={[360, 560, 720]} /></div>
+                  : <div class="cc-img cc-ph" aria-hidden="true" />)}
+                <div class="cc-body">
+                  {(date || meta) && <p class="cc-meta">{meta}{meta && date ? " · " : ""}{date && <time datetime={date.slice(0, 10)}>{formatDate(date)}</time>}</p>}
+                  <T class="cc-t"><a href={e.path}>{e.title}</a></T>
+                  {showExcerpt && e.excerpt && <p class="cc-x">{truncate(plain(e.excerpt), 170)}</p>}
+                  {rows.length > 0 && (
+                    <dl class="cc-f">{rows.map(({ f, v }) => <div><dt>{f.label}</dt><dd>{v}</dd></div>)}</dl>
+                  )}
+                  {d.read_more && layout !== "compact" && <span class="cc-more" aria-hidden="true">{d.read_more} →</span>}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    ) : <p class="cc-empty">{d.empty || t("nothing_here")}</p>}
+    {pages > 1 && (
+      <nav class="cc-pages" aria-label={`${d.heading ? plain(d.heading) + ": " : ""}pages`}>
+        {page > 1 ? <a href={pageHref(page - 1)} rel="prev">← {t("form_back")}</a> : <span aria-hidden="true" />}
+        <ol role="list">
+          {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
+            <li>{n === page ? <span aria-current="page">{n}</span> : <a href={pageHref(n)} aria-label={`Page ${n}`}>{n}</a>}</li>
+          ))}
+        </ol>
+        {page < pages ? <a href={pageHref(page + 1)} rel="next">{t("form_next")} →</a> : <span aria-hidden="true" />}
+      </nav>
+    )}
+    {!bare && <Buttons buttons={d.buttons} />}
+  </div>
+  {schema && <script type="application/ld+json" set:html={schema} />}
+</Wrap>
+<style>
+  .cc-box { container-type: inline-size; }
+  .cc { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--gap); }
+  .cc-item { position: relative; min-width: 0; }
+  .cc-t { font-size: 1.15rem; line-height: 1.3; margin: 0; }
+  .cc-t a { color: var(--heading); text-decoration: none; }
+  .cc-t a::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+  .cc-t a:focus-visible { outline: none; }
+  .cc-item:has(.cc-t a:focus-visible) { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .cc-item:hover .cc-t a { color: var(--accent-text); }
+  .cc-meta { font-size: .78rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--accent-text); margin: 0 0 .4rem; }
+  .cc-x { font-size: .95rem; color: var(--muted); margin: .5rem 0 0; }
+  .cc-f { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; margin: .75rem 0 0; font-size: .88rem; }
+  .cc-f dt { display: inline; font-weight: 700; color: var(--muted); }
+  .cc-f dt::after { content: ": "; }
+  .cc-f dd { display: inline; margin: 0; color: var(--heading); }
+  .cc-more { display: inline-block; margin-top: .9rem; font-weight: 600; font-size: .88rem; color: var(--accent-text); }
+  .cc-img { overflow: hidden; border-radius: calc(var(--radius) - 2px); background: var(--paper); }
+  .cc-ph { aspect-ratio: 16/10; }
+  :global(.bg-dark) .cc-ph, :global(.bg-brand) .cc-ph { background: var(--line); }
+  .cc-empty { color: var(--muted); }
+
+  /* Cards: 1 column, then 2, then the chosen number as the block gets wider. */
+  .cc-grid .cc-item { display: flex; flex-direction: column; }
+  .cc-grid .cc-img { margin: 0 0 1.1rem; }
+  .cc-grid .cc-body { display: flex; flex-direction: column; flex: 1; }
+  .cc-grid .cc-more { margin-top: auto; padding-top: .9rem; }
+  @container (min-width: 34rem) { .cc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @container (min-width: 52rem) { .cc-grid.cc-c3, .cc-grid.cc-c4 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @container (min-width: 64rem) { .cc-grid.cc-c4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+  /* List: the image beside the text once there's room. */
+  .cc-list { gap: calc(var(--gap) * .75); }
+  .cc-list .cc-img { margin-bottom: 1rem; }
+  @container (min-width: 36rem) {
+    .cc-list .cc-item { display: grid; grid-template-columns: minmax(10rem, 17.5rem) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+    .cc-list .cc-item:not(:has(.cc-img)) { grid-template-columns: minmax(0, 1fr); }
+    .cc-list .cc-img { margin: 0; }
+  }
+
+  /* Compact: titles (and the date) in a ruled list. */
+  .cc-compact { gap: 0; border-top: 1px solid var(--line); }
+  .cc-compact .cc-item { padding: .9rem 0; border-bottom: 1px solid var(--line); }
+  .cc-compact .cc-t { font-size: 1.05rem; }
+  .cc-compact .cc-meta { margin: 0 0 .15rem; }
+  .cc-compact .cc-f { margin-top: .3rem; }
+  @container (min-width: 40rem) {
+    .cc-compact .cc-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 1.5rem; align-items: baseline; }
+    .cc-compact .cc-meta { grid-column: 2; grid-row: 1; margin: 0; text-align: right; }
+    .cc-compact .cc-t { grid-column: 1; grid-row: 1; }
+    .cc-compact .cc-f { grid-column: 1 / -1; }
+  }
+
+  .cc-pages { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 2.5rem; flex-wrap: wrap; }
+  .cc-pages ol { list-style: none; display: flex; flex-wrap: wrap; gap: .35rem; margin: 0; padding: 0; }
+  .cc-pages a, .cc-pages span[aria-current] { display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; padding: 0 .75rem;
+    border: 1px solid var(--line); border-radius: var(--radius); font-weight: 600; text-decoration: none; color: var(--heading); }
+  .cc-pages a:hover { border-color: var(--accent); color: var(--accent-text); }
+  .cc-pages span[aria-current] { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff); }
+</style>

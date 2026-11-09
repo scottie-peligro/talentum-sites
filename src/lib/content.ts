@@ -124,6 +124,52 @@ export function entriesOf(type: string) {
   return loc(entries.filter((e) => e.type === type).sort((a, b) => dateKey ? String(a.fields?.[dateKey] || "9999").localeCompare(String(b.fields?.[dateKey] || "9999"))
     : (a.sort_order - b.sort_order) || a.title.localeCompare(b.title)));
 }
+// Content cards (blocks/ContentCards.astro, Talentum's "Content cards" block): the entries one block lists.
+export const CARD_CAP = 200;
+/** The entries a Content cards block shows (all of them, before paging), in the current language. */
+export function cardEntries(d: Record<string, any>, exclude?: string): Entry[] {
+  const type = String(d.content_type || "post");
+  const ct = contentType(type);
+  const dateKey = ct ? String(d.date_field || ct.fields.find((f) => f.type === "date")?.key || "") : "";
+  const today = new Date().toISOString().slice(0, 10);
+  let list = entries.filter((e) => e.type === type && e.id !== exclude);
+  if (type === "post" && d.category) list = list.filter((e) => (e.categories || []).includes(d.category));
+  if ((type === "service" || type === "case_study") && d.service_line) list = list.filter((e) => e.service_line === d.service_line);
+  if (ct && d.filter_field && d.filter_value) list = list.filter((e) => String(e.fields?.[d.filter_field] ?? "") === String(d.filter_value));
+  if (ct && d.featured_field) list = list.filter((e) => e.fields?.[d.featured_field] === true || e.fields?.[d.featured_field] === "true");
+  const isDate = (d.sort === "date_asc" || d.sort === "date_desc") && !!dateKey;
+  if (isDate && d.upcoming) list = list.filter((e) => String(e.fields?.[dateKey] || "").slice(0, 10) >= today);
+  const pub = (e: Entry) => e.published_at || "";
+  const by: Record<string, (a: Entry, b: Entry) => number> = {
+    newest: (a, b) => pub(b).localeCompare(pub(a)) || a.title.localeCompare(b.title),
+    oldest: (a, b) => pub(a).localeCompare(pub(b)) || a.title.localeCompare(b.title),
+    title: (a, b) => a.title.localeCompare(b.title),
+    manual: (a, b) => (a.sort_order - b.sort_order) || a.title.localeCompare(b.title),
+    date_asc: (a, b) => String(a.fields?.[dateKey] || "9999").localeCompare(String(b.fields?.[dateKey] || "9999")),
+    date_desc: (a, b) => String(b.fields?.[dateKey] || "").localeCompare(String(a.fields?.[dateKey] || "")),
+  };
+  list = list.slice().sort(by[isDate ? d.sort : d.sort === "date_asc" || d.sort === "date_desc" ? "newest" : d.sort] || by.newest);
+  list = list.slice(0, d.all ? CARD_CAP : Math.max(1, Math.min(48, Number(d.limit) || 6)));
+  return loc(list);
+}
+/** How many pages a paged Content cards block needs (1 = no paging). */
+export function cardPages(d: Record<string, any>, exclude?: string): number {
+  const per = d.all ? Number(d.per_page) || 0 : 0;
+  return per > 0 ? Math.max(1, Math.ceil(cardEntries(d, exclude).length / per)) : 1;
+}
+/** The first Content cards block on a page that pages (containers too): it gets the /page/2/… addresses. */
+export function pagedCards(blocks: Block[] = []): Block | undefined {
+  for (const b of blocks) {
+    if (!b || b.hidden) continue;
+    if (b.type === "content_cards" && b.data?.all && Number(b.data?.per_page) > 0) return b;
+    if (b.type === "container") for (const col of b.data?.cols || []) { const x = pagedCards(col?.blocks || []); if (x) return x; }
+  }
+  return undefined;
+}
+// Which page of the paged block is being built (set by [...path].astro before each page renders, like setLang).
+let cardsPageNo = 1, cardsPagedId = "";
+export function setCardsPage(n: number, blockId: string) { cardsPageNo = n; cardsPagedId = blockId; }
+export const cardsPage = (blockId: string) => (blockId && blockId === cardsPagedId ? cardsPageNo : 1);
 export const lineName = (id?: string) => bundle.service_lines.find((l) => l.id === id)?.name || "";
 export const accountName = (id?: string) => (id ? bundle.accounts?.[id]?.name || "" : "");
 export const category = (id: string) => bundle.categories.find((c) => c.id === id);
