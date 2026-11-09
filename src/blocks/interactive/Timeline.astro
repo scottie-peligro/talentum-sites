@@ -1,0 +1,61 @@
+---
+// Timeline: dated moments down a line. One column with the line on the left in narrow spaces; on wide ones the
+// line runs down the middle and the moments alternate sides (date opposite each card). Pure HTML and CSS.
+import Section from "../../components/Section.astro";
+import Heading from "../../components/Heading.astro";
+import Img from "../../components/Img.astro";
+import { media, rich, type Block } from "../../lib/content";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const items = (Array.isArray(d.items) ? d.items : []).filter((x: any) => x && (x.date || x.title || x.html));
+const alt = d.layout !== "left";
+---
+{items.length > 0 && (
+  <Section bg={d.background} id={d.anchor}>
+    <div class="wrap ix-cq">
+      <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
+      <ol class={`ix-tl${alt ? " alt" : ""}`}>
+        {items.map((it: any) => {
+          const img = it.image && media(it.image) ? it.image : "";
+          return (
+            <li>
+              <span class="ix-tl-dot" aria-hidden="true"></span>
+              {it.date && <p class="ix-tl-date">{it.date}</p>}
+              <div class="ix-tl-card">
+                {img && <div class="ix-tl-img"><Img id={img} sizes="(min-width: 1000px) 520px, 100vw" widths={[360, 520, 800, 1040]} /></div>}
+                {it.title && <h3>{it.title}</h3>}
+                {it.html && <div class="prose" set:html={rich(it.html)} />}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  </Section>
+)}
+<style>
+  .ix-tl { --dot: 14px; --rail: 2rem; list-style: none; margin: 2rem 0 0; padding: 0; position: relative; display: grid; gap: clamp(1.5rem, 4cqi, 2.5rem); }
+  .ix-tl::before { content: ""; position: absolute; top: .4rem; bottom: .4rem; left: calc(var(--dot) / 2 - 1px); width: 2px; background: var(--line); }
+  .ix-tl li { position: relative; display: grid; grid-template-columns: var(--rail) minmax(0, 1fr); column-gap: .25rem; }
+  .ix-tl-dot { grid-column: 1; grid-row: 1; width: var(--dot); height: var(--dot); margin-top: .3rem; border-radius: 50%; background: var(--accent); }
+  :global(.bg-brand) .ix-tl-dot { background: var(--on-brand); }
+  .ix-tl-date { grid-column: 2; grid-row: 1; margin: 0 0 .5rem; font: 700 .8rem/1.6 var(--font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--accent-text); }
+  :global(.bg-dark) .ix-tl-date, :global(.bg-brand) .ix-tl-date { color: var(--heading); }
+  .ix-tl-card { grid-column: 2; padding: clamp(1rem, 2.5cqi, 1.5rem); border: 1px solid var(--line); border-radius: var(--radius); background: color-mix(in srgb, var(--heading) 3%, transparent); }
+  .ix-tl-date + .ix-tl-card { grid-row: 2; }
+  .ix-tl-card h3 { font-size: 1.2rem; margin: 0 0 .5rem; }
+  .ix-tl-card :global(.prose) { color: var(--text); }
+  .ix-tl-card :global(.prose > :last-child) { margin-bottom: 0; }
+  .ix-tl-img { margin-bottom: 1rem; }
+  .ix-tl-img :global(img) { width: 100%; border-radius: calc(var(--radius) * .75); }
+  @container (min-width: 760px) {
+    .ix-tl.alt::before { left: calc(50% - 1px); }
+    .ix-tl.alt li { grid-template-columns: minmax(0, 1fr) 3.5rem minmax(0, 1fr); column-gap: 0; }
+    .alt .ix-tl-dot { grid-column: 2; justify-self: center; }
+    .alt .ix-tl-date, .alt .ix-tl-date + .ix-tl-card { grid-row: 1; }
+    .alt li:nth-child(odd) .ix-tl-card { grid-column: 1; }
+    .alt li:nth-child(odd) .ix-tl-date { grid-column: 3; }
+    .alt li:nth-child(even) .ix-tl-card { grid-column: 3; }
+    .alt li:nth-child(even) .ix-tl-date { grid-column: 1; text-align: right; }
+  }
+</style>

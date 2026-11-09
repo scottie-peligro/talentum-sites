@@ -1,0 +1,103 @@
+---
+// Carousel: a horizontal scroll-snap list of slides with previous/next buttons. Without JavaScript it's a plain
+// sideways scroller (the buttons are hidden). No focus trapping: slides are ordinary content in tab order, and
+// focusing a link scrolls its slide into view. Changes made with the buttons are announced politely ("Slide 2 of 5").
+// Autoplay is off by default; when on it has a Pause button, pauses on hover/focus and when the tab is hidden, and
+// never runs for visitors who prefer reduced motion.
+import Section from "../../components/Section.astro";
+import Heading from "../../components/Heading.astro";
+import Img from "../../components/Img.astro";
+import { href as hrefOf, media, type Block } from "../../lib/content";
+import { once, uid } from "./util";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const items = (Array.isArray(d.items) ? d.items : []).filter((x: any) => x && (x.title || x.text || (x.image && media(x.image))));
+const id = uid(Astro.locals, "ixc");
+const per = Math.min(3, Math.max(1, Number(d.per_view) || 1));
+const aspect = ["16/9", "4/3", "1/1", "3/4"].includes(d.aspect) ? d.aspect : "16/9";
+const auto = !!d.autoplay && items.length > 1;
+const secs = Math.min(30, Math.max(3, Number(d.interval) || 6));
+const label = d.heading || "Slides";
+const first = items.length > 0 && once(Astro.locals, "carousel");
+const JS = `var rm=matchMedia("(prefers-reduced-motion: reduce)").matches||document.documentElement.classList.contains("c-rm");
+document.querySelectorAll("[data-ix-car]").forEach(function(root){
+var tr=root.querySelector(".ix-car-track"),sl=[].slice.call(tr.children),n=sl.length,st=root.querySelector(".ix-car-live"),ct=root.querySelector(".ix-car-n"),pl=root.querySelector(".ix-car-play"),timer=0,stopped=false,held=false,said=false,t=0;
+function idx(){var x=tr.scrollLeft,b=0,bd=1e9;for(var i=0;i<n;i++){var dd=Math.abs(sl[i].offsetLeft-x);if(dd<bd){bd=dd;b=i;}}return b;}
+function end(){return tr.scrollLeft+tr.clientWidth>=tr.scrollWidth-4;}
+function go(i){tr.scrollTo({left:sl[i].offsetLeft,behavior:rm?"auto":"smooth"});}
+function nx(){go(end()?0:Math.min(n-1,idx()+1));}function pv(){var i=idx();go(i===0?n-1:i-1);}
+function upd(){var i=idx();ct.textContent=(i+1)+" / "+n;if(said){st.textContent="Slide "+(i+1)+" of "+n;said=false;}}
+tr.addEventListener("scroll",function(){clearTimeout(t);t=setTimeout(upd,120);},{passive:true});
+root.querySelector(".ix-car-prev").addEventListener("click",function(){said=true;pv();});
+root.querySelector(".ix-car-next").addEventListener("click",function(){said=true;nx();});
+if(!pl)return;
+if(rm){pl.hidden=true;return;}
+var secs=+root.dataset.secs||6;
+function run(){clearInterval(timer);timer=0;if(!stopped&&!held&&!document.hidden)timer=setInterval(nx,secs*1000);st.setAttribute("aria-live",timer?"off":"polite");}
+function hold(v){held=v;run();}
+pl.addEventListener("click",function(){stopped=!stopped;pl.setAttribute("aria-label",stopped?"Play slides":"Pause slides");pl.classList.toggle("paused",stopped);run();});
+root.addEventListener("mouseenter",function(){hold(true);});root.addEventListener("mouseleave",function(){hold(false);});
+root.addEventListener("focusin",function(){hold(true);});root.addEventListener("focusout",function(e){if(!root.contains(e.relatedTarget))hold(false);});
+document.addEventListener("visibilitychange",run);run();});`;
+const NOJS = `.ix-car-ctl{display:none!important}`;
+---
+{items.length > 0 && (
+  <Section bg={d.background} id={d.anchor}>
+    <div class="wrap ix-cq">
+      <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
+      <div class="ix-car" data-ix-car data-secs={auto ? secs : undefined} role="region" aria-roledescription="carousel" aria-label={label} style={`--per:${per};--aspect:${aspect}`}>
+        <div class="ix-car-track" id={`${id}-track`} tabindex="0" aria-label={`${label}: scroll sideways for more`}>
+          {items.map((it: any, i: number) => {
+            const img = it.image && media(it.image) ? it.image : "";
+            const link = it.href ? hrefOf(it.href) : "";
+            return (
+              <div class="ix-slide" role="group" aria-roledescription="slide" aria-label={`${i + 1} of ${items.length}`}>
+                {img && <div class="ix-slide-img"><Img id={img} cover aspect={aspect} sizes={per === 1 ? "(min-width: 1200px) 1184px, 90vw" : `(min-width: 1000px) ${Math.round(1184 / per)}px, 85vw`} widths={[360, 640, 960, 1280]} /></div>}
+                {(it.title || it.text || link) && (
+                  <div class="ix-slide-copy">
+                    {it.title && <h3>{it.title}</h3>}
+                    {it.text && <p>{it.text}</p>}
+                    {link && <a class="ix-slide-link" href={link}>{it.link_label || "Read more"}<span class="sr-only">: {it.title}</span></a>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {items.length > 1 && (
+          <div class="ix-car-ctl">
+            <button type="button" class="ix-btn ix-car-prev" aria-controls={`${id}-track`} aria-label="Previous slide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg></button>
+            <span class="ix-car-n" aria-hidden="true">1 / {items.length}</span>
+            <button type="button" class="ix-btn ix-car-next" aria-controls={`${id}-track`} aria-label="Next slide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg></button>
+            {auto && <button type="button" class="ix-btn ix-car-play" aria-label="Pause slides"><svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5v14M15 5v14" /></svg><svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l12 7-12 7z" /></svg></button>}
+            <p class="sr-only ix-car-live" aria-live="polite" aria-atomic="true"></p>
+          </div>
+        )}
+      </div>
+    </div>
+    {first && <Fragment set:html={`<noscript><style>${NOJS}</style></noscript>`} />}
+    {first && <script is:inline type="module" set:html={JS} />}
+  </Section>
+)}
+<style>
+  .ix-car-track {
+    --gap: clamp(.75rem, 2cqi, 1.5rem); --k: 1.15;
+    position: relative; display: flex; gap: var(--gap); overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory;
+    scrollbar-width: thin; padding-bottom: .75rem; border-radius: var(--radius);
+  }
+  .ix-car-track:focus-visible { outline-offset: 4px; }
+  .ix-slide { flex: 0 0 calc((100% - (var(--k) - 1) * var(--gap)) / var(--k)); min-width: 0; scroll-snap-align: start; display: flex; flex-direction: column; gap: .9rem; }
+  .ix-slide-img { border-radius: var(--radius); overflow: hidden; background: var(--paper); aspect-ratio: var(--aspect); }
+  .ix-slide-img :global(picture), .ix-slide-img :global(img) { width: 100%; height: 100%; }
+  .ix-slide-copy h3 { font-size: 1.2rem; margin: 0 0 .35rem; }
+  .ix-slide-copy p { margin: 0 0 .5rem; color: var(--muted); }
+  .ix-slide-link { font-weight: 600; }
+  .ix-car-ctl { display: flex; align-items: center; gap: .6rem; margin-top: 1rem; }
+  .ix-car-n { min-width: 3.5em; text-align: center; font: 600 .9rem var(--font-body); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .ix-car-play { margin-left: auto; }
+  .ix-car-play .i-play, .ix-car-play.paused .i-pause { display: none; }
+  .ix-car-play.paused .i-play { display: block; }
+  @container (min-width: 700px) {
+    .ix-car-track { --k: var(--per); }
+  }
+</style>

@@ -1,0 +1,78 @@
+---
+// Tabs: a row (or side column) of tabs, each with its own text and optional picture. WAI-ARIA tabs pattern:
+// arrow keys move between tabs (selection follows focus), Home/End jump to the first/last. The page ships in the
+// tabbed state (no shift when the script runs); without JavaScript a <noscript> style shows every panel, stacked
+// under its own heading, and hides the tab row.
+import Section from "../../components/Section.astro";
+import Heading from "../../components/Heading.astro";
+import Img from "../../components/Img.astro";
+import { media, rich, type Block } from "../../lib/content";
+import { once, uid } from "./util";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const items = (Array.isArray(d.items) ? d.items : []).filter((x: any) => x && (x.title || x.html || x.image));
+const id = uid(Astro.locals, "ixt");
+const side = d.layout === "side";
+const first = items.length > 0 && once(Astro.locals, "tabs");
+const JS = `document.querySelectorAll("[data-ix-tabs]").forEach(function(root){
+var tabs=[].slice.call(root.querySelector(".ix-tablist").children),n=tabs.length;
+function sel(t,f){tabs.forEach(function(x){var on=x===t;x.setAttribute("aria-selected",on?"true":"false");x.tabIndex=on?0:-1;var p=document.getElementById(x.getAttribute("aria-controls"));if(p)p.hidden=!on;});if(f)t.focus();}
+tabs.forEach(function(t,i){t.addEventListener("click",function(){sel(t);});t.addEventListener("keydown",function(e){var k=e.key,j=-1;
+if(k==="ArrowRight"||k==="ArrowDown")j=(i+1)%n;else if(k==="ArrowLeft"||k==="ArrowUp")j=(i-1+n)%n;else if(k==="Home")j=0;else if(k==="End")j=n-1;
+if(j<0)return;e.preventDefault();sel(tabs[j],true);});});});`;
+const NOJS = `.ix-tablist{display:none!important}.ix-tabs [role=tabpanel][hidden]{display:grid!important}.ix-tabs .ix-ph{display:block!important}.ix-tabs [role=tabpanel]+[role=tabpanel]{margin-top:2.5rem}.ix-tabs{display:block!important}`;
+---
+{items.length > 0 && (
+  <Section bg={d.background} id={d.anchor}>
+    <div class="wrap ix-cq">
+      <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
+      <div class={`ix-tabs${side ? " side" : ""}`} data-ix-tabs>
+        <div class="ix-tablist" role="tablist" aria-label={d.heading || "Tabs"} aria-orientation={side ? "vertical" : undefined}>
+          {items.map((it: any, i: number) => (
+            <button type="button" role="tab" id={`${id}-t${i}`} aria-controls={`${id}-p${i}`} aria-selected={i === 0 ? "true" : "false"} tabindex={i === 0 ? undefined : "-1"}>{it.title || `Tab ${i + 1}`}</button>
+          ))}
+        </div>
+        <div class="ix-panels">
+          {items.map((it: any, i: number) => {
+            const img = it.image && media(it.image) ? it.image : "";
+            return (
+              <div role="tabpanel" id={`${id}-p${i}`} aria-labelledby={`${id}-t${i}`} tabindex="0" hidden={i > 0} class={`ix-panel${img ? " has-img" : ""}`}>
+                <div class="ix-copy">
+                  <h3 class="ix-ph">{it.title || `Tab ${i + 1}`}</h3>
+                  <div class="prose" set:html={rich(it.html)} />
+                </div>
+                {img && <div class="ix-pimg"><Img id={img} sizes="(min-width: 1000px) 560px, 100vw" widths={[360, 560, 800, 1120]} /></div>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+    {first && <Fragment set:html={`<noscript><style>${NOJS}</style></noscript>`} />}
+    {first && <script is:inline type="module" set:html={JS} />}
+  </Section>
+)}
+<style>
+  .ix-tablist { display: flex; gap: .25rem; overflow-x: auto; scrollbar-width: thin; border-bottom: 1px solid var(--line); margin-bottom: 1.75rem; }
+  [role="tab"] {
+    flex: 0 0 auto; min-height: 44px; padding: .65rem 1.1rem; margin-bottom: -1px; border: 0; border-bottom: 3px solid transparent; background: transparent;
+    font: 600 .98rem/1.3 var(--font-body); color: var(--muted); cursor: pointer; text-align: left; border-radius: 0;
+  }
+  [role="tab"]:hover { color: var(--heading); }
+  [role="tab"][aria-selected="true"] { color: var(--heading); border-bottom-color: var(--accent); }
+  [role="tab"]:focus-visible { outline-offset: -3px; }
+  .ix-panel { display: grid; gap: clamp(1.25rem, 3cqi, 2.5rem); align-items: start; }
+  .ix-panel:focus-visible { outline-offset: 6px; }
+  .ix-ph { display: none; font-size: 1.3rem; }
+  .ix-copy :global(.prose) { color: var(--text); }
+  .ix-pimg :global(img) { width: 100%; border-radius: var(--radius); }
+  @container (min-width: 700px) {
+    .ix-panel.has-img { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+  }
+  @container (min-width: 820px) {
+    .ix-tabs.side { display: grid; grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); gap: clamp(1.5rem, 4cqi, 3rem); align-items: start; }
+    .side .ix-tablist { flex-direction: column; overflow: visible; border-bottom: 0; border-left: 1px solid var(--line); margin: 0; }
+    .side [role="tab"] { margin: 0 0 0 -1px; border-bottom: 0; border-left: 3px solid transparent; white-space: normal; }
+    .side [role="tab"][aria-selected="true"] { border-left-color: var(--accent); background: color-mix(in srgb, var(--heading) 5%, transparent); }
+  }
+</style>

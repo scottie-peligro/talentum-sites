@@ -1,1 +1,12 @@
 /* interactive.css: see the comment at the top of each section. Imported by src/layouts/Base.astro after global.css. */
+
+/* Interactive blocks (src/blocks/interactive/*): shared bits only; each block keeps its own scoped styles.
+   .ix-cq: the block's content box is a size container, so its layout follows the space it has (a column, a
+   narrow container or the full page) rather than the viewport. */
+.ix-cq { container-type: inline-size; }
+.ix-btn {
+  display: inline-grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 999px; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--heading) 35%, transparent); background: transparent; color: var(--heading);
+}
+.ix-btn:hover { border-color: var(--heading); }
+.ix-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

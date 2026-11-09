@@ -1,0 +1,49 @@
+---
+// Accordion: titles that open to show more, built on <details>/<summary> (works with no JavaScript, keyboard and
+// screen readers for free). "Only one open at a time" uses the native details `name` group; a few lines of script
+// do the same in browsers that don't support it yet. No FAQ schema: that's the FAQ block's job.
+import Section from "../../components/Section.astro";
+import Heading from "../../components/Heading.astro";
+import { rich, type Block } from "../../lib/content";
+import { once, uid } from "./util";
+const { block } = Astro.props as { block: Block };
+const d = block.data || {};
+const items = (Array.isArray(d.items) ? d.items : []).filter((x: any) => x && (x.title || x.html));
+const id = uid(Astro.locals, "ixa");
+const group = d.single ? id : undefined;
+const first = items.length > 0 && !!d.single && once(Astro.locals, "accordion");
+// Fallback for browsers without exclusive <details name>: close the others in the same group when one opens.
+const JS = `if(!("name" in HTMLDetailsElement.prototype))document.querySelectorAll("[data-ix-acc]").forEach(function(root){
+var ds=[].slice.call(root.querySelectorAll(":scope>details"));ds.forEach(function(x){x.addEventListener("toggle",function(){if(x.open)ds.forEach(function(y){if(y!==x)y.open=false;});});});});`;
+---
+{items.length > 0 && (
+  <Section bg={d.background} id={d.anchor}>
+    <div class="wrap ix-cq">
+      <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
+      <div class="ix-acc" data-ix-acc={group ? "" : undefined}>
+        {items.map((it: any, i: number) => (
+          <details name={group} open={!!d.open_first && i === 0}>
+            <summary><span class="ix-acc-t">{it.title || `Section ${i + 1}`}</span><span class="ix-acc-sign" aria-hidden="true"></span></summary>
+            <div class="prose ix-acc-body" set:html={rich(it.html)} />
+          </details>
+        ))}
+      </div>
+    </div>
+    {first && <script is:inline type="module" set:html={JS} />}
+  </Section>
+)}
+<style>
+  .ix-acc { max-width: 52rem; border-top: 1px solid var(--line); }
+  details { border-bottom: 1px solid var(--line); }
+  summary { list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 1rem; min-height: 44px; padding: 1.1rem 0; cursor: pointer; font: 700 1.08rem/1.4 var(--font-body); color: var(--heading); }
+  summary::-webkit-details-marker { display: none; }
+  summary:hover .ix-acc-t { color: var(--accent-text); }
+  summary:focus-visible { outline-offset: 4px; }
+  .ix-acc-sign { position: relative; width: 14px; height: 14px; flex-shrink: 0; }
+  .ix-acc-sign::before, .ix-acc-sign::after { content: ""; position: absolute; left: 0; right: 0; top: 6px; height: 2px; background: var(--accent-text); }
+  .ix-acc-sign::after { transform: rotate(90deg); transition: transform .2s ease; }
+  details[open] .ix-acc-sign::after { transform: rotate(0deg); }
+  .ix-acc-body { padding-bottom: 1.25rem; color: var(--text); }
+  :global(.bg-dark) summary:hover .ix-acc-t, :global(.bg-brand) summary:hover .ix-acc-t { color: inherit; text-decoration: underline; }
+  :global(.bg-dark) .ix-acc-sign::before, :global(.bg-dark) .ix-acc-sign::after, :global(.bg-brand) .ix-acc-sign::before, :global(.bg-brand) .ix-acc-sign::after { background: currentColor; }
+</style>
