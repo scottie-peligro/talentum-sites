@@ -63,6 +63,7 @@ const active = (h: string) => h !== "/" && h !== "#" && path.startsWith(h);
   summary::-webkit-details-marker { display: none; }
   .nav a, .drop > summary { color: var(--header-text); text-decoration: none; font: 600 .9rem/1.2 var(--font-body); }
   .nav a.on, .drop > summary.on { color: var(--accent-text); }
+  .nav a.cta, .nav a.cta:hover { color: var(--on-accent); }   /* the header button keeps its own text colour, not the menu's */
   .toggle { display: grid; place-items: center; width: 44px; height: 44px; margin-right: -10px; background: none; border: 0; color: inherit; cursor: pointer; }
   .burger, .burger::before, .burger::after { display: block; width: 22px; height: 2px; background: currentColor; border-radius: 2px; position: relative; }
   .burger::before, .burger::after { content: ""; position: absolute; left: 0; }
