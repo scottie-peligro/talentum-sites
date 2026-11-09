@@ -26,7 +26,7 @@ const address = [o.street || o.address, [o.city, o.region].filter(Boolean).join(
         <ul>{(col.children || []).map((it) => <li><a href={menuHref(it)} target={it.new_tab ? "_blank" : undefined} rel={it.new_tab ? "noopener" : undefined}>{it.label}</a></li>)}</ul>
       </nav>
     ))}
-    {(o.phone || o.email || address.length) && (
+    {(o.phone || o.email || address.length > 0) && (
       <div>
         <h2 class="eyebrow">Contact</h2>
         <ul>
