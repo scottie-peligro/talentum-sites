@@ -41,7 +41,7 @@ const pagePath = page > 1 ? `${e.path}page/${page}/` : e.path;
 const blocks = visibleBlocks(e.blocks);
 const has = (t: string) => blocks.some((b) => b.type === t || (b.type === "section_ref" && (section(b.data?.key) || []).some((x) => x.type === t)));
 // These blocks carry the page's main heading themselves when they come first.
-const startsWithHero = ["hero", "intent_chooser", "starting_points", "faq_library", "booking"].includes(blocks[0]?.type);
+const startsWithHero = ["hero", "intent_chooser", "starting_points", "faq_library", "booking", "person_profile"].includes(blocks[0]?.type);
 const video = overviewVideo(e);
 const globalCta = section("cta") ? [{ id: "gcta", type: "section_ref", data: { key: "cta" } } as Block] : [];
 const ctaLink = settings.header_cta?.label ? [{ label: settings.header_cta.label, href: settings.header_cta.url }] : [];

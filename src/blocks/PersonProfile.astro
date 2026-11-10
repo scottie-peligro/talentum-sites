@@ -1,0 +1,53 @@
+---
+// Team member profile (Talentum's "Team member profile" block): one person from the website's Team — photo, name,
+// title, location and specialties, bio, email and phone, LinkedIn, and a booking button (their Talentum booking link
+// when they have one). "Person" empty = the person whose profile page this is (Website → Team links each person to
+// their page), so one page template serves every profile and each page stays in sync with the Team.
+import Section from "../components/Section.astro";
+import Img from "../components/Img.astro";
+import Email from "../components/Email.astro";
+import { bundle, person, href, rich, type Block, type Entry, type Person } from "../lib/content";
+const { block, entry, first = false } = Astro.props as { block: Block; entry?: Entry; first?: boolean };
+const d = block.data || {};
+const pageId = entry ? (entry.translation_of || entry.id) : "";
+const picked = Array.isArray(d.person) ? d.person[0] : d.person;
+const p: Person | undefined = picked ? person(picked) : Object.values(bundle.users || {}).find((u) => u && u.page && u.page === pageId);
+const H = first ? "h1" : "h2";
+const firstName = p ? p.name.split(" ")[0] : "";
+const bookLabel = String(d.booking_label || "").trim().replace(/\{first_name\}/g, firstName) || `Book a time with ${firstName}`;
+---
+{p && (
+  <Section bg={d.background} id={d.anchor}>
+    <div class="wrap pp">
+      <div class="pp-photo">
+        {p.photo_file ? <Img file={p.photo_file} alt={p.name} cover aspect="4/5" sizes="(min-width: 900px) 360px, 100vw" widths={[360, 720]} priority={first} />
+          : <div class="pp-empty" aria-hidden="true">{p.name.split(" ").map((x) => x[0]).slice(0, 2).join("")}</div>}
+      </div>
+      <div class="pp-body">
+        <H class="pp-name">{p.name}</H>
+        {p.job_title && <p class="pp-title">{p.job_title}</p>}
+        {(p.location || p.specialties) && <p class="pp-meta">{[p.location, p.specialties].filter(Boolean).join(" · ")}</p>}
+        {p.bio && <div class="prose pp-bio" set:html={rich(p.bio)} />}
+        <ul class="pp-links" role="list">
+          {d.show_contact !== false && p.email && <li><Email email={p.email} /></li>}
+          {d.show_contact !== false && p.phone && <li><a href={`tel:${p.phone.replace(/[^\d+]/g, "")}`}>{p.phone}</a></li>}
+          {p.linkedin && <li><a href={p.linkedin} rel="noopener me" target="_blank">LinkedIn</a></li>}
+        </ul>
+        {d.show_booking !== false && p.booking_url && <p><a class="btn btn-primary" href={href(p.booking_url)}>{bookLabel}</a></p>}
+      </div>
+    </div>
+    <script type="application/ld+json" set:html={JSON.stringify({ "@context": "https://schema.org", "@type": "Person", name: p.name, ...(p.job_title ? { jobTitle: p.job_title } : {}),
+      ...(p.linkedin ? { sameAs: [p.linkedin] } : {}), ...(bundle.site?.settings?.org?.name ? { worksFor: { "@type": "Organization", name: bundle.site.settings.org.name } } : {}) }).replace(/</g, "\\u003c")} />
+  </Section>
+)}
+<style>
+  .pp { display: grid; gap: clamp(1.5rem, 4vw, 3rem); align-items: start; }
+  @media (min-width: 760px) { .pp { grid-template-columns: minmax(14rem, 22rem) minmax(0, 1fr); } }
+  .pp-photo :global(img) { border-radius: var(--radius); width: 100%; height: auto; }
+  .pp-empty { aspect-ratio: 4/5; border-radius: var(--radius); background: var(--paper); display: grid; place-items: center; font: 600 3rem var(--font-heading); color: var(--muted); }
+  .pp-name { margin: 0; }
+  .pp-title { font-size: 1.15rem; color: var(--accent-text); font-weight: 600; margin: .35rem 0 0; }
+  .pp-meta { color: var(--muted); margin: .5rem 0 0; }
+  .pp-bio { margin-top: 1.25rem; }
+  .pp-links { list-style: none; padding: 0; margin: 1.25rem 0; display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; font-weight: 600; }
+</style>

@@ -21,6 +21,7 @@ const entries = [
   e("home", "page", "Home", "/"),
   e("pp", "page", "Portfolio", "/portfolio/", { blocks: [{ id: "h", type: "hero", data: { heading: "Our work" } }] }),
   e("p1", "x_portfolio", "Alpha project", "/portfolio/alpha/", { categories: ["c1"], fields: { client: "Acme" } }),
+  e("tp", "x_portfolio", "Jordan Lee", "/portfolio/jordan/", { blocks: [{ id: "pp1", type: "person_profile", data: { show_contact: true, show_booking: true } }] }),
   e("p2", "x_portfolio", "Beta project", "/portfolio/beta/", { categories: ["c2"], fields: { client: "Bolt" } }),
   e("p3", "x_portfolio", "Gamma project", "/portfolio/gamma/", { categories: ["c1", "c2"] }),
   e("ins", "page", "Insights", "/insights/"),
@@ -31,7 +32,7 @@ const entries = [
 ];
 const bundle = { site: { id: "s", key: "pt", name: "Parent Test", theme: "nlmc", environment: "staging", url: "http://localhost:4321", live_url: "", settings },
   generated_at: "2026-11-09", entries, sections: {}, menus: {}, categories: [{ id: "c1", name: "Branding", slug: "branding", description: "", seo: {} }, { id: "c2", name: "Web", slug: "web", description: "", seo: {} }],
-  proof: [], testimonials: [], faqs: [], team: [], users: {}, service_lines: [], accounts: {}, media: {}, redirects: [], booking_links: [], forms: {}, data: {} };
+  proof: [], testimonials: [], faqs: [], team: [], users: { sp1: { id: "sp1", name: "Jordan Lee", job_title: "Senior Recruiter", photo: "", linkedin: "", email: "jordan@x.test", phone: "555-0100", bio: "<p>Places service managers.</p>", booking_url: "https://book.example/jordan", page: "tp", site_person: true } }, service_lines: [], accounts: {}, media: {}, redirects: [], booking_links: [], forms: {}, data: {} };
 const ws = join(root, ".work", "test-parents");
 rmSync(ws, { recursive: true, force: true }); mkdirSync(ws, { recursive: true });
 for (const f of ["astro.config.mjs", "package.json", "tsconfig.json"]) cpSync(join(root, f), join(ws, f));
@@ -61,5 +62,7 @@ const a = read("/portfolio/alpha/");
 check(a.includes('href="/portfolio/"') && a.includes("Acme"), "item: breadcrumb to its parent page, its fields");
 const s1 = read("/service/seo/");
 check(s1.includes('href="/services/"'), "service: breadcrumb to its parent page (different address)");
+const jp = read("/portfolio/jordan/");
+check((jp.match(/<h1/g) || []).length === 1 && /<h1[^>]*>Jordan Lee/.test(jp) && jp.includes("Senior Recruiter") && jp.includes("Places service managers") && jp.includes("mailto:jordan@x.test") && jp.includes("Book a time with Jordan") && jp.includes('"@type":"Person"'), "profile block shows the page's own person");
 console.log(failed ? `${failed} failed` : "all passed");
 process.exit(failed ? 1 : 0);

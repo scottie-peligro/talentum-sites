@@ -16,6 +16,7 @@ import CaseStudyCards from "../blocks/CaseStudyCards.astro";
 import CaseStudyStory from "../blocks/CaseStudyStory.astro";
 import Testimonials from "../blocks/Testimonials.astro";
 import TeamGrid from "../blocks/TeamGrid.astro";
+import PersonProfile from "../blocks/PersonProfile.astro";
 import PostsList from "../blocks/PostsList.astro";
 import Faq from "../blocks/Faq.astro";
 import Cta from "../blocks/Cta.astro";
@@ -43,7 +44,7 @@ const leads = lead ?? depth === 0;
 const C: Record<string, any> = {
   hero: Hero, steps: Steps, rich_text: RichText, image: ImageBlock, gallery: Gallery, video: Video, media_text: MediaText,
   service_groups: ServiceGroups, service_cards: ServiceCards, logo_strip: LogoStrip, stat_band: StatBand, results: Results,
-  case_study_cards: CaseStudyCards, case_study_story: CaseStudyStory, testimonials: Testimonials, team_grid: TeamGrid,
+  case_study_cards: CaseStudyCards, case_study_story: CaseStudyStory, testimonials: Testimonials, team_grid: TeamGrid, person_profile: PersonProfile,
   posts_list: PostsList, faq: Faq, cta: Cta, form: Form, comparison: Comparison, jobs_list: JobsList,
   map: Misc, html: Misc, spacer: Misc, contact_details: Misc, data: DataBlock, pricing: Pricing, intent_chooser: IntentChooser, starting_points: StartingPoints, icon_steps: IconSteps, faq_library: FaqLibrary, booking: Booking, book_card: BookCard, container: Container, content_cards: ContentCards,
   ...INTERACTIVE,

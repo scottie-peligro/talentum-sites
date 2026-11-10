@@ -422,6 +422,19 @@
       "sample": {"eyebrow":"Team","heading":"Meet the team","text":"The people you'll work with.","members":["u1"]}
     },
     {
+      "type": "person_profile",
+      "label": "Team member profile",
+      "group": "Lists",
+      "description": "One person from the website's Team: photo, name, title, bio, contact details and booking button. On a team profile page it shows that page's person.",
+      "fields": [
+        {"key":"person","label":"Person","type":"members","hint":"Leave empty on a team profile page: it shows the person the page belongs to (set in Website → Team)."},
+        {"key":"show_contact","label":"Show email and phone","type":"bool"},
+        {"key":"show_booking","label":"Show a booking button","type":"bool"},
+        {"key":"booking_label","label":"Booking button text","type":"text","placeholder":"Book a time with {first_name}"}
+      ],
+      "sample": {"person":["u1"],"show_contact":true,"show_booking":true,"booking_label":""}
+    },
+    {
       "type": "posts_list",
       "label": "Insights list",
       "group": "Lists",
