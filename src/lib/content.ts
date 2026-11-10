@@ -15,7 +15,9 @@ export type Entry = {
   lang?: string; translation_of?: string;
 };
 export type Media = { id: string; url: string; file: string; raster: boolean; name: string; alt: string; caption: string; credit: string; focal: { x: number; y: number } | null; width: number; height: number; mime: string };
-export type Person = { id: string; name: string; job_title: string; photo: string; photo_file?: string; linkedin: string };
+export type Person = { id: string; name: string; job_title: string; photo: string; photo_file?: string; linkedin: string;
+  /** The website's own people (Talentum → Website → Team) carry their details too. */
+  site_person?: boolean; group?: string; email?: string; phone?: string; booking_url?: string; location?: string; specialties?: string; bio?: string; page?: string };
 export type Proof = { id: string; kind: string; title: string; metric: string; value: string; unit: string; change: string; period: string; baseline: string; detail: string; source: string; as_of: string; images: string[]; video_url: string; client: string; case_study: string; service_lines: string[] };
 export type Testimonial = { id: string; quote: string; person: string; role: string; company: string; photo: string; rating: number; service_lines: string[] };
 export type Faq = { id: string; question: string; answer: string; group: string; service_lines: string[] };

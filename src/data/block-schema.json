@@ -409,12 +409,15 @@
       "type": "team_grid",
       "label": "Team",
       "group": "Lists",
-      "description": "People from your Team, with headshots and job titles.",
+      "description": "People from the website's Team, with headshots, job titles and (optionally) their details.",
       "fields": [
         "@eyebrow",
         "@heading",
         "@intro",
-        {"key":"members","label":"People","type":"members","hint":"Leave empty for everyone listed under Settings → Team."}
+        {"key":"members","label":"People","type":"members","hint":"Leave empty for everyone on the website's Team (Website → Team) and Settings → Team."},
+        {"key":"group","label":"Only this group","type":"text","placeholder":"e.g. Leadership","hint":"Used when People is empty: shows only that group from Website → Team."},
+        {"key":"details","label":"Show","type":"select","options":[{"value":"","label":"Photo, name, title and LinkedIn"},{"value":"full","label":"Everything: bio, contact details, booking and profile link"}]},
+        {"key":"columns","label":"Across (wide screens)","type":"select","options":[{"value":"","label":"4"},{"value":"3","label":"3"},{"value":"2","label":"2"}]}
       ],
       "sample": {"eyebrow":"Team","heading":"Meet the team","text":"The people you'll work with.","members":["u1"]}
     },

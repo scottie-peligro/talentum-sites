@@ -1,26 +1,45 @@
 ---
-// Team — people from Talentum's Team (Website → Settings → Team picks who's public and the order).
+// Team — the website's people: its own (Talentum → Website → Team) and any workspace people picked in Settings → Team.
+// "People" picks who and in what order; empty = everyone on the team (optionally one group). "Show: Everything" adds
+// each person's bio, specialties, location, email, phone, a booking button and a link to their profile page.
 import Section from "../components/Section.astro";
 import Heading from "../components/Heading.astro";
 import Img from "../components/Img.astro";
-import { bundle, person, type Block, type Person } from "../lib/content";
+import Email from "../components/Email.astro";
+import { bundle, person, href, entryById, inLang, rich, plain, truncate, type Block, type Person } from "../lib/content";
 const { block } = Astro.props as { block: Block };
 const d = block.data || {};
-const list: Person[] = d.members?.length ? d.members.map((id: string) => person(id)).filter(Boolean) : bundle.team;
+const group = String(d.group || "").trim().toLowerCase();
+const list: Person[] = d.members?.length ? d.members.map((id: string) => person(id)).filter(Boolean)
+  : bundle.team.filter((p) => !group || String(p.group || "").toLowerCase() === group);
+const full = d.details === "full";
+const cols = ["2", "3"].includes(String(d.columns)) ? `cols-${d.columns}` : "cols-4";
+const profile = (p: Person) => { const e = p.page ? entryById(p.page) : undefined; return e ? inLang(e).path : ""; };
 ---
 {list.length > 0 && (
   <Section bg={d.background} id={d.anchor}>
     <div class="wrap">
       <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} />
-      <ul class="grid cols-4">
-        {list.map((p) => (
-          <li>
-            {p.photo_file ? <Img file={p.photo_file} alt={p.name} cover aspect="4/5" class="ph" sizes="(min-width: 1000px) 280px, 50vw" widths={[280, 560]} /> : <div class="ph empty" aria-hidden="true">{p.name.split(" ").map((x) => x[0]).slice(0, 2).join("")}</div>}
-            <h3>{p.name}</h3>
-            {p.job_title && <p class="muted">{p.job_title}</p>}
-            {p.linkedin && <a href={p.linkedin} rel="noopener" target="_blank" aria-label={`${p.name} on LinkedIn`}>LinkedIn</a>}
-          </li>
-        ))}
+      <ul class={`grid ${cols}`}>
+        {list.map((p) => {
+          const link = profile(p);
+          return (
+            <li class={full ? "tg-full" : ""}>
+              {p.photo_file ? <Img file={p.photo_file} alt={p.name} cover aspect="4/5" class="ph" sizes="(min-width: 1000px) 280px, 50vw" widths={[280, 560]} /> : <div class="ph empty" aria-hidden="true">{p.name.split(" ").map((x) => x[0]).slice(0, 2).join("")}</div>}
+              <h3>{link ? <a href={link} class="tg-name">{p.name}</a> : p.name}</h3>
+              {p.job_title && <p class="muted">{p.job_title}</p>}
+              {full && (p.location || p.specialties) && <p class="tg-meta">{[p.location, p.specialties].filter(Boolean).join(" · ")}</p>}
+              {full && p.bio && <div class="tg-bio" set:html={link ? `<p>${truncate(plain(p.bio), 220)}</p>` : rich(p.bio)} />}
+              <p class="tg-links">
+                {full && p.email && <Email email={p.email} />}
+                {full && p.phone && <a href={`tel:${p.phone.replace(/[^\d+]/g, "")}`}>{p.phone}</a>}
+                {p.linkedin && <a href={p.linkedin} rel="noopener" target="_blank" aria-label={`${p.name} on LinkedIn`}>LinkedIn</a>}
+                {full && link && <a href={link}>View profile →</a>}
+              </p>
+              {full && p.booking_url && <a class="btn btn-secondary tg-book" href={href(p.booking_url)}>Book a time with {p.name.split(" ")[0]}</a>}
+            </li>
+          );
+        })}
       </ul>
     </div>
   </Section>
@@ -30,6 +49,13 @@ const list: Person[] = d.members?.length ? d.members.map((id: string) => person(
   :global(.ph) { border-radius: var(--radius); margin-bottom: 1rem; background: var(--paper); }
   .empty { aspect-ratio: 4/5; display: grid; place-items: center; font: 600 2rem var(--font-heading); color: var(--muted); }
   h3 { font-size: 1.1rem; margin: 0; }
+  .tg-name { color: inherit; text-decoration: none; }
+  .tg-name:hover { text-decoration: underline; }
   p { font-size: .9rem; margin: .25rem 0 .4rem; }
-  a { font-size: .85rem; font-weight: 600; }
+  .tg-meta { color: var(--muted); font-size: .85rem; }
+  .tg-bio { font-size: .9rem; color: var(--text); margin: .5rem 0; }
+  .tg-bio :global(p) { margin: 0 0 .5rem; }
+  .tg-links { display: flex; flex-wrap: wrap; gap: .25rem 1rem; }
+  .tg-links a, .tg-links :global(a) { font-size: .85rem; font-weight: 600; }
+  .tg-book { margin-top: .5rem; font-size: .85rem; }
 </style>
