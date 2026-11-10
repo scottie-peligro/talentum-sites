@@ -6,6 +6,8 @@ ENV ASTRO_TELEMETRY_DISABLED=1 WRANGLER_SEND_METRICS=false NODE_ENV=production M
 COPY package.json package-lock.json ./
 RUN npm ci --include=dev --no-audit --no-fund
 COPY . .
+# Small upload pieces for `wrangler pages deploy` (see scripts/patch-wrangler.mjs).
+RUN node scripts/patch-wrangler.mjs
 RUN mkdir -p /data
 EXPOSE 8787
 CMD ["node", "builder/server.mjs"]

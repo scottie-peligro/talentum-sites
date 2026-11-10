@@ -24,7 +24,7 @@
 //      WORK_DIR (/data), PORT (8787), KEEP_BUILDS (5 per site and environment)
 import http from "node:http";
 import net from "node:net";
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync, readdirSync, statSync, renameSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { createHash } from "node:crypto";
@@ -98,6 +98,8 @@ function prune(key, env) {
 
 // wrangler run directly (not through npx: one less Node process) with a capped heap — `pages deploy` hashes and
 // uploads every file of the site, and with the builder's 1 GB a big site's deploy was OOM-killing the whole builder.
+// Also patched when the builder starts (local Docker mounts the repo over the image's copy).
+try { execFileSync(process.execPath, [join(REPO, "scripts", "patch-wrangler.mjs")], { stdio: "inherit" }); } catch (e) { console.warn("patch-wrangler failed:", e.message); }
 function wrangler(args, opts, log) {
   const env = { ...(opts.env || process.env), MALLOC_ARENA_MAX: "2",
     NODE_OPTIONS: `${(opts.env || process.env).NODE_OPTIONS || ""} --max-old-space-size=${Number(process.env.DEPLOY_HEAP_MB) || 512}`.trim() };
