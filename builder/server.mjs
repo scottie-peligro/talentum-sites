@@ -151,10 +151,21 @@ async function handle(job) {
     }
     log.push(`Content from ${new URL(PB).origin}`);   // the public, Cloudflare-fronted API URL here means every image goes out and back through Cloudflare
     await run("node", ["scripts/fetch-content.mjs"], { cwd: dir, env }, log);
-    // Memory: cap Astro's image queue (scripts/limit-cpus.mjs) and keep glibc from growing an arena per thread —
-    // a 300-image site peaked at ~1.3 GB without these and was OOM-killed on a 1 GB builder (≈0.9 GB with them).
-    const astroEnv = { ...env, MALLOC_ARENA_MAX: env.MALLOC_ARENA_MAX || "2", NODE_OPTIONS: `${env.NODE_OPTIONS || ""} --import ${join(REPO, "scripts", "limit-cpus.mjs")}`.trim() };
-    await run("npx", ["astro", "build"], { cwd: dir, env: astroEnv }, log);
+    // Memory (the Sevalla builder has 1 GB, shared with this server and the Live view): run Astro directly rather than
+    // through npx (one less ~80 MB process); report 1 CPU so it optimises one image at a time and turn sharp's cache
+    // off (scripts/limit-cpus.mjs); stop glibc growing an arena per thread; and cap Node's heap so a site that is
+    // simply too big fails with a message instead of the whole builder being OOM-killed. Images already optimised
+    // are kept in ASTRO_CACHE_DIR, so the next build only does new ones. Autopeople (282 pages, 3,456 image
+    // variants): ~1.3 GB before → ~0.75 GB.
+    const heap = Number(process.env.BUILD_HEAP_MB) || 640;
+    const astroEnv = { ...env, MALLOC_ARENA_MAX: env.MALLOC_ARENA_MAX || "2", BUILD_CPUS: env.BUILD_CPUS || "1",
+      NODE_OPTIONS: `${env.NODE_OPTIONS || ""} --max-old-space-size=${heap} --import ${join(REPO, "scripts", "limit-cpus.mjs")}`.trim() };
+    try {
+      await run("node", [join(dir, "node_modules", "astro", "astro.js"), "build"], { cwd: dir, env: astroEnv }, log);
+    } catch (e) {
+      if (log.slice(-40).some((l) => /heap out of memory|Allocation failed/i.test(l))) throw new Error(`This site needs more memory to build than the builder allows (${heap} MB). Images already optimised are kept, so Rebuild usually gets further.`);
+      throw e;
+    }
     await run("node", ["scripts/postbuild.mjs"], { cwd: dir, env }, log);
     mkdirSync(out, { recursive: true });
     cpSync(join(dir, "dist"), join(out, "dist"), { recursive: true });
