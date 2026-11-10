@@ -16,7 +16,8 @@
 // "Promote to Live" rebuilds from the exact content snapshot the staging build used (saved with that build), for
 // the live domain: same content, but indexable, real analytics, live canonical URLs.
 //
-// Env: BUILDER_SECRET, PB_URL (http://pocketbase:8090), CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID,
+// Env: BUILDER_SECRET, PB_URL (http://pocketbase:8090 locally; on Sevalla the API's internal-connection address, not
+//      its public URL), CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID,
 //      WORK_DIR (/data), PORT (8787), KEEP_BUILDS (5 per site and environment)
 import http from "node:http";
 import net from "node:net";
@@ -39,10 +40,19 @@ if (!SECRET) { console.error("BUILDER_SECRET is not set."); process.exit(1); }
 const queue = [];
 let busy = false;
 
-function report(id, body) {
-  return fetch(`${PB}/api/site-builds/${id}/report`, { method: "POST", headers: { "Content-Type": "application/json", "X-Builder-Secret": SECRET }, body: JSON.stringify(body) })
-    .then((r) => { if (!r.ok) console.warn(`report ${id} → ${r.status}`); })
-    .catch((e) => console.warn(`report ${id} failed: ${e.message}`));
+// Progress reports are fire-and-forget; the final one (success/failed/superseded) is retried, or Talentum would show the
+// build as "building" until its 25-minute cut-off.
+async function report(id, body) {
+  const tries = body.status === "building" ? 1 : 5;
+  for (let i = 1; i <= tries; i++) {
+    try {
+      const r = await fetch(`${PB}/api/site-builds/${id}/report`, { method: "POST", headers: { "Content-Type": "application/json", "X-Builder-Secret": SECRET }, body: JSON.stringify(body), signal: AbortSignal.timeout(30000) });
+      if (r.ok) return;
+      console.warn(`report ${id} → ${r.status}`);
+      if (r.status < 500 && r.status !== 429) return;
+    } catch (e) { console.warn(`report ${id} failed: ${e.message}`); }
+    if (i < tries) await new Promise((res) => setTimeout(res, 2000 * 2 ** (i - 1)));
+  }
 }
 
 function run(cmd, args, opts, log) {
@@ -134,6 +144,7 @@ async function handle(job) {
       env.BUNDLE_FILE = join(WORK, "builds", snap, "bundle.json");
       log.push(`Promoting the content of staging build ${job.from_build}.`);
     }
+    log.push(`Content from ${new URL(PB).origin}`);   // the public, Cloudflare-fronted API URL here means every image goes out and back through Cloudflare
     await run("node", ["scripts/fetch-content.mjs"], { cwd: dir, env }, log);
     await run("npx", ["astro", "build"], { cwd: dir, env }, log);
     await run("node", ["scripts/postbuild.mjs"], { cwd: dir, env }, log);
