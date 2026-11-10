@@ -151,7 +151,10 @@ async function handle(job) {
     }
     log.push(`Content from ${new URL(PB).origin}`);   // the public, Cloudflare-fronted API URL here means every image goes out and back through Cloudflare
     await run("node", ["scripts/fetch-content.mjs"], { cwd: dir, env }, log);
-    await run("npx", ["astro", "build"], { cwd: dir, env }, log);
+    // Memory: cap Astro's image queue (scripts/limit-cpus.mjs) and keep glibc from growing an arena per thread —
+    // a 300-image site peaked at ~1.3 GB without these and was OOM-killed on a 1 GB builder (≈0.9 GB with them).
+    const astroEnv = { ...env, MALLOC_ARENA_MAX: env.MALLOC_ARENA_MAX || "2", NODE_OPTIONS: `${env.NODE_OPTIONS || ""} --import ${join(REPO, "scripts", "limit-cpus.mjs")}`.trim() };
+    await run("npx", ["astro", "build"], { cwd: dir, env: astroEnv }, log);
     await run("node", ["scripts/postbuild.mjs"], { cwd: dir, env }, log);
     mkdirSync(out, { recursive: true });
     cpSync(join(dir, "dist"), join(out, "dist"), { recursive: true });
