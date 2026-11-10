@@ -1019,6 +1019,7 @@
     },
     {
       "type": "content_cards",
+      "extra_keys": {"design":"\"parent\" = use the parent page's Card design (the editor's Card design field, shown when the type has a parent page).","filter_bar":"Category filter bar (editor field shown when the type has categories).","show_category":"Parent page Card design: show categories.","image_ratio":"Parent page Card design: picture shape.","card_style":"Parent page Card design: card / plain / overlay."},
       "label": "Content cards",
       "group": "Lists",
       "description": "Cards for any kind of page — Insights, Services, Case studies, Jobs or your own types like Events. Pick the order, a filter and the layout.",

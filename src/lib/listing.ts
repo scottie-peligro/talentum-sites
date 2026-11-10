@@ -5,7 +5,8 @@ import { allEntries, cardPages, contentTypes, entries, type Block, type ContentT
 
 export const LISTING_PER = 24;
 /** Types with a listing page: "Listing page" on, an address, and no page of the site already at /<route>/. */
-export const listedTypes = () => contentTypes.filter((t) => t.archive && t.route && !entries.some((e) => e.path === "/" + t.route + "/"));
+// Only custom kinds with a one-part address (a parent page usually lives there; this covers it until it's published).
+export const listedTypes = () => contentTypes.filter((t) => (!t.kind || t.kind === "custom") && t.archive && t.route && !t.route.includes("/") && !entries.some((e) => e.path === "/" + t.route + "/"));
 export function listingCards(ct: ContentType): Block {
   const dateKey = ct.fields.find((f) => f.type === "date")?.key || "";
   return { id: "ct-list", type: "content_cards", data: {

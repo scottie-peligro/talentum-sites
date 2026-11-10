@@ -14,7 +14,7 @@ export const GET: APIRoute = () => {
     .map((e) => `<url><loc>${absolute(e.path)}</loc>${e.updated || e.published_at ? `<lastmod>${new Date(e.updated || e.published_at).toISOString()}</lastmod>` : ""}${alt(e)}</url>`);
   void isStaging;
   // Custom content types' listing pages.
-  for (const t of contentTypes) if (t.archive && t.route && !entries.some((e) => e.path === "/" + t.route + "/")) urls.push(`<url><loc>${absolute("/" + t.route + "/")}</loc></url>`);
+  for (const t of contentTypes) if ((!t.kind || t.kind === "custom") && t.archive && t.route && !t.route.includes("/") && !entries.some((e) => e.path === "/" + t.route + "/")) urls.push(`<url><loc>${absolute("/" + t.route + "/")}</loc></url>`);
   const ns = translated ? ` xmlns:xhtml="http://www.w3.org/1999/xhtml"` : "";
   return new Response(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"${ns}>\n${urls.join("\n")}\n</urlset>\n`, { headers: { "Content-Type": "application/xml; charset=utf-8" } });
 };

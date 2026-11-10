@@ -113,10 +113,57 @@ export function resolveBooking(d: { booking_link?: string; booking_url?: string;
   const embed = /^https?:\/\//.test(url) ? url + (url.includes("?") ? "&" : "?") + "embed=1&src=website" : "";
   return { url, embed, who: person(memberId), duration: link?.duration || 0, title: link?.title || "" };
 }
-// Custom content types (Talentum → Website → Content types). Their entries have type "x_<key>".
-export type ContentType = { key: string; label: string; plural: string; route: string; archive: boolean; archive_title: string; archive_intro: string; show_fields: boolean; fields: { key: string; label: string; type: string; options: string[] }[] };
+// Custom content types and parent pages (Talentum → Website: any page can be a "parent page" with items under it).
+// Custom kinds' items have type "x_<key>"; a parent page of a built-in kind (Services, Insights…) keeps that type.
+export type CardDesign = { layout?: string; columns?: string; image_ratio?: string; style?: string; show_image?: boolean; show_excerpt?: boolean; show_date?: boolean;
+  show_category?: boolean; fields?: string[]; read_more?: string; per_page?: number; sort?: string; empty?: string };
+export type ContentType = { key: string; label: string; plural: string; route: string; archive: boolean; archive_title: string; archive_intro: string; show_fields: boolean;
+  fields: { key: string; label: string; type: string; options: string[] }[];
+  kind?: string; page?: string; card?: CardDesign; filter?: { categories?: boolean; bar?: boolean; all_label?: string }; auto_list?: boolean };
 export const contentTypes: ContentType[] = Array.isArray((settings as any).content_types) ? (settings as any).content_types : [];
+/** The type key of a content type's items: "x_<key>", or the built-in type for a built-in kind. */
+export const typeKey = (t: ContentType) => (t.kind && t.kind !== "custom" ? t.kind : "x_" + t.key);
+/** A custom content type (type "x_<key>"). */
 export const contentType = (type?: string) => (type && type.startsWith("x_") ? contentTypes.find((t) => "x_" + t.key === type) : undefined);
+/** The parent page settings for any kind of item (custom or built-in), if it has any. */
+export const parentOf = (type?: string) => (type ? contentTypes.find((t) => typeKey(t) === type) : undefined);
+/** The parent page entry for a kind of item (in the current language), if it's on the site. */
+export function parentPage(type?: string): Entry | undefined {
+  const ct = parentOf(type);
+  const e = ct?.page ? byId.get(ct.page) : undefined;
+  return e && !e.translation_of ? inLang(e) : undefined;
+}
+// The parent page lists its items under its own blocks (its Card design), unless it already lists them itself.
+const OWN_LISTS: Record<string, string[]> = { service: ["service_cards", "service_groups"], case_study: ["case_study_cards"], post: ["posts_list"], job: ["jobs_list"] };
+function listsItself(blocks: Block[] = [], type: string): boolean {
+  for (const b of blocks) {
+    if (!b) continue;
+    if (b.type === "content_cards" && (b.data?.content_type || "post") === type) return true;
+    if ((OWN_LISTS[type] || []).includes(b.type)) return true;
+    if (b.type === "container") for (const c of b.data?.cols || []) if (listsItself(c?.blocks || [], type)) return true;
+  }
+  return false;
+}
+/** The Content cards block a parent page gets for its items. */
+export function parentListBlock(ct: ContentType, heading = ""): Block {
+  const c = ct.card || {};
+  const type = typeKey(ct);
+  const dateKey = ct.fields.find((f) => f.type === "date")?.key || "";
+  const bar = !!ct.filter?.bar;
+  return { id: "pp-list", type: "content_cards", data: {
+    content_type: type, all: true, per_page: bar ? 0 : Number(c.per_page ?? 12) || 0, design: "parent", filter_bar: bar, heading,
+    sort: c.sort || (dateKey ? "date_asc" : type === "post" ? "newest" : "manual"), date_field: dateKey, empty: c.empty || "" } } as Block;
+}
+for (const ct of contentTypes) {
+  if (!ct.page || ct.auto_list === false) continue;
+  const type = typeKey(ct);
+  for (const e of allEntries) {
+    if (e.id !== ct.page && e.translation_of !== ct.page) continue;
+    if (listsItself(e.blocks, type)) continue;
+    const shown = (e.blocks || []).filter((b) => b && !b.hidden);
+    e.blocks = [...(e.blocks || []), parentListBlock(ct, shown.length ? "" : e.title)];
+  }
+}
 /** A type's entries, soonest date first when it has a date field, otherwise by order then title. */
 export function entriesOf(type: string) {
   const ct = contentType(type);
@@ -132,11 +179,11 @@ export const PAGED_CAP = 2400;
 /** The entries a Content cards block shows (all of them, before paging), in the current language. */
 export function cardEntries(d: Record<string, any>, exclude?: string): Entry[] {
   const type = String(d.content_type || "post");
-  const ct = contentType(type);
+  const ct = parentOf(type);
   const dateKey = ct ? String(d.date_field || ct.fields.find((f) => f.type === "date")?.key || "") : "";
   const today = new Date().toISOString().slice(0, 10);
   let list = entries.filter((e) => e.type === type && e.id !== exclude);
-  if (type === "post" && d.category) list = list.filter((e) => (e.categories || []).includes(d.category));
+  if (d.category) list = list.filter((e) => (e.categories || []).includes(d.category));
   if ((type === "service" || type === "case_study") && d.service_line) list = list.filter((e) => e.service_line === d.service_line);
   if (ct && d.filter_field && d.filter_value) list = list.filter((e) => String(e.fields?.[d.filter_field] ?? "") === String(d.filter_value));
   if (ct && d.featured_field) list = list.filter((e) => e.fields?.[d.featured_field] === true || e.fields?.[d.featured_field] === "true");
@@ -268,6 +315,9 @@ export function crumbs(e: Entry): { name: string; path: string }[] {
     let p = entryById(e.parent);
     while (p && chain.length < 5) { chain.unshift(inLang(p)); p = entryById(p.parent); }
     chain.forEach((x) => out.push({ name: x.title, path: x.path }));
+  } else if (parentPage(e.type)) {
+    const p = parentPage(e.type)!;
+    out.push({ name: p.title, path: p.path });
   } else if (e.type.startsWith("x_")) {
     const ct = contentType(e.type);
     const index = ct && entries.find((x) => x.path === "/" + ct.route + "/");

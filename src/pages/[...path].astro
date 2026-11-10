@@ -8,7 +8,7 @@ import Img from "../components/Img.astro";
 import { getImage } from "astro:assets";
 import {
   entries, bundle, settings, media, person, lineName, accountName, category, formatDate, rich, resolveFaqs, readingMinutes,
-  proofFor, caseStudies, testimonialsFor, faqsFor, absolute, contentType, allEntries, setLang, section, t, pagedCards, cardPages, setCardsPage, type Entry, type Block,
+  proofFor, caseStudies, testimonialsFor, faqsFor, absolute, contentType, parentOf, allEntries, setLang, section, t, pagedCards, cardPages, setCardsPage, type Entry, type Block,
 } from "../lib/content";
 import CustomFields from "../components/CustomFields.astro";
 import { imageFile } from "../lib/images";
@@ -77,6 +77,7 @@ const schemas = [schemaFor(e, schemaImage, [...blocks, ...auto], photos), faqSch
 const authors = (e.authors || []).map((id) => person(id)).filter(Boolean);
 const client = e.fields?.client_name || accountName(e.account);
 const ct = contentType(e.type);
+const pt = parentOf(e.type);   // a parent page's own fields (custom or built-in kinds)
 const csStats = e.type === "case_study" ? bundle.proof.filter((p) => p.case_study === e.id && p.kind === "stat").slice(0, 4) : [];
 ---
 <Base kind={e.type} title={page > 1 ? `${pageTitle(e)} (page ${page})` : pageTitle(e)} description={pageDescription(e)} path={pagePath} image={ogImageId(e)} type={e.type === "post" || e.type === "case_study" ? "article" : "website"}
@@ -147,7 +148,7 @@ const csStats = e.type === "case_study" ? bundle.proof.filter((p) => p.case_stud
         <PageHeader entry={e} eyebrow={e.type === "service" ? lineName(e.service_line) || t("services") : ct ? ct.label : undefined} text={e.excerpt}
           tone={e.type === "legal" ? "paper" : "dark"} buttons={e.type === "service" ? ctaLink : undefined} />
       )}
-      {ct && ct.show_fields && <div class="wrap ct-fields"><CustomFields entry={e} ct={ct} /></div>}
+      {pt && pt.show_fields && pt.fields?.length > 0 && <div class="wrap ct-fields"><CustomFields entry={e} ct={pt} /></div>}
       <Blocks blocks={blocks} entry={e} />
       <Blocks blocks={auto} entry={e} />
     </>

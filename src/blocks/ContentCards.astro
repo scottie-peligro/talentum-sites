@@ -9,20 +9,28 @@ import Section from "../components/Section.astro";
 import Heading from "../components/Heading.astro";
 import Buttons from "../components/Buttons.astro";
 import Img from "../components/Img.astro";
-import { allEntries, cardEntries, cardsPage, pagedCards, category, contentType, formatDate, lineName, plain, truncate, absolute, t, type Block, type Entry } from "../lib/content";
+import { allEntries, cardEntries, cardsPage, pagedCards, category, parentOf, parentPage, formatDate, lineName, plain, truncate, absolute, t, type Block, type Entry } from "../lib/content";
 
 const { block, entry, first = false, bare = false, base = "" } = Astro.props as { block: Block; entry?: Entry; first?: boolean; bare?: boolean; base?: string };
-const d = block.data || {};
-const ct = contentType(d.content_type);
+const raw = block.data || {};
+const ct = parentOf(raw.content_type);
+// Parent pages: a block set to "Parent page's design" (and the list a parent page gets automatically) uses its Card design.
+const pc = raw.design === "parent" && ct?.card ? ct.card : null;
+const d: Record<string, any> = pc ? { ...raw, layout: pc.layout, columns: pc.columns, show_image: pc.show_image, show_excerpt: pc.show_excerpt, show_date: pc.show_date,
+  fields: pc.fields || [], read_more: pc.read_more || raw.read_more || "" } : raw;
+const ratio = ["16/10", "16/9", "4/3", "3/2", "1/1", "3/4"].includes(pc?.image_ratio || d.image_ratio) ? (pc?.image_ratio || d.image_ratio) : "16/10";
+const style = ["plain", "overlay"].includes(pc?.style || d.card_style) ? (pc?.style || d.card_style) : "card";
+const showCat = !!(pc ? pc.show_category : d.show_category);
 const all = cardEntries(d, entry?.id);
-const per = d.all ? Number(d.per_page) || 0 : 0;
+// A filter bar shows every item on one page and filters them in the browser (no JavaScript: everything shows).
+const per = d.all && !d.filter_bar ? Number(d.per_page) || 0 : 0;
 // Only the page's own paged block (pagedCards) has /page/2/… addresses; `base` = a listing page that pages itself ([ct].astro).
 // Any other paged block shows its first page, with "View all" to the type's listing page when there is one.
 const pageBase = base || (entry && pagedCards(entry.blocks)?.id === block.id ? entry.path : "");
 const pages = per && pageBase ? Math.max(1, Math.ceil(all.length / per)) : 1;
 const page = pages > 1 ? Math.min(cardsPage(block.id), pages) : 1;
 const list = pages > 1 ? all.slice((page - 1) * per, page * per) : per ? all.slice(0, per) : all;
-const listing = ct && ct.archive && ct.route ? "/" + ct.route + "/" : "";
+const listing = parentPage(d.content_type)?.path || (ct && ct.archive && ct.route ? "/" + ct.route + "/" : "");
 const viewAll = !pageBase && per && all.length > per && listing && entry?.path !== listing ? listing : "";
 // A number whose address is already another page of the site isn't built for this list: no link to it.
 const takenNo = (n: number) => n > 1 && allEntries.some((x) => x.path === `${pageBase}page/${n}/`);
@@ -38,12 +46,16 @@ const dateKey = ct ? String(d.date_field || ct.fields.find((f) => f.type === "da
 const dateOf = (e: Entry) => String((ct && dateKey ? e.fields?.[dateKey] : e.published_at) || "");
 const shownFields = ct ? ct.fields.filter((f) => (d.fields || []).includes(f.key) && f.type !== "image" && f.key !== (showDate ? dateKey : "")) : [];
 const fieldText = (type: string, v: any) => (type === "date" ? formatDate(String(v)) : type === "bool" ? (v === true || v === "true" ? "Yes" : "") : type === "link" ? String(v).replace(/^entry:.*/, "").replace(/^https?:\/\//, "").replace(/\/$/, "") : String(v ?? ""));
+const catNames = (e: Entry) => (e.categories || []).map((id) => category(id)?.name).filter(Boolean).join(", ");
 const metaOf = (e: Entry) => [
-  d.content_type === "post" ? category(e.categories?.[0])?.name : "",
+  showCat ? catNames(e) : d.content_type === "post" ? category(e.categories?.[0])?.name : "",
   d.content_type === "service" || d.content_type === "case_study" ? lineName(e.service_line) : "",
   d.content_type === "job" ? e.fields?.location : "",
 ].filter(Boolean).join(" · ");
 const anyImage = showImage && list.some((e) => e.featured_image);
+// The filter bar: the categories the listed items have, in the site's category order.
+const barCats = d.filter_bar ? Array.from(new Set(list.flatMap((e) => e.categories || []))).map((id) => category(id)).filter(Boolean) as { id: string; name: string }[] : [];
+const overlay = style === "overlay" && layout === "grid" && anyImage;
 const sizes = layout === "list" ? "(min-width: 760px) 280px, 100vw" : `(min-width: 1200px) ${Math.round(1180 / cols)}px, (min-width: 720px) 50vw, 100vw`;
 const T = d.heading && !first ? "h3" : "h2";
 const pageHref = (n: number) => (pageBase ? (n <= 1 ? pageBase : `${pageBase}page/${n}/`) : "#");
@@ -57,16 +69,22 @@ const Wrap: any = bare ? "div" : Section;
     {!bare && <Heading eyebrow={d.eyebrow} heading={d.heading} text={d.text} level={first ? 1 : 2} />}
     {list.length > 0 ? (
       <div class="cc-box">
-        <ul class={`cc cc-${layout} cc-c${cols}`} role="list">
+        {barCats.length > 1 && (
+          <div class="cc-bar" role="group" aria-label={t("filter")} data-cc-bar hidden>
+            <button type="button" aria-pressed="true" data-cat="">{ct?.filter?.all_label || t("all")}</button>
+            {barCats.map((c) => <button type="button" aria-pressed="false" data-cat={c.id}>{c.name}</button>)}
+          </div>
+        )}
+        <ul class={`cc cc-${layout} cc-c${cols}${overlay ? " cc-overlay" : ""}${style === "plain" ? " cc-plain" : ""}`} role="list">
           {list.map((e) => {
             const date = showDate ? dateOf(e) : "";
             const meta = metaOf(e);
             const rows = shownFields.map((f) => ({ f, v: fieldText(f.type, e.fields?.[f.key]) })).filter((x) => x.v);
             return (
-              <li class={`cc-item${layout === "compact" ? "" : " card"}`}>
+              <li class={`cc-item${layout === "compact" || style === "plain" ? "" : " card"}`} data-cats={(e.categories || []).join(" ")}>
                 {anyImage && (e.featured_image
-                  ? <div class="cc-img"><Img id={e.featured_image} cover aspect="16/10" sizes={sizes} widths={[360, 560, 720]} /></div>
-                  : <div class="cc-img cc-ph" aria-hidden="true" />)}
+                  ? <div class="cc-img"><Img id={e.featured_image} cover aspect={ratio} sizes={sizes} widths={[360, 560, 720]} /></div>
+                  : <div class="cc-img cc-ph" aria-hidden="true" style={`aspect-ratio:${ratio}`} />)}
                 <div class="cc-body">
                   {(date || meta) && <p class="cc-meta">{meta}{meta && date ? " · " : ""}{date && <time datetime={date.slice(0, 10)}>{formatDate(date)}</time>}</p>}
                   <T class="cc-t"><a href={e.path}>{e.title}</a></T>
@@ -98,6 +116,21 @@ const Wrap: any = bare ? "div" : Section;
   </div>
   {schema && <script type="application/ld+json" set:html={schema} />}
 </Wrap>
+<script>
+  // Content cards filter bar (parent pages' categories): shown once JavaScript runs; hides cards outside the picked category.
+  for (const bar of document.querySelectorAll<HTMLElement>("[data-cc-bar]")) {
+    const list = bar.nextElementSibling as HTMLElement | null;
+    if (!list) continue;
+    bar.hidden = false;
+    bar.addEventListener("click", (ev) => {
+      const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>("button[data-cat]");
+      if (!btn) return;
+      const cat = btn.dataset.cat || "";
+      for (const b of bar.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b === btn));
+      for (const li of list.querySelectorAll<HTMLElement>(":scope > li")) li.hidden = !!cat && !(li.dataset.cats || "").split(" ").includes(cat);
+    });
+  }
+</script>
 <style>
   .cc-box { container-type: inline-size; }
   .cc { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--gap); }
@@ -152,6 +185,23 @@ const Wrap: any = bare ? "div" : Section;
     .cc-compact .cc-t { grid-column: 1; grid-row: 1; }
     .cc-compact .cc-f { grid-column: 1 / -1; }
   }
+
+  .cc-item[hidden] { display: none !important; }
+  .cc-bar { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 1.5rem; }
+  .cc-bar[hidden] { display: none; }
+  .cc-bar button { min-height: 2.5rem; padding: 0 1rem; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--heading); font: inherit; font-weight: 600; font-size: .9rem; cursor: pointer; }
+  .cc-bar button:hover { border-color: var(--accent); color: var(--accent-text); }
+  .cc-bar button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff); }
+
+  /* Card styles (a parent page's Card design): plain = no box; overlay = the title over the picture. */
+  .cc-plain .cc-item { padding: 0; }
+  .cc-overlay .cc-item { padding: 0; overflow: hidden; border-radius: var(--radius); display: block; }
+  .cc-overlay .cc-img { margin: 0 !important; border-radius: 0; }
+  .cc-overlay .cc-ph { background: var(--heading); }
+  .cc-overlay .cc-body { position: absolute; inset: auto 0 0 0; padding: 1.25rem; background: linear-gradient(to top, rgba(0,0,0,.82), rgba(0,0,0,.35) 70%, transparent); color: #fff; }
+  .cc-overlay .cc-t a, .cc-overlay .cc-meta, .cc-overlay .cc-more, .cc-overlay .cc-f dd { color: #fff; }
+  .cc-overlay .cc-x, .cc-overlay .cc-f dt { color: rgba(255,255,255,.85); }
+  .cc-overlay .cc-item:hover .cc-t a { color: #fff; text-decoration: underline; }
 
   .cc-pages { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 2.5rem; flex-wrap: wrap; }
   .cc-pages ol { list-style: none; display: flex; flex-wrap: wrap; gap: .35rem; margin: 0; padding: 0; }

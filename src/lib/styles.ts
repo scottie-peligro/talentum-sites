@@ -62,6 +62,21 @@ if (logoM) set(always, "--logo-h-m", `${logoM}px`);
 if (h.height || h.logo_h) set(always, "--head-h", `${Math.max(h.height || 0, (h.logo_h || 0) + 24)}px`);
 if (logoM || h.height) set(always, "--head-h-m", `${Math.max(64, Math.min(h.height || 0, 96), logoM + 20)}px`);
 
+// Header & footer (Styles → Header / Footer): menu text, hover, the footer logo; text colours follow the background
+// automatically when only the background is set (a white header gets dark menu text, a light footer dark text).
+const lum = (x: string) => { const n = parseInt(x.slice(1), 16); const ch = [n >> 16, (n >> 8) & 255, n & 255].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]; };
+const headText = hex(c.header_text) ? c.header_text : hex(c.header_bg) ? (lum(c.header_bg) > 0.45 ? "#111827" : "#ffffff") : "";
+if (headText) set(surface, "--header-text", headText);
+if (hex(c.header_hover)) set(always, "--header-hover", c.header_hover);
+if (h.menu_size) set(always, "--menu-size", `${(h.menu_size / 16).toFixed(4)}rem`);
+if (h.menu_weight) set(always, "--menu-weight", String(h.menu_weight));
+if (h.menu_case === "upper") { set(always, "--menu-case", "uppercase"); set(always, "--menu-track", ".06em"); }
+if (h.menu_gap) set(always, "--menu-gap", `${h.menu_gap}px`);
+if (h.footer_logo_h) set(always, "--footer-logo-h", `${h.footer_logo_h}px`);
+const footText = hex(c.footer_text) ? c.footer_text : hex(c.footer_bg) && lum(c.footer_bg) > 0.45 ? "#111827" : "";
+if (hex(c.topbar_bg)) set(always, "--topbar-bg", c.topbar_bg);
+if (hex(c.topbar_text)) set(always, "--topbar-text", c.topbar_text);
+
 const vars = (o: Record<string, string>) => Object.entries(o).map(([k, v]) => `${k}:${v}`).join(";");
 const tc = `theme-${site.theme || "nlmc"}`;
 // Doubled class: the theme stylesheet loads after this inline <style>, so equal specificity would lose.
@@ -77,6 +92,12 @@ if (t.heading_case === "upper") rules.push(`${root} :is(h1,h2){text-transform:up
 if (t.line_height) rules.push(`${root} body{line-height:${t.line_height}}`);
 if (b.style === "outline") rules.push(`${root} .btn-primary{background:transparent;color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent)}${root} .btn-primary:hover{background:var(--accent);color:var(--on-accent)}${root} .nav a.cta.btn-primary{color:var(--accent)}${root} .nav a.cta.btn-primary:hover{color:var(--on-accent)}`);
 if (b.case === "upper") rules.push(`${root} .btn{text-transform:uppercase;letter-spacing:.06em}`);
+if (footText) rules.push(`${root} .site-footer,${root} .gd-footer{--on-dark:${footText};--on-dark-muted:color-mix(in srgb,${footText} 75%,transparent);--on-dark-line:color-mix(in srgb,${footText} 18%,transparent);--footer-text:${footText};color:${footText}}`);
+/** Header choices the header component reads as classes (src/components/Header.astro). */
+export const headerOpts = { layout: h.layout || "split", sticky: h.sticky !== "off", look: h.look || "", topbar: h.topbar?.on ? h.topbar : null,
+  logoH: Number(h.logo_h) || 38, footerLogoH: Number(h.footer_logo_h) || 40,
+  /** A light header (dark menu text): it shows the normal logo, not the one made for dark backgrounds. */
+  lightHeader: !!headText && lum(headText) < 0.45 };
 
 // Page transitions (Motion → Page transitions): cross-document view transitions, no JavaScript. Both pages of a
 // navigation have to opt in, which they do because every page carries this. Not for reduced motion, nor in the
