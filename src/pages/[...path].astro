@@ -61,7 +61,7 @@ const imgMedia = media(ogImageId(e));
 const imgFile = imageFile(imgMedia?.file);
 // Auto social image (lib/og.ts) when the page has no image of its own: also the image in its structured data.
 const card = await socialCard(e);
-const schemaImage = imgFile && !card ? absolute((await getImage({ src: imgFile, width: 1200, format: "jpg" })).src) : card ? absolute(card.url) : undefined;
+const schemaImage = imgFile && !card ? absolute((await getImage({ src: imgFile, width: 1200, format: "webp", quality: 80 })).src) : card ? absolute(card.url) : undefined;
 const faqItems = [...blocks, ...auto].flatMap((b) => b.type === "faq" ? resolveFaqs(b.data || {}, e) : b.type === "faq_library" ? libraryFaqs(b.data || {}, e) : []);
 let videoThumb = video?.posterUrl || "";
 const vPoster = imageFile(media(video?.poster)?.file);

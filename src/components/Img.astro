@@ -21,7 +21,7 @@ const usable = img ? widths.filter((w) => w <= img.width) : [];
 if (img && !usable.length) usable.push(img.width);
 ---
 {img ? (
-  <Picture src={img} alt={altText} formats={["webp"]} widths={usable} sizes={sizes} class={cls} style={style || undefined}
+  <Picture src={img} alt={altText} formats={["webp"]} fallbackFormat="webp" widths={usable} sizes={sizes} class={cls} style={style || undefined}
     loading={priority ? "eager" : "lazy"} decoding={priority ? "sync" : "async"} fetchpriority={priority ? "high" : "auto"} quality={78} />
 ) : url ? (
   <img src={url} alt={altText} class={cls} style={style || undefined} loading={priority ? "eager" : "lazy"} decoding="async" width={m?.width || undefined} height={m?.height || undefined} />

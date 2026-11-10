@@ -96,8 +96,16 @@ function prune(key, env) {
   for (const x of mine.slice(KEEP)) rmSync(join(base, x.d), { recursive: true, force: true });
 }
 
+// wrangler run directly (not through npx: one less Node process) with a capped heap — `pages deploy` hashes and
+// uploads every file of the site, and with the builder's 1 GB a big site's deploy was OOM-killing the whole builder.
+function wrangler(args, opts, log) {
+  const env = { ...(opts.env || process.env), MALLOC_ARENA_MAX: "2",
+    NODE_OPTIONS: `${(opts.env || process.env).NODE_OPTIONS || ""} --max-old-space-size=${Number(process.env.DEPLOY_HEAP_MB) || 512}`.trim() };
+  return run("node", [join(REPO, "node_modules", "wrangler", "bin", "wrangler.js"), ...args], { ...opts, env }, log);
+}
+
 async function ensureProject(project, log, env) {
-  try { await run("npx", ["wrangler", "pages", "project", "create", project, "--production-branch", "main"], { cwd: REPO, env }, log); }
+  try { await wrangler(["pages", "project", "create", project, "--production-branch", "main"], { cwd: REPO, env }, log); }
   catch { log.push(`(project ${project} already exists)`); }
 }
 
@@ -178,7 +186,7 @@ async function handle(job) {
     else { await ensureProject(job.cf_project, log, env); await configureProject(job, log); }
     const branch = /^[a-z0-9-]{1,40}$/.test(job.branch || "") ? job.branch : "main";
     // Deployed from the repo root so wrangler also bundles functions/ (forms, assistant, 404 log).
-    if (!dry) await run("npx", ["wrangler", "pages", "deploy", join(out, "dist"), "--project-name", job.cf_project, "--branch", branch, "--commit-dirty=true", "--commit-message", `Talentum ${job.environment} build ${job.build_id}`], { cwd: REPO, env }, dlog);
+    if (!dry) await wrangler(["pages", "deploy", join(out, "dist"), "--project-name", job.cf_project, "--branch", branch, "--commit-dirty=true", "--commit-message", `Talentum ${job.environment} build ${job.build_id}`], { cwd: REPO, env }, dlog);
     log.push(...dlog);
     const urls = dlog.join("\n").match(/https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.pages\.dev/gi) || [];
     // A branch deploy prints the one-off URL and then the branch alias; the alias is the stable one to share.
