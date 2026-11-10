@@ -5,6 +5,9 @@
 //                 header X-Builder-Secret. Answers 202 at once; progress and the result go back to
 //                 Talentum: POST {PB_URL}/api/site-builds/{build_id}/report.
 //   GET  /health
+//   GET  /queue   header X-Builder-Secret → { current, current_started, waiting: [build ids in order], at }. Talentum
+//                 compares it with the builds it thinks are queued/building (lib/sitequeue.js): this queue lives in
+//                 memory, so a restart loses it, and Talentum then sends recent builds again or marks them failed.
 //   anything else → the Live view (`astro dev`), so one public port is enough on a server (LIVE_PUBLIC_URL).
 //   POST /live    { site_key, bundle, path }   header X-Builder-Secret. The Live view in Talentum's page editor:
 //                 writes this content (the unsaved draft already merged in) into a long-running `astro dev` and
@@ -39,6 +42,8 @@ if (!SECRET) { console.error("BUILDER_SECRET is not set."); process.exit(1); }
 
 const queue = [];
 let busy = false;
+let current = null;          // the job being built now (GET /queue)
+let currentStarted = 0;
 
 // Progress reports are fire-and-forget; the final one (success/failed/superseded) is retried, or Talentum would show the
 // build as "building" until its 25-minute cut-off.
@@ -259,7 +264,8 @@ async function pump() {
       await report(job.build_id, { status: "superseded", log: "A newer publish replaced this build." });
       continue;
     }
-    await handle(job);
+    current = job; currentStarted = Date.now();
+    try { await handle(job); } finally { current = null; currentStarted = 0; }
   }
   busy = false;
 }
@@ -288,6 +294,10 @@ function proxyLive(req, res, retried) {
 const server = http.createServer((req, res) => {
   const send = (code, body) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(body)); };
   if (req.method === "GET" && req.url === "/health") return send(200, { ok: true, queued: queue.length, busy, cloudflare: !!(process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_ACCOUNT_ID) });
+  if (req.method === "GET" && req.url === "/queue") {
+    if (req.headers["x-builder-secret"] !== SECRET) return send(403, { error: "Wrong secret" });
+    return send(200, { current: current ? current.build_id : null, current_started: currentStarted ? new Date(currentStarted).toISOString() : null, waiting: queue.map((j) => j.build_id), at: new Date().toISOString() });
+  }
   if (req.method === "POST" && req.url === "/live") {
     if (req.headers["x-builder-secret"] !== SECRET) return send(403, { error: "Wrong secret" });
     let raw = "";
@@ -311,6 +321,8 @@ const server = http.createServer((req, res) => {
     let job;
     try { job = JSON.parse(raw); } catch { return send(400, { error: "Bad JSON" }); }
     if (!job.build_id || !/^[a-z0-9-]{1,60}$/.test(job.site_key || "") || !/^[a-z0-9][a-z0-9-]{0,57}$/.test(job.cf_project || "") || !["staging", "live", "preview"].includes(job.environment)) return send(400, { error: "Missing or invalid fields" });
+    // Sent again (Talentum re-sends a build it thinks the builder lost): never run it twice.
+    if ((current && current.build_id === job.build_id) || queue.some((q) => q.build_id === job.build_id)) return send(202, { queued: queue.length, duplicate: true });
     queue.push(job);
     send(202, { queued: queue.length });
     pump();
