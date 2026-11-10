@@ -19,7 +19,8 @@ const d: Record<string, any> = saved ? { ...raw, form_key: saved.key, form_name:
 // "Book a consult call" (Talentum → Forms & leads → the form): a second button on the last step that sends the form,
 // then opens the right team member's booking page in a pop-up, pre-filled (Talentum's /book/route/<form> picks who).
 const bookBase: string = (bundle as any).booking_base || "";
-const book = saved && saved.booking?.on && bookBase ? saved.booking : null;
+// No booking links on this site (e.g. a client who hasn't made one yet): no booking button, just Send.
+const book = saved && saved.booking?.on && bookBase && (bundle.booking_links || []).length ? saved.booking : null;
 const endpoint: string = settings.forms?.endpoint || (settings.forms?.enabled ? "/api/forms" : "");
 const turnstile: string = settings.forms?.turnstile_site_key || "";
 const key = d.form_key || "contact";

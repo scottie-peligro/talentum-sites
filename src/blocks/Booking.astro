@@ -5,7 +5,7 @@ import Section from "../components/Section.astro";
 import Heading from "../components/Heading.astro";
 import Img from "../components/Img.astro";
 import Icon from "../components/next/Icon.astro";
-import { resolveBooking, type Block } from "../lib/content";
+import { resolveBooking, contactPath, type Block } from "../lib/content";
 const { block, first = false, entry } = Astro.props as { block: Block; first?: boolean; entry?: any };
 const d = block.data || {};
 const topics = (d.topics || []).filter((t: any) => t && t.label).map((t: any) => {
@@ -13,7 +13,17 @@ const topics = (d.topics || []).filter((t: any) => t && t.label).map((t: any) =>
   return b ? { ...t, ...b } : null;
 }).filter(Boolean);
 const id = "bk-" + block.id;
+// No booking links on this site (a client who hasn't made one yet): the heading and a button to the contact page.
+const contact = topics.length ? "" : contactPath();
 ---
+{contact && (
+  <Section bg={d.background || "white"} id={d.anchor} class="bk">
+    <div class="wrap">
+      <Heading eyebrow={d.eyebrow} heading={d.heading || (first ? entry?.title : undefined)} text={d.text} level={first ? 1 : 2} />
+      <p><a class="btn btn-primary" href={contact}>{d.contact_label || "Get in touch"}</a></p>
+    </div>
+  </Section>
+)}
 {topics.length > 0 && (
   <Section bg={d.background || "white"} id={d.anchor} class="bk">
     <div class="wrap">

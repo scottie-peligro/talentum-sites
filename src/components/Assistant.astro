@@ -3,12 +3,12 @@
 // Answers come from functions/api/assistant.js, using only this site's published content. When a visitor wants to
 // talk to someone it offers the booking link and a short contact form (→ /api/forms/assistant → a Request in Talentum
 // with the conversation attached).
-import { settings, site } from "../lib/content";
+import { settings, site, foreignBooking } from "../lib/content";
 const a = settings.assistant || {};
 const cfg = {
   name: a.name || "Ask us",
   greeting: a.greeting || `Hi! I can answer questions about ${settings.org?.name || site.name} and what we do. What would you like to know?`,
-  booking: a.booking_url || "", bookingLabel: a.booking_label || "Book a call",
+  booking: a.booking_url && !foreignBooking(a.booking_url) ? a.booking_url : "", bookingLabel: a.booking_label || "Book a call",
   leads: a.collect_leads !== false, ts: settings.forms?.turnstile_site_key || "",
 };
 const { path = "/" } = Astro.props as { path?: string };

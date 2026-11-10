@@ -4,10 +4,12 @@
 import Section from "../components/Section.astro";
 import Img from "../components/Img.astro";
 import Icon from "../components/next/Icon.astro";
-import { resolveBooking, type Block } from "../lib/content";
+import { resolveBooking, contactPath, type Block } from "../lib/content";
 const { block } = Astro.props as { block: Block; first?: boolean; entry?: any };
 const d = block.data || {};
 const b = resolveBooking(d);
+// No booking link on this site (a client who hasn't made one yet): a plain "Get in touch" to the contact page.
+const contact = b ? "" : contactPath();
 const layout = ["card", "band", "inline"].includes(d.layout) ? d.layout : "card";
 const who = b?.who;
 const first = (who?.name || "").split(" ")[0];
@@ -16,6 +18,20 @@ const meta = [d.show_role !== false && who?.job_title, d.show_duration !== false
 const initials = (who?.name || "?").split(" ").map((x: string) => x[0]).join("").slice(0, 2);
 const id = "bc-" + block.id;
 ---
+{!b && contact && (
+  <Section bg={d.background || (layout === "band" ? "paper" : "white")} id={d.anchor} class={`bc bc-${layout === "inline" ? "card" : layout}`} tight={layout === "band"}>
+    <div class="wrap">
+      <div class="bc-box">
+        <div class="bc-copy">
+          {d.eyebrow && <p class="eyebrow">{d.eyebrow}</p>}
+          <h2 class="bc-h">{d.heading || "Talk it through with us"}</h2>
+          {d.text && <p class="bc-text">{d.text}</p>}
+        </div>
+        <a class="btn btn-primary bc-btn" href={contact}>{d.contact_label || "Get in touch"}</a>
+      </div>
+    </div>
+  </Section>
+)}
 {b && (
   <Section bg={d.background || (layout === "band" ? "paper" : "white")} id={d.anchor} class={`bc bc-${layout}`} tight={layout === "band"}>
     <div class="wrap">

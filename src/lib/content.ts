@@ -107,7 +107,7 @@ export const bookingLink = (id?: string) => (id ? bundle.booking_links?.find((l)
 /** A booking choice → where it goes, the embeddable version, and who it's with. `booking_link` (picked in Talentum) wins over a pasted `booking_url`. */
 export function resolveBooking(d: { booking_link?: string; booking_url?: string; member?: string | string[] }) {
   const link = bookingLink(d.booking_link);
-  const url = link?.url || (d.booking_url ? href(d.booking_url) : "");
+  const url = link?.url || (d.booking_url && !foreignBooking(d.booking_url) ? href(d.booking_url) : "");
   if (!url) return null;
   const memberId = (Array.isArray(d.member) ? d.member[0] : d.member) || link?.user;
   const embed = /^https?:\/\//.test(url) ? url + (url.includes("?") ? "&" : "?") + "embed=1&src=website" : "";
@@ -185,10 +185,29 @@ export function href(h?: string): string {
   if (h.startsWith("entry:")) { const e = entryById(h.slice(6)); return e ? inLang(e).path : "#"; }
   return currentLang() ? localPath(safeHref(h)) : safeHref(h);
 }
+// Booking pages (Talentum's /book/<slug>) this site offers: a client's site carries only the client's own links, the
+// agency's site only the agency's. A pasted booking address for any other link (say the agency's, on a client's site)
+// goes to the contact page instead.
+const bookingBase = String((bundle as any).booking_base || "").replace(/\/+$/, "");
+const bookingSlugs = new Set((bundle.booking_links || []).map((l) => l.slug));
+/** Is this a Talentum booking page this site doesn't offer? */
+export function foreignBooking(u?: string): boolean {
+  const v = String(u || "").trim();
+  if (!bookingBase || !v.startsWith(bookingBase + "/book/")) return false;
+  const slug = v.slice(bookingBase.length + 6).split(/[?#/]/)[0];
+  if (!slug || slug === "m" || slug === "route") return false;
+  return !bookingSlugs.has(slug);
+}
+/** The site's contact page ("" when it has none) — where booking buttons go when the site has no booking link. */
+export function contactPath(): string {
+  const e = entries.find((x) => x.type === "page" && /^\/?contact(-us)?\/?$/.test(x.path.replace(/^\/[a-z]{2}\//, "/")));
+  return e ? inLang(e).path : "";
+}
 /** Only web, mail, phone, page and in-page links reach the HTML: "javascript:", "data:" and the like become "#". */
 export function safeHref(h: string): string {
-  const v = String(h || "").trim();
+  let v = String(h || "").trim();
   if (!v) return "#";
+  if (foreignBooking(v)) v = contactPath() || "#";
   if (/^(https?:|mailto:|tel:|#|\/(?!\/)|\.{0,2}\/|\?)/i.test(v)) return v;
   if (/^\/\//.test(v)) return "https:" + v;
   if (/^[a-z][a-z0-9+.-]*:/i.test(v)) return "#";
