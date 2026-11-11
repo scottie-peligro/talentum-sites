@@ -2,12 +2,15 @@
 // A custom content type's own listing page at its address (e.g. /events/), when "Listing page" is on and no page
 // of the site already lives there. Pages 2, 3… are pages/[ct]/page/[n].astro. Rendering: components/TypeListing.astro.
 import TypeListing from "../components/TypeListing.astro";
-import { listedTypes } from "../lib/listing";
+import { livePaths, liveProps } from "../lib/live";
+import { typePaths } from "../lib/paths";
 import type { ContentType } from "../lib/content";
 
 export function getStaticPaths() {
-  return listedTypes().map((t) => ({ params: { ct: t.route }, props: { ct: t } }));
+  return livePaths(typePaths);
 }
-const { ct } = Astro.props as { ct: ContentType };
+const props = liveProps(typePaths, Astro.params, Astro.props);   // the website being shown (editor's Live view; lib/live.ts)
+if (!props) return new Response("This page isn't on this website (yet).", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+const { ct } = props as { ct: ContentType };
 ---
 <TypeListing ct={ct} />

@@ -206,15 +206,19 @@ async function handle(job) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Live view: one `astro dev` at a time, in WORK/live/<key>.
+// Live view: ONE `astro dev` for every website being edited, in WORK/live/_all (src/lib/live.ts, src/middleware.ts,
+// scripts/live-sites.mjs). Each website's draft is src/data/live/<key>.json there; the preview address carries
+// ?site=<key>. Switching website never restarts anything, and several people can preview several websites at once.
+// Each website's media and fonts are fetched in its own folder (WORK/live-fetch/<key>: fetch-content.mjs keeps only
+// that website's files there) and then copied in. Media file names are their Talentum ids, so websites never clash.
 // ---------------------------------------------------------------------------------------------------------------
-let live = null;   // { key, dir, proc, ready: Promise }
+let live = null;   // { dir, proc }
 let liveBusy = Promise.resolve();
+const LIVE_DIR = join(WORK, "live", "_all");
 
-function liveWorkspace(key) {
-  const dir = join(WORK, "live", key);
-  mkdirSync(join(dir, "src", "media"), { recursive: true });
-  mkdirSync(join(dir, "src", "data"), { recursive: true });
+function liveWorkspace() {
+  const dir = LIVE_DIR;
+  for (const d of ["media", "data/live", "data/live-fonts"]) mkdirSync(join(dir, "src", d), { recursive: true });
   for (const f of ["astro.config.mjs", "package.json", "tsconfig.json"]) if (existsSync(join(REPO, f))) cpSync(join(REPO, f), join(dir, f));
   for (const d of ["scripts", "public"]) if (existsSync(join(REPO, d))) cpSync(join(REPO, d), join(dir, d), { recursive: true });
   for (const d of readdirSync(join(REPO, "src"))) {
@@ -222,7 +226,14 @@ function liveWorkspace(key) {
     rmSync(join(dir, "src", d), { recursive: true, force: true });
     cpSync(join(REPO, "src", d), join(dir, "src", d), { recursive: true });
   }
+  if (existsSync(join(REPO, "src", "data", "block-schema.json"))) cpSync(join(REPO, "src", "data", "block-schema.json"), join(dir, "src", "data", "block-schema.json"));
   if (!existsSync(join(dir, "node_modules"))) symlinkSync(join(REPO, "node_modules"), join(dir, "node_modules"), "dir");
+  return dir;
+}
+function fetchWorkspace(key) {
+  const dir = join(WORK, "live-fetch", key);
+  for (const d of ["src/media", "src/data", "public"]) mkdirSync(join(dir, d), { recursive: true });
+  cpSync(join(REPO, "scripts"), join(dir, "scripts"), { recursive: true });
   return dir;
 }
 
@@ -237,11 +248,12 @@ function waitFor(url, ms) {
 /** Copy a source tree into the running Live view: only files whose content changed, each written to a temporary
  * file and renamed into place, so astro dev never reloads untouched components or reads a half-written one (a reload
  * of every component mid-request is what left "Blocks" undefined). Returns how many files changed. */
-function syncTree(from, to) {
+function syncTree(from, to, skip) {
   let changed = 0;
   for (const name of readdirSync(from)) {
+    if (skip && skip(name)) continue;
     const a = join(from, name), b = join(to, name);
-    if (statSync(a).isDirectory()) { mkdirSync(b, { recursive: true }); changed += syncTree(a, b); continue; }
+    if (statSync(a).isDirectory()) { mkdirSync(b, { recursive: true }); changed += syncTree(a, b, skip); continue; }
     const data = readFileSync(a);
     if (existsSync(b) && readFileSync(b).equals(data)) continue;
     const tmp = b + ".tmp-" + process.pid;
@@ -251,30 +263,80 @@ function syncTree(from, to) {
   }
   return changed;
 }
+/** Write a file only when its content changed (atomically). A changed website draft is what makes astro dev reload. */
+function writeIfChanged(file, data) {
+  if (existsSync(file) && readFileSync(file).equals(data)) return false;
+  const tmp = file + ".tmp-" + process.pid;
+  writeFileSync(tmp, data);
+  renameSync(tmp, file);
+  return true;
+}
+
+/** Is anything still listening on the Live view's port? */
+function portBusy(port) {
+  return new Promise((resolve) => {
+    const t = net.createServer();
+    t.once("error", () => resolve(true));
+    t.once("listening", () => t.close(() => resolve(false)));
+    t.listen(port, "0.0.0.0");
+  });
+}
+/** Stop the Live view (or whatever is left on its port) and wait until the port is free. */
+async function stopLive() {
+  const cur = live; live = null;
+  if (cur) {
+    await new Promise((resolve) => {
+      if (cur.proc.exitCode !== null || cur.proc.signalCode) return resolve();
+      const done = setTimeout(() => { try { cur.proc.kill("SIGKILL"); } catch {} resolve(); }, 5000);
+      cur.proc.once("close", () => { clearTimeout(done); resolve(); });
+      try { cur.proc.kill(); } catch { clearTimeout(done); resolve(); }
+    });
+  }
+  const end = Date.now() + 10000;
+  while (await portBusy(LIVE_PORT)) {
+    if (Date.now() > end) throw new Error("The Live view's port is still in use — try again in a moment.");
+    await new Promise((r) => setTimeout(r, 300));
+  }
+}
 
 async function liveUpdate(key, bundle) {
-  if (live && live.key !== key) { try { live.proc.kill(); } catch {} live = null; }
-  const dir = live ? live.dir : liveWorkspace(key);
-  // Already running: bring the renderer's code up to date too (astro dev hot-reloads it), so theme/block changes
-  // show in the Live view without restarting the builder.
-  if (live) for (const d of readdirSync(join(REPO, "src"))) if (d !== "media" && d !== "data") {
-    const a = join(REPO, "src", d);
-    if (statSync(a).isDirectory()) { mkdirSync(join(dir, "src", d), { recursive: true }); syncTree(a, join(dir, "src", d)); }
-    else syncTree(join(REPO, "src"), join(dir, "src"));
-  }
-  const file = join(dir, ".live-bundle.json");
+  // 1. This website's media and fonts, in its own folder (cached between updates).
+  const fdir = fetchWorkspace(key);
+  const file = join(fdir, ".live-bundle.json");
   writeFileSync(file, JSON.stringify(bundle));
   const env = { ...process.env, BUNDLE_FILE: file, SITE_ENV: "staging", ASTRO_TELEMETRY_DISABLED: "1" };
   const log = [];
-  // Media and fonts (cached between updates), then src/data/bundle.json, which astro dev picks up and reloads.
-  await run("node", ["scripts/fetch-content.mjs"], { cwd: dir, env }, log);
-  if (!live) {
-    const proc = spawn("npx", ["astro", "dev", "--host", "0.0.0.0", "--port", String(LIVE_PORT)], { cwd: dir, env: { ...env, NODE_ENV: "development", ASTRO_CACHE_DIR: join(WORK, "astro-cache") }, shell: false });
-    proc.stdout.on("data", (d) => process.stdout.write(`[live] ${d}`));
+  try { await run("node", ["scripts/fetch-content.mjs"], { cwd: fdir, env }, log); }
+  catch { throw new Error("Couldn't get this website's media and fonts for the Live view: " + log.filter((l) => !l.startsWith("$ ")).slice(-2).join(" — ").slice(0, 300)); }
+  // 2. The shared Live view: renderer code up to date (astro dev hot-reloads it), then this website's files.
+  const fresh = !live;
+  const dir = fresh ? liveWorkspace() : LIVE_DIR;
+  if (!fresh) for (const d of readdirSync(join(REPO, "src"))) if (d !== "media" && d !== "data") {
+    const a = join(REPO, "src", d);
+    if (statSync(a).isDirectory()) { mkdirSync(join(dir, "src", d), { recursive: true }); syncTree(a, join(dir, "src", d)); }
+    else syncTree(join(REPO, "src"), join(dir, "src"), (n) => n === "media" || n === "data" || statSync(join(REPO, "src", n)).isDirectory());
+  }
+  syncTree(join(fdir, "src", "media"), join(dir, "src", "media"), (n) => n.startsWith("."));
+  if (existsSync(join(fdir, "public", "_fonts"))) { mkdirSync(join(dir, "public", "_fonts"), { recursive: true }); syncTree(join(fdir, "public", "_fonts"), join(dir, "public", "_fonts")); }
+  const fonts = join(fdir, "src", "data", "fonts.json");
+  if (existsSync(fonts)) writeIfChanged(join(dir, "src", "data", "live-fonts", key + ".json"), readFileSync(fonts));
+  const content = readFileSync(join(fdir, "src", "data", "bundle.json"));
+  // The renderer's normal build input has to exist; in the Live view every request picks its own website instead.
+  if (!existsSync(join(dir, "src", "data", "bundle.json"))) writeFileSync(join(dir, "src", "data", "bundle.json"), content);
+  writeIfChanged(join(dir, "src", "data", "live", key + ".json"), content);   // last: this is what reloads the preview
+  // 3. Start the one dev server the first time.
+  if (fresh) {
+    if (await portBusy(LIVE_PORT)) await stopLive();   // something left over (e.g. an earlier builder's astro)
+    // Astro directly (not through npx), so stopping this process really stops the preview server.
+    const proc = spawn("node", [join(dir, "node_modules", "astro", "astro.js"), "dev", "--host", "0.0.0.0", "--port", String(LIVE_PORT)],
+      { cwd: dir, env: { ...process.env, LIVE_MULTI: "1", SITE_ENV: "staging", ASTRO_TELEMETRY_DISABLED: "1", NODE_ENV: "development", ASTRO_CACHE_DIR: join(WORK, "astro-cache") }, shell: false });
+    let bound = "";
+    proc.stdout.on("data", (d) => { const m = /localhost:(\d+)/.exec(String(d)); if (m && !bound) bound = m[1]; process.stdout.write(`[live] ${d}`); });
     proc.stderr.on("data", (d) => process.stderr.write(`[live] ${d}`));
     proc.on("close", () => { if (live && live.proc === proc) live = null; });
-    live = { key, dir, proc };
+    live = { dir, proc };
     await waitFor(`http://127.0.0.1:${LIVE_PORT}/`, 60000);
+    if (bound && bound !== String(LIVE_PORT)) { await stopLive(); throw new Error("The Live view couldn't get its port — try again in a moment."); }
   }
 }
 
@@ -333,7 +395,7 @@ const server = http.createServer((req, res) => {
       const path = typeof b.path === "string" && b.path.startsWith("/") ? b.path : "/";
       // Updates run one after another; a newer one simply overwrites the content.
       liveBusy = liveBusy.then(() => liveUpdate(b.site_key, b.bundle))
-        .then(() => send(200, { url: LIVE_PUBLIC + path }), (err) => send(500, { error: err.message }));
+        .then(() => send(200, { url: LIVE_PUBLIC + path + (path.includes("?") ? "&" : "?") + "site=" + encodeURIComponent(b.site_key) }), (err) => send(500, { error: err.message }));
     });
     return;
   }

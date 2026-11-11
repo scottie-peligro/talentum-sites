@@ -8,7 +8,7 @@ import Img from "../components/Img.astro";
 import { getImage } from "astro:assets";
 import {
   entries, bundle, settings, media, person, lineName, accountName, category, formatDate, rich, resolveFaqs, readingMinutes,
-  proofFor, caseStudies, testimonialsFor, faqsFor, absolute, contentType, parentOf, allEntries, setLang, section, t, pagedCards, cardPages, setCardsPage, type Entry, type Block,
+  proofFor, caseStudies, testimonialsFor, faqsFor, absolute, contentType, parentOf, setLang, section, t, setCardsPage, type Entry, type Block,
 } from "../lib/content";
 import CustomFields from "../components/CustomFields.astro";
 import { imageFile } from "../lib/images";
@@ -16,24 +16,18 @@ import { pageTitle, pageDescription, ogImageId, schemaFor, faqSchema, videoSchem
 import { overviewVideo } from "../lib/next";
 import { socialCard } from "../lib/og";
 import { libraryFaqs } from "../lib/faqlib";
+import { livePaths, liveProps } from "../lib/live";
+import { entryPaths } from "../lib/paths";
 import VideoButton from "../components/next/VideoButton.astro";
 
 export function getStaticPaths() {
-  const taken = new Set(allEntries.map((e) => e.path));
-  // A Content cards block set to "Show all" with a number per page: pages 2, 3… at <page>/page/<n>/.
-  const paged = allEntries.flatMap((e) => {
-    const b = pagedCards(e.blocks);
-    if (!b) return [];
-    const n = cardPages(b.data || {}, e.id);
-    // Each address keeps its own number: one that's already a page of the site is skipped (that page wins), the rest
-    // don't shift down.
-    return Array.from({ length: Math.max(0, n - 1) }, (_, i) => ({ p: `${e.path}page/${i + 2}/`, page: i + 2 })).filter((x) => !taken.has(x.p))
-      .map((x) => ({ params: { path: x.p.replace(/^\/|\/$/g, "") }, props: { entry: e, page: x.page, pagedId: b.id } }));
-  });
-  return [...allEntries.map((e) => ({ params: { path: e.path === "/" ? undefined : e.path.replace(/^\/|\/$/g, "") }, props: { entry: e } })), ...paged];
+  return livePaths(entryPaths);
 }
 
-const { entry, page = 1, pagedId = "" } = Astro.props as { entry: Entry; page?: number; pagedId?: string };
+// In the editor's Live view one server shows many websites: look this address up in the one being shown (lib/live.ts).
+const props = liveProps(entryPaths, Astro.params, Astro.props);
+if (!props) return new Response("This page isn't on this website (yet).", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+const { entry, page = 1, pagedId = "" } = props as { entry: Entry; page?: number; pagedId?: string };
 const e = entry;
 setLang(e.lang);   // a translation renders in its language (links, menus, sections and built-in wording follow)
 setCardsPage(page, pagedId);   // which page of a paged Content cards block this is (1 = the page itself)

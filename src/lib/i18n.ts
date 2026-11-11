@@ -2,10 +2,16 @@
 // of the page being rendered. Translations for a site's added languages come from Talentum (Website → Settings →
 // Languages → "Translate the built-in wording", stored in settings.languages.ui[<code>]); anything missing stays English.
 // Keep the keys in step with talentum-pb pb_hooks/lib/sitelang.js UI_STRINGS.
-import raw from "../data/bundle.json";
+import { currentBundle, onSiteChange } from "./live";
 
-const cfg = (((raw as any).site || {}).settings || {}).languages || {};
-const codes: string[] = (Array.isArray(cfg.extra) ? cfg.extra : []).map((l: any) => l && l.code).filter(Boolean);
+// The website being rendered (lib/live.ts): its language settings and added languages' codes.
+let cfg: any, codes: string[];
+function load() {
+  cfg = ((currentBundle().site || {}).settings || {}).languages || {};
+  codes = (Array.isArray(cfg.extra) ? cfg.extra : []).map((l: any) => l && l.code).filter(Boolean);
+}
+load();
+onSiteChange(() => { load(); cur = ""; });
 
 let cur = "";
 /** The language of the page being rendered ("" = the site's main language). Each page sets it before rendering. */

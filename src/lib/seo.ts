@@ -1,4 +1,5 @@
 // Titles, descriptions and structured data (JSON-LD) for every page.
+import { onSiteChange } from "./live";
 import { site, settings, bundle, absolute, media, person, plain, truncate, lineName, accountName, crumbs, rich, section, type Entry, type Block, type Person } from "./content";
 
 export function pageTitle(e: Entry) {
@@ -34,6 +35,7 @@ export function orgSameAs(): string[] {
 
 const slugOf = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "person";
 let personIds: Map<string, string> | null = null;
+onSiteChange(() => { personIds = null; });   // worked out per website (lib/live.ts)
 /** A person's site-wide @id, from their name (ids from Talentum never appear on the site); same name twice → -2, -3. */
 export function personId(p: Person): string {
   if (!personIds) {

@@ -62,7 +62,8 @@ function keysRead(file) {
     for (const m of src.matchAll(new RegExp(`\\b${v}\\[["'](\\w+)["']\\]`, "g"))) keys.add(m[1]);
     // Helpers called with the block's data: count the keys they read from their first parameter.
     for (const m of src.matchAll(new RegExp(`\\b(\\w+)\\(${v}[,)]`, "g"))) {
-      const fn = libSrc.match(new RegExp(`export function ${m[1]}\\((\\w+)[^)]*\\)[^{]*\\{([\\s\\S]*?)\\n\\}`));
+      // (lib/content.ts's helpers sit inside __make(), indented, since the Live view serves many websites — lib/live.ts.)
+      const fn = libSrc.match(new RegExp(`(?:export )?function ${m[1]}\\((\\w+)[^)]*\\)[^{]*\\{([\\s\\S]*?)\\n(?:  )?\\}`));
       if (fn) for (const k of fn[2].matchAll(new RegExp(`\\b${fn[1]}\\??\\.(\\w+)`, "g"))) keys.add(k[1]);
     }
   }

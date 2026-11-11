@@ -1,12 +1,15 @@
 ---
 // Pages 2, 3… of a custom content type's listing page (/<route>/page/<n>/). See components/TypeListing.astro.
 import TypeListing from "../../../components/TypeListing.astro";
-import { listingPages } from "../../../lib/listing";
+import { livePaths, liveProps } from "../../../lib/live";
+import { typePagePaths } from "../../../lib/paths";
 import type { ContentType } from "../../../lib/content";
 
 export function getStaticPaths() {
-  return listingPages().map((x) => ({ params: { ct: x.ct.route, n: String(x.page) }, props: { ct: x.ct, page: x.page } }));
+  return livePaths(typePagePaths);
 }
-const { ct, page } = Astro.props as { ct: ContentType; page: number };
+const props = liveProps(typePagePaths, Astro.params, Astro.props);   // the website being shown (editor's Live view; lib/live.ts)
+if (!props) return new Response("This page isn't on this website (yet).", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+const { ct, page } = props as { ct: ContentType; page: number };
 ---
 <TypeListing ct={ct} page={page} />
