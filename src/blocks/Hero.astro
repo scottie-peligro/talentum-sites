@@ -1,7 +1,11 @@
 ---
 // Hero: big heading, intro, buttons; dark (default), light or brand band; optional image beside it or behind it.
 // Layout "one" (data.columns): one column with the text at the full width of the section; a side image moves below.
+// Height and a photo / looping video / slideshow behind it are shared with the Container (lib/sectionBg.ts); with one
+// of those, an image set to "Behind the text" isn't drawn too.
 import Img from "../components/Img.astro";
+import SectionBg from "../components/SectionBg.astro";
+import { sectionBg, sectionHeight, sectionAlign } from "../lib/sectionBg";
 import Buttons from "../components/Buttons.astro";
 import VideoButton from "../components/next/VideoButton.astro";
 import { overviewVideo } from "../lib/next";
@@ -17,9 +21,13 @@ const layout = one && wanted === "side" ? "below" : wanted;
 const tw = !one ? 0 : d.text_width === "custom" ? Math.min(100, Math.max(20, Number(d.text_width_custom) || 0)) : (Number(d.text_width) || 0);
 const textWidth = tw && tw < 100 ? `--hero-w:${tw}%` : undefined;
 const center = (d.align || (layout === "side" ? "left" : "center")) === "center";
+const bgm = sectionBg(d);
+const minH = sectionHeight(d);
+const style = [textWidth, minH ? `--hero-minh:${minH}` : "", minH ? `--hero-v:${sectionAlign(d)}` : ""].filter(Boolean).join(";") || undefined;
 ---
-<section class={`hero bg-${tone === "image" ? "dark" : tone} layout-${layout}${one ? " one" : ""}${center ? " center" : ""}`} id={d.anchor || undefined} style={textWidth}>
-  {layout === "background" && <div class="bgimg"><Img id={d.image} alt="" cover priority={first} sizes="100vw" /></div>}
+<section class={`hero bg-${tone === "image" ? "dark" : tone} layout-${layout}${one ? " one" : ""}${center ? " center" : ""}${bgm ? " has-bgm" : ""}${minH ? " tall" : ""}`} id={d.anchor || undefined} style={style}>
+  {bgm && <SectionBg bg={bgm} first={first} />}
+  {layout === "background" && !bgm && <div class="bgimg"><Img id={d.image} alt="" cover priority={first} sizes="100vw" /></div>}
   <div class="wrap inner">
     <div class="copy">
       {d.eyebrow && <p class="eyebrow">{d.eyebrow}</p>}
@@ -35,6 +43,9 @@ const center = (d.align || (layout === "side" ? "left" : "center")) === "center"
 <style>
   .hero { position: relative; overflow: hidden; padding-block: clamp(4.5rem, 10vw, 8rem); }
   .hero.bg-dark { background: var(--hero-bg); }
+  .has-bgm { isolation: isolate; }
+  /* A set height: at least that tall, the content placed top / middle / bottom. */
+  .tall { min-height: var(--hero-minh); display: grid; align-content: var(--hero-v, center); }
   .bgimg { position: absolute; inset: 0; }
   .bgimg :global(picture), .bgimg :global(img) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   .bgimg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,11,31,.72), rgba(5,11,31,.55)); }

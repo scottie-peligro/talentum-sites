@@ -1,0 +1,106 @@
+---
+// The photo, looping video or slideshow behind a Hero or Container (lib/sectionBg.ts reads the settings). It fills
+// the section (which must be position: relative and isolate), sits under the content, and carries the tint.
+//   Fit and position: object-fit / object-position on the picture (the focal point when no position is picked).
+//   Parallax: the picture layer is taller than the section and moves more slowly than the page (a small script,
+//   off for visitors who prefer less motion).
+//   Slideshow: every slide stacked; the script brings the next one in (fade, zoom in/out or slide) while the section
+//   is on screen. Without the script, or for visitors who prefer less motion, the first slide shows, still.
+//   Video: muted, looping, loaded only when on screen; the still image instead for less motion or data saving.
+import Img from "./Img.astro";
+import type { SectionBg } from "../lib/sectionBg";
+const { bg, first = false } = Astro.props as { bg: SectionBg; first?: boolean };
+const imgProps = { alt: "", cover: true, fit: bg.fit, position: bg.pos || undefined, sizes: "100vw", widths: [640, 960, 1280, 1920, 2560] };
+const style = [bg.fill ? `--sbg-fill:${bg.fill}` : "", bg.parallax ? `--sbg-par:${bg.parallax}` : "", `--sbg-ms:${bg.ms}ms`,
+  `--sbg-fit:${bg.fit}`, bg.pos ? `--sbg-pos:${bg.pos}` : ""].filter(Boolean).join(";");
+const many = bg.kind === "slideshow" && (bg.slides?.length || 0) > 1;
+---
+<div class="sbg" aria-hidden="true" style={style}>
+  <div class:list={["sbg-m", bg.parallax && "sbg-par"]} data-par={bg.parallax || undefined}>
+    {bg.kind === "image" && <Img id={bg.image} {...imgProps} priority={first} />}
+    {bg.kind === "video" && <>
+      {bg.poster && <img class="sbg-still" src={bg.poster} alt="" loading={first ? "eager" : "lazy"} />}
+      {bg.video && <video class="sbg-video" data-src={bg.video} muted loop playsinline preload="none" poster={bg.poster || undefined}></video>}
+    </>}
+    {bg.kind === "slideshow" && (
+      <div class:list={["sbg-show", `fx-${bg.effect}`]} data-ms={many ? bg.ms : undefined}>
+        {bg.slides!.map((id, i) => <div class:list={["sbg-slide", i === 0 && "on"]}><Img id={id} {...imgProps} priority={first && i === 0} /></div>)}
+      </div>
+    )}
+  </div>
+  <div class="sbg-ov" style={`background:${bg.overlay}`}></div>
+</div>
+<script is:inline>
+(function () {
+  if (window.__sbg) { window.__sbg(); return; }
+  var still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var save = navigator.connection && navigator.connection.saveData;
+  var seen = new WeakSet(), pars = [];
+  function onScreen(el, on, off) {
+    new IntersectionObserver(function (es) { es.forEach(function (e) { e.isIntersecting ? on() : off(); }); }, { rootMargin: "200px" }).observe(el);
+  }
+  function setup() {
+    document.querySelectorAll(".sbg-video[data-src]").forEach(function (v) {
+      if (seen.has(v)) return; seen.add(v);
+      if (still || save) return;
+      onScreen(v, function () { if (!v.src) v.src = v.dataset.src; v.play().catch(function () {}); v.classList.add("on"); }, function () { v.pause(); });
+    });
+    document.querySelectorAll(".sbg-show[data-ms]").forEach(function (show) {
+      if (seen.has(show)) return; seen.add(show);
+      if (still) return;
+      var s = [].slice.call(show.children), i = 0, timer = 0, ms = +show.dataset.ms || 6000;
+      function next() {
+        var a = s[i]; i = (i + 1) % s.length; var b = s[i];
+        b.classList.remove("off"); void b.offsetWidth; b.classList.add("on");
+        a.classList.add("off"); a.classList.remove("on");
+        setTimeout(function () { a.classList.remove("off"); }, 1400);
+      }
+      show.classList.add("run");
+      onScreen(show, function () { if (!timer) timer = setInterval(next, ms); }, function () { clearInterval(timer); timer = 0; });
+    });
+    if (!still) document.querySelectorAll(".sbg-par[data-par]").forEach(function (p) { if (!seen.has(p)) { seen.add(p); pars.push(p); } });
+    move();
+  }
+  var ticking = false;
+  function move() {
+    ticking = false;
+    var vh = innerHeight;
+    pars.forEach(function (p) {
+      var r = p.parentNode.getBoundingClientRect();
+      if (r.bottom < -200 || r.top > vh + 200) return;
+      p.style.transform = "translate3d(0," + (-(r.top + r.height / 2 - vh / 2) * +p.dataset.par).toFixed(1) + "px,0)";
+    });
+  }
+  addEventListener("scroll", function () { if (!ticking && pars.length) { ticking = true; requestAnimationFrame(move); } }, { passive: true });
+  addEventListener("resize", move);
+  window.__sbg = setup;
+  setup();
+})();
+</script>
+<style>
+  .sbg { position: absolute; inset: 0; z-index: -1; overflow: hidden; background: var(--sbg-fill, transparent); pointer-events: none; }
+  .sbg-m { position: absolute; inset: 0; }
+  /* Parallax: taller than the section by as much as it can move ((half the screen + half the section) × speed). */
+  .sbg-par { inset-block: calc(var(--sbg-par) * (-50svh - 50%)); will-change: transform; }
+  .sbg-m :global(img), .sbg-m :global(picture), .sbg-video { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .sbg-still, .sbg-video { object-fit: var(--sbg-fit, cover); object-position: var(--sbg-pos, 50% 50%); }
+  .sbg-video { opacity: 0; transition: opacity .6s; }
+  .sbg-video.on { opacity: 1; }
+  .sbg-ov { position: absolute; inset: 0; }
+  /* Slideshow: the first slide shows until the script runs (and for less motion); then .on comes in, .off goes. */
+  .sbg-show, .sbg-slide { position: absolute; inset: 0; }
+  .sbg-slide { opacity: 0; }
+  .sbg-slide.on { opacity: 1; }
+  .sbg-show.run .sbg-slide { transition: opacity 1.2s ease; }
+  .sbg-show.run .sbg-slide.off { opacity: 1; z-index: 0; transition: none; }
+  .sbg-show.run .sbg-slide.on { z-index: 1; }
+  .fx-zoom.run .sbg-slide:is(.on, .off) :global(img) { animation: sbg-in calc(var(--sbg-ms) + 1.4s) linear both; }
+  .fx-zoom_out.run .sbg-slide:is(.on, .off) :global(img) { animation: sbg-out calc(var(--sbg-ms) + 1.4s) linear both; }
+  @keyframes sbg-in { from { transform: scale(1); } to { transform: scale(1.12); } }
+  @keyframes sbg-out { from { transform: scale(1.12); } to { transform: scale(1); } }
+  .fx-slide.run .sbg-slide { opacity: 1; transform: translateX(100%); transition: transform 1.1s cubic-bezier(.65, 0, .35, 1); }
+  .fx-slide.run .sbg-slide.on { transform: none; }
+  .fx-slide.run .sbg-slide.off { transform: translateX(-100%); opacity: 1; transition: transform 1.1s cubic-bezier(.65, 0, .35, 1); }
+  .fx-slide.run .sbg-slide:not(.on):not(.off) { transition: none; }
+  @media (prefers-reduced-motion: reduce) { .sbg-par { inset-block: 0; transform: none !important; } }
+</style>

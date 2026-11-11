@@ -1,14 +1,15 @@
 ---
 // Container: a band (or inset card) with its own background (colour, gradient, image or looping video) holding other
 // blocks, in 1–4 columns. Blocks inside drop their own background and most of their padding so they sit on this one.
-// Video backgrounds are muted, loop, never autoplay for reduced-motion or data-saver visitors (they get the poster).
+// Photo, looping video and slideshow backgrounds, and the height, are shared with the Hero (lib/sectionBg.ts,
+// components/SectionBg.astro).
 // Containers nest (up to 3 levels, checked on save). Grid options (all optional, missing = the original layout):
 // cols[i].span / span_phone (1–12 on a 12-column grid; spans over 12 wrap), cols[i].sticky, gap / row_gap
 // (none|s|m|l), col_align (top|center|bottom|stretch), reverse_phone. Columns sit side by side once the container
 // itself is wide enough (container queries), so a container in a narrow column stacks like it would on a phone.
-import Img from "../components/Img.astro";
-import { media, type Block, type Entry } from "../lib/content";
-import { assetUrl } from "../lib/images";
+import SectionBg from "../components/SectionBg.astro";
+import { type Block, type Entry } from "../lib/content";
+import { sectionBg, sectionHeight, sectionAlign } from "../lib/sectionBg";
 // The block list renderer comes in as a prop (Blocks.astro passes Astro.self) rather than an import: Blocks imports this
 // file, and an import cycle can leave one side undefined while the Live view (astro dev) hot-reloads.
 const { block, entry, first = false, depth = 0, renderer: Blocks } = Astro.props as { block: Block; entry?: Entry; first?: boolean; depth?: number; renderer: any };
@@ -27,73 +28,41 @@ const ALIGN: Record<string, string> = { top: "start", center: "center", bottom: 
 const RATIOS: Record<string, string> = { "50-50": "1fr 1fr", "40-60": "2fr 3fr", "60-40": "3fr 2fr", "33-67": "1fr 2fr", "67-33": "2fr 1fr", "25-75": "1fr 3fr", "75-25": "3fr 1fr", "even": "" };
 const template = n === 2 && RATIOS[d.ratio] ? RATIOS[d.ratio] : `repeat(${n}, minmax(0, 1fr))`;
 
-const type = ["color", "gradient", "image", "video"].includes(d.bg_type) ? d.bg_type : "none";
+const type = ["color", "gradient", "image", "video", "slideshow"].includes(d.bg_type) ? d.bg_type : "none";
 let bg = "";
 if (type === "color") bg = hex(d.bg_color, "#f1f2f2");
 if (type === "gradient") {
   const stops = [hex(d.g_from, "#025a8a"), hex(d.g_via), hex(d.g_to, "#011e2f")].filter(Boolean).join(", ");
   bg = d.g_kind === "radial" ? `radial-gradient(circle at ${d.g_pos || "50% 50%"}, ${stops})` : `linear-gradient(${num(d.g_angle, 0, 360, 135)}deg, ${stops})`;
 }
-const img = type === "image" ? media(d.bg_image) : undefined;
-const vid = type === "video" ? media(d.bg_video) : undefined;
-const vidUrl = vid ? assetUrl(vid.file) : "";
-const poster = media(d.bg_poster);
-const posterUrl = poster ? assetUrl(poster.file) : "";
-const overlay = (type === "image" || type === "video") ? `${hex(d.overlay_color, "#011e2f")}${Math.round(num(d.overlay, 0, 95, 55) * 2.55).toString(16).padStart(2, "0")}` : "";
+const media = sectionBg(d);   // photo, video or slideshow (null for none, colour or gradient)
 
-const tone = d.tone === "dark" || d.tone === "light" ? d.tone : (type === "image" || type === "video" ? "dark" : "light");
+const tone = d.tone === "dark" || d.tone === "light" ? d.tone : (type === "image" || type === "video" || type === "slideshow" ? "dark" : "light");
 const PAD: Record<string, string> = { none: "0", s: "clamp(1.5rem, 3vw, 2.5rem)", m: "clamp(2.5rem, 5vw, 4.5rem)", l: "clamp(4rem, 8vw, 7rem)", xl: "clamp(6rem, 12vw, 10rem)" };
 const pad = PAD[d.padding] || PAD.m;
 const WIDTH: Record<string, string> = { reading: "46rem", normal: "var(--max)", wide: "96rem", full: "100%" };
 const inner = WIDTH[d.inner_width] || WIDTH.normal;
-const MINH: Record<string, string> = { none: "0", s: "20rem", m: "32rem", l: "44rem", screen: "min(100dvh, 60rem)" };
-const minH = MINH[d.min_height] || "0";
+const minH = sectionHeight(d) || "0";
 const RAD: Record<string, string> = { none: "0", soft: "var(--radius)", round: "24px" };
 const card = d.shape === "card";
 const radius = card ? (RAD[d.radius] || "var(--radius)") : "0";
-const valign = { top: "start", center: "center", bottom: "end" }[d.valign as string] || "center";
-const style = [`--ct-pad:${pad}`, `--ct-inner:${inner}`, `--ct-minh:${minH}`, `--ct-rad:${radius}`, `--ct-cols:${template}`, `--ct-v:${valign}`, bg ? `--ct-bg:${bg}` : "", GAP[d.gap] ? `--ct-gap:${GAP[d.gap]}` : "", GAP[d.row_gap] ? `--ct-rgap:${GAP[d.row_gap]}` : "", ALIGN[d.col_align] ? `--ct-al:${ALIGN[d.col_align]}` : "", overlay ? `--ct-ov:${overlay}` : ""].filter(Boolean).join(";");
+const valign = sectionAlign(d);
+const style = [`--ct-pad:${pad}`, `--ct-inner:${inner}`, `--ct-minh:${minH}`, `--ct-rad:${radius}`, `--ct-cols:${template}`, `--ct-v:${valign}`, bg ? `--ct-bg:${bg}` : "", GAP[d.gap] ? `--ct-gap:${GAP[d.gap]}` : "", GAP[d.row_gap] ? `--ct-rgap:${GAP[d.row_gap]}` : "", ALIGN[d.col_align] ? `--ct-al:${ALIGN[d.col_align]}` : ""].filter(Boolean).join(";");
 const cls = ["ct", `ct-${tone}`, card && "ct-card", type === "none" && "ct-nobg", spans && "ct-12", phoneSpans && "ct-ph12", d.reverse_phone === true && n > 1 && "ct-rev"].filter(Boolean).join(" ");
 const colStyle = (c: (typeof cols)[number], ci: number) => [spans ? `--sp:${c.span || Math.max(1, Math.floor(12 / n))}` : "", phoneSpans ? `--sp-ph:${c.phone || 12}` : "", d.reverse_phone === true ? `--o:${n - ci}` : ""].filter(Boolean).join(";") || undefined;
 ---
 <section class={cls} id={d.anchor || undefined} style={style}>
-  {img && <div class="ct-media" aria-hidden="true"><Img id={d.bg_image} alt="" cover sizes="100vw" widths={[640, 960, 1280, 1920, 2560]} /></div>}
-  {vidUrl && (
-    <div class="ct-media" aria-hidden="true">
-      {posterUrl && <img class="ct-poster" src={posterUrl} alt="" loading="lazy" />}
-      <video class="ct-video" data-src={vidUrl} muted loop playsinline preload="none" poster={posterUrl || undefined}></video>
-    </div>
-  )}
-  {overlay && <div class="ct-ov" aria-hidden="true"></div>}
+  {media && <SectionBg bg={media} first={first} />}
   <div class="ct-in">
     <div class="ct-grid">
       {cols.map((c, ci) => <div class={c.sticky && n > 1 ? "ct-col ct-sticky" : "ct-col"} style={colStyle(c, ci)}><Blocks blocks={c.blocks} entry={entry} depth={depth} lead={first && ci === 0} /></div>)}
     </div>
   </div>
 </section>
-{vidUrl && (
-  <script is:inline>
-  (function(){
-    var still = matchMedia("(prefers-reduced-motion: reduce)").matches || (navigator.connection && navigator.connection.saveData);
-    document.querySelectorAll("video.ct-video[data-src]").forEach(function(v){
-      if (still) return;
-      var io = new IntersectionObserver(function(es){ es.forEach(function(en){
-        if (en.isIntersecting) { if (!v.src) { v.src = v.dataset.src; } v.play().catch(function(){}); v.classList.add("on"); } else { v.pause(); }
-      }); }, { rootMargin: "200px" });
-      io.observe(v);
-    });
-  })();
-  </script>
-)}
 <style>
   /* overflow: clip (not hidden) keeps rounded corners and media inside without breaking sticky columns. */
   .ct { position: relative; isolation: isolate; overflow: hidden; overflow: clip; background: var(--ct-bg, transparent); padding-block: var(--ct-pad); min-height: var(--ct-minh); display: grid; align-items: var(--ct-v); }
   .ct-card { width: min(100% - 2 * var(--gutter), var(--max)); margin: clamp(1.5rem, 4vw, 3rem) auto; border-radius: var(--ct-rad); }
-  .ct-media, .ct-ov { position: absolute; inset: 0; z-index: -1; }
-  .ct-media :global(img), .ct-media :global(picture), .ct-video, .ct-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .ct-video { opacity: 0; transition: opacity .6s; }
-  .ct-video.on { opacity: 1; }
-  .ct-ov { background: var(--ct-ov); }
   .ct-in { width: min(100% - 2 * var(--gutter), var(--ct-inner)); margin-inline: auto; }
   .ct-grid { display: grid; column-gap: var(--ct-gap, clamp(1.5rem, 4vw, 3rem)); row-gap: var(--ct-rgap, var(--ct-gap, clamp(1.5rem, 4vw, 3rem))); align-items: var(--ct-al, start); }
   /* Phones (and narrow spaces): columns stack, or follow the phone widths when any are set; optionally in reverse. */
@@ -131,7 +100,7 @@ const colStyle = (c: (typeof cols)[number], ci: number) => [spans ? `--sp:${c.sp
   .ct-col :global(.section), .ct-col :global(.hero) { background: transparent !important; color: inherit; padding-block: clamp(.75rem, 2vw, 1.5rem) !important;
     --heading: inherit; --text: inherit; --muted: inherit; --line: inherit; --link: inherit; --link-hover: inherit; }
   .ct-col :global(.wrap), .ct-col :global(.wrap.narrow) { width: 100%; }
-  .ct-col :global(.hero .bgimg) { display: none; }
+  .ct-col :global(.hero .bgimg), .ct-col :global(.hero > .sbg) { display: none; }
   .ct-col > :global(:first-child) :global(.section) { padding-top: 0 !important; }
   /* A container inside a column: full column width, a little space around it, its content inset only when it has
      a background of its own; a light one inside a dark one gets the page's own text colours back. */

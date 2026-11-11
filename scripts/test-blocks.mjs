@@ -52,6 +52,14 @@ for (const t of Object.keys(compFile)) if (!byType[t]) warn(`${t}: registered in
 // 3. Data keys read vs defined (warnings) ---------------------------------------------------------------------------
 const libSrc = readdirSync(join(root, "src/lib")).filter((f) => f.endsWith(".ts")).map((f) => readFileSync(join(root, "src/lib", f), "utf8")).join("\n");
 const COMMON_READ = ["style", "in_depth", "in_depth_label"]; // read for every block by Blocks.astro / lib/blockStyle.ts
+/** A helper in src/lib by name: its first parameter and its whole body (braces counted). */
+function libFunction(name) {
+  const head = new RegExp(`(?:export )?function ${name}\\((\\w+)[^)]*\\)[^{]*\\{`).exec(libSrc);
+  if (!head) return null;
+  let depth = 1, i = head.index + head[0].length;
+  for (; i < libSrc.length && depth; i++) { if (libSrc[i] === "{") depth++; else if (libSrc[i] === "}") depth--; }
+  return { param: head[1], body: libSrc.slice(head.index + head[0].length, i - 1) };
+}
 function keysRead(file) {
   let src = readFileSync(file, "utf8").replace(/<style[\s\S]*?<\/style>/g, "").replace(/const\s+(?:JS|NOJS|CSS|css)\s*=\s*`[\s\S]*?`;/g, "");
   const vars = new Set(["d"]);
@@ -62,9 +70,9 @@ function keysRead(file) {
     for (const m of src.matchAll(new RegExp(`\\b${v}\\[["'](\\w+)["']\\]`, "g"))) keys.add(m[1]);
     // Helpers called with the block's data: count the keys they read from their first parameter.
     for (const m of src.matchAll(new RegExp(`\\b(\\w+)\\(${v}[,)]`, "g"))) {
-      // (lib/content.ts's helpers sit inside __make(), indented, since the Live view serves many websites — lib/live.ts.)
-      const fn = libSrc.match(new RegExp(`(?:export )?function ${m[1]}\\((\\w+)[^)]*\\)[^{]*\\{([\\s\\S]*?)\\n(?:  )?\\}`));
-      if (fn) for (const k of fn[2].matchAll(new RegExp(`\\b${fn[1]}\\??\\.(\\w+)`, "g"))) keys.add(k[1]);
+      // (Found anywhere in src/lib, indented too: lib/content.ts's helpers sit inside __make() — lib/live.ts.)
+      const fn = libFunction(m[1]);
+      if (fn) for (const k of fn.body.matchAll(new RegExp(`\\b${fn.param}\\??\\.(\\w+)`, "g"))) keys.add(k[1]);
     }
   }
   for (const m of src.matchAll(/block\.data\??\.(\w+)/g)) keys.add(m[1]);

@@ -8,15 +8,17 @@ import { imageFile, assetUrl } from "../lib/images";
 interface Props {
   id?: string; file?: string; alt?: string; sizes?: string; widths?: number[]; class?: string;
   priority?: boolean; cover?: boolean; aspect?: string;
+  /** With `cover`: how it fills its box (cover | contain | none) and where it sits (CSS object-position; default: the focal point). */
+  fit?: string; position?: string;
 }
-const { id, file, alt, sizes = "(min-width: 1200px) 1200px, 100vw", widths = [360, 640, 960, 1280, 1920], class: cls, priority = false, cover = false, aspect } = Astro.props;
+const { id, file, alt, sizes = "(min-width: 1200px) 1200px, 100vw", widths = [360, 640, 960, 1280, 1920], class: cls, priority = false, cover = false, aspect, fit = "cover", position } = Astro.props;
 const m = id ? mediaOf(id) : undefined;
 const f = file || m?.file;
 const img = imageFile(f);
 const url = img ? undefined : assetUrl(f);
 const altText = alt ?? m?.alt ?? "";
 const focal = m?.focal ? `${Math.round(m.focal.x * 100)}% ${Math.round(m.focal.y * 100)}%` : "50% 50%";
-const style = [cover ? `object-fit:cover;object-position:${focal};width:100%;height:100%` : "", aspect ? `aspect-ratio:${aspect}` : ""].filter(Boolean).join(";");
+const style = [cover ? `object-fit:${fit};object-position:${position || focal};width:100%;height:100%` : "", aspect ? `aspect-ratio:${aspect}` : ""].filter(Boolean).join(";");
 const usable = img ? widths.filter((w) => w <= img.width) : [];
 if (img && !usable.length) usable.push(img.width);
 ---
